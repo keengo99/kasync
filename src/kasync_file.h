@@ -1,0 +1,90 @@
+#ifndef KASYNC_FILE_H_99
+#define KASYNC_FILE_H_99
+#include "kselectable.h"
+#include "kfeature.h"
+#include "kfile.h"
+#ifdef LINUX
+#include <linux/aio_abi.h>
+#elif BSD_OS
+#include <aio.h>
+#endif
+KBEGIN_DECLS
+#ifdef LINUX_EPOLL
+#define KF_ASYNC_WORKER 1
+typedef struct _kf_aiocb kf_aiocb;
+typedef enum _kf_aio_cmd {
+        kf_aio_read,
+        kf_aio_write,
+} kf_aio_cmd;
+
+struct _kf_aiocb {
+        kf_aio_cmd cmd;
+};
+#endif
+extern int kgl_aio_align_size;
+void init_aio_align_size();
+void *aio_alloc_buffer(size_t size);
+void aio_free_buffer(void *buf);
+kev_result result_async_file_event(KOPAQUE data, void *arg, int got);
+struct kasync_file_s {
+#ifdef LINUX_EPOLL
+	union {
+		struct iocb iocb;
+		kf_aiocb kiocb;
+	};
+	int offset_adjust;
+	int length;
+	FILE_HANDLE fd;
+	int flags;
+	KOPAQUE data;
+	kselector *selector;
+#else
+	kselectable st;
+#endif
+
+#ifdef BSD_OS
+	struct aiocb iocb;
+#endif
+	char *buf; //deprecated
+	void *arg;
+	aio_callback cb;
+};
+INLINE FILE_HANDLE kasync_file_get_handle(kasync_file *fp)
+{
+#ifdef  LINUX_EPOLL
+	return fp->fd;
+#else
+	return (FILE_HANDLE)fp->st.fd;
+#endif
+}
+void async_file_event(kasync_file *fp,char *buf,int got);
+INLINE void kasync_file_close(kasync_file *fp)
+{
+	kfclose(kasync_file_get_handle(fp));
+}
+INLINE kselector *kasync_file_get_selector(kasync_file *fp)
+{
+#ifdef LINUX_EPOLL
+	return fp->selector;
+#else
+	return fp->st.selector;
+#endif
+}
+INLINE void kasync_file_bind_opaque(kasync_file *fp, KOPAQUE data)
+{
+#ifdef LINUX_EPOLL
+	fp->data = data;
+#else
+	fp->st.data = data;
+#endif
+}
+INLINE KOPAQUE kasync_file_get_opaque(kasync_file *fp)
+{
+#ifdef LINUX_EPOLL
+	return fp->data;
+#else
+	return fp->st.data;
+#endif
+}
+KEND_DECLS
+#endif
