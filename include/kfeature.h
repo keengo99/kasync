@@ -1,7 +1,8 @@
 #ifndef KGLOBAL_H_99
 #define KGLOBAL_H_99
+#include "kasync_config.h"
 #ifndef _WIN32
-#include "config.h"
+//#include "config.h"
 #define INT64  int64_t
 #define KSOCKET_UNIX
 #else
@@ -60,7 +61,7 @@ KBEGIN_DECLS
 //LINUX io_uring and win32 are iocp model
 #define KGL_IOCP       1
 #endif
-//#define KSOCKET_SSL     1
+#define KSOCKET_SSL     1
 #define KSOCKET_IPV6	1
 #define ENABLE_PROXY_PROTOCOL      1
 //#define ENABLE_FIBER    1

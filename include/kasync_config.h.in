@@ -1,0 +1,2 @@
+#cmakedefine KSOCKET_SSL
+#cmakedefine KSOCKET_SSL_BIO
