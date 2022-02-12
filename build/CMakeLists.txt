@@ -2,23 +2,29 @@ cmake_minimum_required(VERSION 3.10)
 
 # set the project name 
 project(kasync) 
+set(KASYNC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 file(GLOB KASYNC_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.c)
-file(GLOB KASYNC_INCLUDE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../include/*.h)
+file(GLOB KASYNC_INCLUDE_FILES ${KASYNC_INCLUDE_DIR}/*.h)
 add_library(kasync STATIC ${KASYNC_SOURCE_FILES} ${KASYNC_INCLUDE_FILES})
 message(STATUS "system is ${CMAKE_SYSTEM_NAME}")
 #message(STATUS "current source dir is ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "current binary dir is ${CMAKE_CURRENT_BINARY_DIR}")
+
+
 option(KSOCKET_SSL "enable tls/ssl support" ON)
+option(OPENSSL_DIR "set openssl dir")
 include(CheckIncludeFile)
 include(CheckSymbolExists)
 
-if (KSOCKET_SSL) 
-    check_include_file("openssl/ssl.h" HAVE_KSOCKET_SSL)
-    if (NOT HAVE_KSOCKET_SSL)
-        message(STATUS "cann't find openssl include file")
+if (KSOCKET_SSL)    
+    include(FindOpenSSL)
+   # check_include_file("openssl/ssl.h" HAVE_KSOCKET_SSL)
+    if (NOT OPENSSL_FOUND)
+        message(STATUS "cann't find openssl")
         set(KSOCKET_SSL OFF)
     else()
-        message(STATUS "build with tls/ssl support")
+        message(STATUS "build with tls/ssl support ${OPENSSL_INCLUDE_DIR}")
+        list(APPEND KASYNC_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR})
     endif()
 endif()
 
@@ -41,5 +47,5 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../include/kasync_config.h.in ${CMAKE
 #target_link_libraries(kasync pthread ssl crypto)
 
 #add_definitions(-DKSOCKET_SSL)
-target_include_directories(kasync PUBLIC ../include)
+target_include_directories(kasync PUBLIC ${KASYNC_INCLUDE_DIR})
 #target_sources(kasync  ${KASYNC_SOURCE_FILES})
