@@ -61,7 +61,7 @@ KBEGIN_DECLS
 //LINUX io_uring and win32 are iocp model
 #define KGL_IOCP       1
 #endif
-#define KSOCKET_SSL     1
+//#define KSOCKET_SSL     1
 #define KSOCKET_IPV6	1
 #define ENABLE_PROXY_PROTOCOL      1
 //#define ENABLE_FIBER    1
