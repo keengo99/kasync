@@ -2,6 +2,7 @@
 #define MSOCKET_FORWIN32_H
 #include "kfeature.h"
 KBEGIN_DECLS
+#include <stdlib.h>
 #ifdef _WIN32
 #include <WinSock2.h>
 #include <ws2tcpip.h>

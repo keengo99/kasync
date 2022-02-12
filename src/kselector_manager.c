@@ -222,17 +222,17 @@ static kev_result kthread_flush_timer(KOPAQUE data, void *arg, int got)
 }
 void selector_module_create()
 {
-#ifdef _WIN32
+#if defined(_WIN32)
 	kiocp_module_init();
-#elif LINUX_IOURING
+#elif defined(LINUX_IOURING)
 	if (!kiouring_is_support()) {
 		fprintf(stderr,"io_uring not satisfaction.\n");
 		abort();
 	}
 	kiouring_module_init();
-#elif LINUX_EPOLL
+#elif defined(LINUX_EPOLL)
 	kepoll_module_init();
-#elif BSD_OS
+#elif defined(BSD_OS)
 	kkqueue_module_init();
 #else
 #error no selector module init

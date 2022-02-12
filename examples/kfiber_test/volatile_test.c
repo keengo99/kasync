@@ -9,8 +9,8 @@ KTHREAD_FUNCTION test_a(void *arg)
 	status = 0;
 	while (status == 0) {
 		printf("status is 0\n");
-		Sleep(100);
-		//sleep(1);
+		//Sleep(100);
+		sleep(1);
 	}
 	printf("test_a is end\n");
 	KTHREAD_RETURN;

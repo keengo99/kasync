@@ -1,2 +1,4 @@
 #cmakedefine KSOCKET_SSL
 #cmakedefine KSOCKET_SSL_BIO
+#cmakedefine LINUX
+#cmakedefine LINUX_IOURING

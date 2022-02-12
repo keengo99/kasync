@@ -48,7 +48,7 @@ KBEGIN_DECLS
 #define BSD_OS 1
 #endif
 #ifndef NDEBUG
-#if LINUX || _WIN32
+#if defined(LINUX) || defined(_WIN32)
 //#define MALLOCDEBUG	1
 #endif
 #endif

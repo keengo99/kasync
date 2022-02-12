@@ -177,7 +177,7 @@ int main_fiber(void *arg,int got)
 	
 	kfiber_join(f, &ret);
 	printf("kfiber_sleep_test ret=[%d]\n", ret);
-	return 0;
+	//return 0;
 	//kfiber_release(kfiber_create(kfiber_net_test, NULL, 0));
 	kfiber_create(kfiber_file_test, NULL, 0, 0, NULL);
 	return 0;
@@ -210,9 +210,9 @@ kev_result main_timer_test(KOPAQUE data, void *arg, int got)
 }
 void fiber_test(void *arg)
 {
-	//assert(kfiber_msleep(100) != 0);
-	//selector_manager_add_timer(main_timer_test, NULL, 0, NULL);
-	//kfiber_create2(get_perfect_selector(),main_fiber, NULL,2, 0, NULL,NULL,NULL);
+	assert(kfiber_msleep(100) != 0);
+	selector_manager_add_timer(main_timer_test, NULL, 0, NULL);
+	kfiber_create2(get_perfect_selector(),main_fiber, NULL,2, 0, NULL);
 	//test_volatile();
 }
 int main()
