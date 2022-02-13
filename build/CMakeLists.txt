@@ -1,16 +1,19 @@
-cmake_minimum_required(VERSION 3.10) 
+cmake_minimum_required(VERSION 2.8) 
 
 # set the project name 
 project(kasync) 
 set(KASYNC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 file(GLOB KASYNC_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.c)
 file(GLOB KASYNC_INCLUDE_FILES ${KASYNC_INCLUDE_DIR}/*.h)
-add_library(kasync STATIC ${KASYNC_SOURCE_FILES} ${KASYNC_INCLUDE_FILES})
 message(STATUS "system is ${CMAKE_SYSTEM_NAME}")
 #message(STATUS "current source dir is ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "current binary dir is ${CMAKE_CURRENT_BINARY_DIR}")
-
-
+add_library(kasync STATIC ${KASYNC_SOURCE_FILES} ${KASYNC_INCLUDE_FILES})
+if (USE_CXX) 
+	message(STATUS "use c++ to build")
+	set_target_properties(kasync PROPERTIES LINKER_LANGUAGE CXX)
+	set_source_files_properties(${KASYNC_SOURCE_FILES} PROPERTIES LANGUAGE CXX)
+endif()
 option(KSOCKET_SSL "enable tls/ssl support" ON)
 option(OPENSSL_DIR "set openssl dir")
 include(CheckIncludeFile)
