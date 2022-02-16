@@ -114,7 +114,7 @@ static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_
 
 	int bc = buffer(st->data,arg, buf, 16);
 	addr_buffer(st->data,arg, &addr, 1);
-	int rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr *)addr.buf, &addr.len, &st->e[OP_READ].lp, NULL);
+	int rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr *)addr.buf,(INT *)&addr.len, &st->e[OP_READ].lp, NULL);
 	if (rc == SOCKET_ERROR) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
@@ -251,7 +251,7 @@ static bool iocp_selector_listen(kselector *selector, kserver_selectable *ss, re
 	ss->st.e[OP_WRITE].result = result;
 	return kiocp_accept_ex(ss);
 }
-static bool iocp_selector_next(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got)
+static void iocp_selector_next(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got)
 {
 	kselectable *next_st = (kselectable *)xmalloc(sizeof(kselectable));
 	memset(next_st, 0, sizeof(kselectable));
@@ -269,9 +269,8 @@ static bool iocp_selector_next(kselector *selector, KOPAQUE data, result_callbac
 	if (!PostQueuedCompletionStatus(selector->ctx, got, (ULONG_PTR)next_st, &next_st->e[OP_READ].lp)) {
 		CLR(next_st->st_flags, STF_READ);
 		xfree(next_st);
-		return false;
+		perror("notice error");
 	}
-	return true;
 }
 void iocp_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {

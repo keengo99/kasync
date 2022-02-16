@@ -160,7 +160,7 @@ SOCKET ksocket_listen(const sockaddr_i *addr,int flag)
 #endif
 #ifdef TCP_FASTOPEN
 	if (TEST(flag, KSOCKET_FASTOPEN)) {
-		setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN, (const void *)&n, sizeof(n));
+		setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN, (const char *)&n, sizeof(n));
 	}
 #endif
 #ifdef IP_TRANSPARENT

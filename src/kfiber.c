@@ -507,7 +507,7 @@ int kfiber_net_connect(kconnection* c, sockaddr_i* bind_addr, int tproxy_mask)
 int kfiber_net_write(kconnection* cn, const char* buf, int len)
 {
 	WSABUF v;
-	v.iov_base = (void*)buf;
+	v.iov_base = (char *)buf;
 	v.iov_len = len;
 	return kfiber_net_writev(cn, &v, 1);
 }
