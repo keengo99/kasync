@@ -53,14 +53,10 @@ int main_fiber_test(void* arg, int got)
 	assert(ret == 3);
 	return 3;
 }
-kev_result fiber_check_result(KOPAQUE data, void* arg, int got)
-{
-	assert(got == 3);
-	return kev_ok;
-}
 TEST(fiber, file_test) {
 	kfiber* fiber = NULL;
 	ASSERT_EQ(kfiber_create2(get_perfect_selector(), main_fiber_test, NULL, 2, 0, &fiber), 0);
-	//ASSERT_EQ(kfiber_create(main_fiber_test, NULL, 2, 0, &fiber), 0);
-	kfiber_join2(fiber, NULL, fiber_check_result,NULL);
+	int ret = 0;
+	ASSERT_TRUE(0 == kfiber_join(fiber, &ret));
+	ASSERT_TRUE(ret == 3);
 }
