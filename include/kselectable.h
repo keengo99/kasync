@@ -14,9 +14,9 @@
 
 #define STF_REV         (1<<3)
 #define STF_WEV         (1<<4)
-#ifndef KGL_IOCP
+//#ifndef KGL_IOCP
 #define STF_ET          (1<<5)
-#endif
+//#endif
 #define STF_ERR         (1<<6)
 
 #define STF_RREADY      (1<<7)

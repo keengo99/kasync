@@ -180,15 +180,36 @@ bool kserver_internal_open(kserver *server,const char *ip,u_short port,int flag)
 	}
 	return server->ss != NULL;
 }
+bool kserver_bind_address(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx)
+{
+#ifdef KSOCKET_SSL
+	if (server->ssl && ssl_ctx == NULL) {
+		return false;
+	}
+#endif
+	if (*ip=='/') {
+#ifdef KSOCKET_UNIX	
+		ksocket_unix_addr(ip,&server->un_addr);
+#endif
+	} else if (!ksocket_getaddr(ip, port, 0, AI_NUMERICHOST, &server->addr)) {
+#ifdef KSOCKET_SSL
+		if (ssl_ctx) {
+			kgl_release_ssl_ctx(ssl_ctx);
+		}
+#endif
+		return false;
+	}
+	KBIT_SET(flag, KSOCKET_REUSEPORT);
+#ifdef KSOCKET_SSL
+	kserver_set_ssl_ctx(server, ssl_ctx);
+#endif
+	return true;
+}
 bool kserver_open(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx) {
 	kassert(server->ss == NULL);
 	bool result = false;
 #ifdef KSOCKET_SSL
-	if (ssl_ctx == NULL) {
-		return false;
-	}
-	if (server->ssl) {
-		kgl_release_ssl_ctx(ssl_ctx);
+	if (server->ssl && ssl_ctx == NULL) {
 		return false;
 	}
 #endif
@@ -222,6 +243,9 @@ bool kserver_open(kserver *server, const char *ip, uint16_t port, int flag, kgl_
 		}
 #endif
 		return false;
+	}
+	if (port==0) {
+		port = ksocket_addr_port(&server->addr);
 	}
 	klog(KLOG_NOTICE, "listen [%s:%d] success\n", ip, port);
 #ifdef KSOCKET_SSL
@@ -262,6 +286,25 @@ void kserver_release(kserver *server)
 		kserver_free(server);
 	}
 	return;
+}
+void kserver_accept2(kserver_selectable *ss,result_callback accept_callback,void *arg)
+{
+	kselector * selector = kgl_get_tls_selector();
+	kserver_refs(ss->server);
+	kgl_selector_module.listen(selector,ss, handle_server_listen);
+}
+void kserver_close2(kserver_selectable *ss)
+{
+	if (ksocket_opened(ss->st.fd)) {			
+		ksocket_close(ss->st.fd);
+		ksocket_init(ss->st.fd);
+	}
+}
+void kserver_shutdown(kserver_selectable *ss)
+{
+	if (ksocket_opened(ss->st.fd)) {
+		ksocket_shutdown(ss->st.fd, SHUT_RDWR);
+	}
 }
 void kserver_close(kserver *server)
 {

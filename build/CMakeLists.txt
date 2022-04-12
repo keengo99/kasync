@@ -41,7 +41,6 @@ if (GTEST_ROOT)
         #linux
         add_compile_options(-Wno-invalid-offsetof)
         if (LINUX_IOURING)
-            message(STATUS "found io_uring")
             list(APPEND KASYNC_TEST_LIBS uring)
         endif()
         list(APPEND KASYNC_TEST_LIBS pthread)

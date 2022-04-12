@@ -344,6 +344,10 @@ kselector *get_perfect_selector()
 	kassert(false);
 	return get_selector_by_index(kgl_selector_index++);
 }
+const char *selector_manager_event_name()
+{
+	return kgl_selector_module.name;
+}
 bool selector_manager_listen(kserver *server, result_callback callback)
 {
 	kassert(server->ss);
@@ -351,8 +355,7 @@ bool selector_manager_listen(kserver *server, result_callback callback)
 		return false;
 	}
 	if (!is_server_multi_selectable(server)) {
-		kselector *selector = get_perfect_selector();
-		//printf("selector=[%p]\n", selector);
+		kselector *selector = get_perfect_selector();		
 		server->ss->st.selector = selector;
 		kserver_refs(server);
 		kgl_selector_module.listen(selector,server->ss, callback);

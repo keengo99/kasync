@@ -22,6 +22,7 @@ kselector *get_selector_by_index(int index);
 int kasync_main(kfiber_start_func main, void* arg, int argc);
 void kasync_init();
 bool selector_manager_listen(kserver *st, result_callback callback);
+const char *selector_manager_event_name();
 KEND_DECLS
 #endif
 

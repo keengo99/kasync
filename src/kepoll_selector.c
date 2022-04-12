@@ -207,9 +207,12 @@ static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, r
 		poll_op = EPOLL_CTL_ADD;
 	}
 	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
-	KBIT_SET(st->st_flags,STF_READ|STF_REV);
+	KBIT_SET(st->st_flags,STF_READ|STF_REV);	
 	ev.events = EPOLLIN;
 	ev.data.ptr = st;
+	if (KBIT_TEST(st->st_flags,STF_ET)) {
+		KBIT_SET(ev.events,EPOLLET);
+	}
 	int ret = epoll_ctl(es->kdpfd, poll_op, sockfd, &ev);
 	if (ret !=0) {
 		klog(KLOG_ERR, "epoll add listen event error: fd=%d,errno=%d %s\n", sockfd,errno,strerror(errno));

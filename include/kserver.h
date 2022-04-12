@@ -57,8 +57,15 @@ INLINE bool is_server_multi_selectable(kserver *server) {
 	return (server->ss->next != NULL);
 }
 kserver *kserver_init();
+
 void kserver_bind(kserver *server,kserver_accept_callback accept_callback, kserver_close_callback close_callback, void *ctx);
 bool kserver_open(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx);
+//only bind address not open
+bool kserver_bind_address(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx);
+kserver_selectable *kserver_listen(kserver *server);
+void kserver_accept2(kserver_selectable *ss,result_callback accept_callback,void *arg);
+void kserver_close2(kserver_selectable *ss);
+void kserver_shutdown(kserver_selectable *ss);
 void kserver_close(kserver *server);
 void kserver_release(kserver *server);
 bool kserver_accept(kserver *server);
