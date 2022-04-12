@@ -122,7 +122,7 @@ int selectable_sync_write(kselectable *st, LPWSABUF buf, int bc);
 void selectable_shutdown(kselectable *st);
 INLINE void selectable_clear_flags(kselectable *st, uint16_t flags)
 {
-	CLR(st->st_flags, flags);
+	KBIT_CLR(st->st_flags, flags);
 }
 INLINE void selectable_bind(kselectable *st, kselector *selector)
 {
@@ -130,7 +130,7 @@ INLINE void selectable_bind(kselectable *st, kselector *selector)
 }
 INLINE bool is_selectable(kselectable *st, uint16_t flags)
 {
-	return TEST(st->st_flags, flags) > 0;
+	return KBIT_TEST(st->st_flags, flags) > 0;
 }
 INLINE bool selectable_is_locked(kselectable *st)
 {

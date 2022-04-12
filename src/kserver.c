@@ -157,7 +157,7 @@ bool kserver_internal_open(kserver *server,const char *ip,u_short port,int flag)
 			return false;
 		}
 	}
-	SET(flag, KSOCKET_REUSEPORT);
+	KBIT_SET(flag, KSOCKET_REUSEPORT);
 	int selector_count = get_selector_count();
 	int i;
 	for (i = 0; i < selector_count; i++) {
@@ -184,13 +184,17 @@ bool kserver_open(kserver *server, const char *ip, uint16_t port, int flag, kgl_
 	kassert(server->ss == NULL);
 	bool result = false;
 #ifdef KSOCKET_SSL
-	if (server->ssl && ssl_ctx == NULL) {
+	if (ssl_ctx == NULL) {
+		return false;
+	}
+	if (server->ssl) {
+		kgl_release_ssl_ctx(ssl_ctx);
 		return false;
 	}
 #endif
 	//int flag = (ipv4 ? KSOCKET_ONLY_IPV4 : KSOCKET_ONLY_IPV6);
 #ifdef ENABLE_TPROXY
-	//if (TEST(server->flags, WORK_MODEL_TPROXY)) {
+	//if (KBIT_TEST(server->flags, WORK_MODEL_TPROXY)) {
 	//	flag |= KSOCKET_TPROXY;
 	//}
 #endif

@@ -130,7 +130,7 @@ int kfiber_mutex_unlock(kfiber_mutex* mutex)
 	}
 	mutex->waiter = waiter->next;
 	kmutex_unlock(&mutex->lock);
-	kfiber_wakeup_waiter(waiter);
+	kfiber_wakeup_waiter(waiter,0);
 	xfree(waiter);
 	return 0;
 }
@@ -199,7 +199,7 @@ kev_result kfiber_cond_wait_callback_ts(kfiber_cond* fc, KOPAQUE data, result_ca
 	kmutex_unlock(&fcs->lock);
 	return kev_ok;
 }
-int kfiber_cond_notice_ts_ar(kfiber_cond* fc)
+int kfiber_cond_notice_ts_ar(kfiber_cond* fc,int got)
 {
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -207,7 +207,7 @@ int kfiber_cond_notice_ts_ar(kfiber_cond* fc)
 	if (waiter) {
 		fc->waiter = waiter->next;
 		kmutex_unlock(&fcs->lock);
-		kfiber_wakeup_waiter(waiter);
+		kfiber_wakeup_waiter(waiter,got);
 		xfree(waiter);
 	} else {
 		fc->ev++;
@@ -215,19 +215,19 @@ int kfiber_cond_notice_ts_ar(kfiber_cond* fc)
 	}
 	return 0;
 }
-int kfiber_cond_notice_ar(kfiber_cond* fc)
+int kfiber_cond_notice_ar(kfiber_cond* fc,int got)
 {	
 	kfiber_waiter* waiter = fc->waiter;	
 	if (waiter) {
 		fc->waiter = waiter->next;
-		kfiber_wakeup_waiter(waiter);
+		kfiber_wakeup_waiter(waiter,got);
 		xfree(waiter);
 	} else {
 		fc->ev++;
 	}
 	return 0;
 }
-int kfiber_cond_notice_ts(kfiber_cond* fc)
+int kfiber_cond_notice_ts(kfiber_cond* fc,int got)
 {
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -237,18 +237,18 @@ int kfiber_cond_notice_ts(kfiber_cond* fc)
 	kmutex_unlock(&fcs->lock);
 	while (waiter) {
 		kfiber_waiter* next = waiter->next;
-		kfiber_wakeup_waiter(waiter);
+		kfiber_wakeup_waiter(waiter,got);
 		xfree(waiter);
 		waiter = next;
 	}
 	return 0;
 }
-int kfiber_cond_notice(kfiber_cond* fc)
+int kfiber_cond_notice(kfiber_cond* fc,int got)
 {
 	fc->ev = 1;
 	kfiber_waiter* waiter = fc->waiter;
 	fc->waiter = NULL;
-	kfiber_wakeup_all_waiter(waiter);
+	kfiber_wakeup_all_waiter(waiter,got);
 	return 0;
 }
 int kfiber_cond_wait_ts_ar(kfiber_cond* fc)
@@ -409,7 +409,7 @@ INLINE int __kfiber_rwlock_try_wakeup_writer(kfiber_rwlock* mutex)
 		kfiber_waiter* writer = mutex->writer;
 		mutex->writer = writer->next;
 		kmutex_unlock(&mutex->lock);
-		kfiber_wakeup_waiter(writer);
+		kfiber_wakeup_waiter(writer,0);
 		xfree(writer);
 		return 0;
 	}
@@ -442,7 +442,7 @@ int kfiber_rwlock_wunlock(kfiber_rwlock* mutex)
 		while (waiter) {
 			mutex->cnt++;
 			kfiber_waiter* next = waiter->next;
-			kfiber_wakeup_waiter(waiter);
+			kfiber_wakeup_waiter(waiter,0);
 			xfree(waiter);
 			waiter = next;
 		}

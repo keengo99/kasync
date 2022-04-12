@@ -41,15 +41,15 @@ INLINE FILE_HANDLE kfopen_w(const wchar_t *path, fileModel model, int flag)
 {
 	int share_flag = FILE_SHARE_READ | FILE_SHARE_WRITE;
 	int other_flag = 0;
-	if (TEST(flag, KFILE_TEMP_MODEL)) {
+	if (KBIT_TEST(flag, KFILE_TEMP_MODEL)) {
 		share_flag = 0;
 		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
 		}
-	if (TEST(flag, KFILE_ASYNC)) {
-		SET(other_flag, FILE_FLAG_OVERLAPPED);
+	if (KBIT_TEST(flag, KFILE_ASYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
 	}
-	if (TEST(flag, KFILE_DSYNC)) {
-		SET(other_flag, FILE_FLAG_WRITE_THROUGH);
+	if (KBIT_TEST(flag, KFILE_DSYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
 	}
 	SECURITY_ATTRIBUTES sa;
 	memset(&sa, 0, sizeof(sa));

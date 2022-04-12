@@ -3,6 +3,7 @@
 #cmakedefine LINUX
 #cmakedefine LINUX_IOURING
 #cmakedefine HAVE_ACCEPT4
+#cmakedefine KASYNC_TEST
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
 #define _GNU_SOURCE

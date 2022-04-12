@@ -66,17 +66,17 @@ static bool kiouring_add_poll(struct io_uring *ring,kselectable *st,kgl_event *e
 }
 static bool kiouring_add_event(struct io_uring *ring,kselectable *st,uint16_t ev)
 {
-	if (TEST(ev,STF_READ)) {		
+	if (KBIT_TEST(ev,STF_READ)) {		
 		if (!kiouring_add_poll(ring,st,&st->e[OP_READ],POLLIN)) {
 			return false;
 		}
-		SET(st->st_flags,STF_READ);
+		KBIT_SET(st->st_flags,STF_READ);
 	}
-	if (TEST(ev,STF_WRITE)) {		
+	if (KBIT_TEST(ev,STF_WRITE)) {		
 		if (!kiouring_add_poll(ring,st,&st->e[OP_WRITE],POLLOUT)) {
 			return false;
 		}
-		SET(st->st_flags,STF_WRITE);
+		KBIT_SET(st->st_flags,STF_WRITE);
 	}
 	return true;
 }
@@ -140,7 +140,7 @@ static bool iouring_add_accept_event(kselector *selector,kserver_selectable *ss,
 	if (sqe==NULL) {
 		return false;
 	}
-	SET(ss->st.st_flags,STF_READ);
+	KBIT_SET(ss->st.st_flags,STF_READ);
 	ss->addr_len = (socklen_t)ksocket_addr_len(&ss->accept_addr);
 	io_uring_prep_accept(sqe, e->st->fd,(struct sockaddr *)&ss->accept_addr,&ss->addr_len,SOCK_CLOEXEC);
 	io_uring_sqe_set_data(sqe, e);
@@ -177,7 +177,7 @@ static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss,
 	
 	st->e[OP_WRITE].arg = ss;
 	st->e[OP_WRITE].result = result;
-	CLR(st->st_flags,STF_WRITE|STF_RDHUP);
+	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
 	return iouring_add_accept_event(selector,ss,e);
 }
 static bool iouring_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
@@ -187,7 +187,7 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 	if (sqe==NULL) {
 		return false;
 	}
-	kassert(TEST(st->st_flags, STF_READ) == 0);	
+	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = arg;
 	e->result = result;
@@ -202,7 +202,7 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
 	}
 	io_uring_sqe_set_data(sqe, e);
-	SET(st->st_flags,STF_READ);
+	KBIT_SET(st->st_flags,STF_READ);
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -232,7 +232,7 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 		io_uring_prep_poll_add(sqe, st->fd,POLLOUT);
 	}	
 	io_uring_sqe_set_data(sqe, e);
-	SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->st_flags,STF_WRITE);
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -259,7 +259,7 @@ bool iouring_selector_aio_write(kselector *selector, kasync_file *file, char *bu
 	}
 	katom_inc((void *)&kgl_aio_count);
 	kselectable *st = &file->st;
-	kassert(TEST(st->st_flags, STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_WRITE) == 0);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = file;
 	e->result = result_async_file_event;
@@ -270,7 +270,7 @@ bool iouring_selector_aio_write(kselector *selector, kasync_file *file, char *bu
 	bufs[0].iov_len = length;
 	io_uring_prep_writev(sqe,st->fd,bufs,1,offset);
 	io_uring_sqe_set_data(sqe, e);
-	SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->st_flags,STF_WRITE);
 	return true;
 }
 bool iouring_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
@@ -286,7 +286,7 @@ bool iouring_selector_aio_read(kselector *selector, kasync_file *file, char *buf
 	}
 	katom_inc((void *)&kgl_aio_count);
 	kselectable *st = &file->st;
-	kassert(TEST(st->st_flags, STF_READ) == 0);	
+	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = file;
 	e->result = result_async_file_event;
@@ -297,13 +297,13 @@ bool iouring_selector_aio_read(kselector *selector, kasync_file *file, char *buf
 	bufs[0].iov_len = length;
 	io_uring_prep_readv(sqe,st->fd,bufs,1,offset);
 	io_uring_sqe_set_data(sqe, e);
-	SET(st->st_flags,STF_READ);
+	KBIT_SET(st->st_flags,STF_READ);
 	return true;
 }
 static bool iouring_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {
 	//printf("connection st=[%p]\n", st);
-	kassert(TEST(st->st_flags, STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_WRITE) == 0);
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
@@ -311,7 +311,7 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	}
 	WSABUF addr_buf;
 	st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &addr_buf, 1);
-	SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->st_flags,STF_WRITE);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = arg;
 	e->result = result;
@@ -326,19 +326,19 @@ static bool iouring_selector_recvfrom(kselector *selector, kselectable *st, resu
 {
 #if 0
 	kiouring_selector *es = (kiouring_selector *)selector->ctx;
-	assert(TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
+	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
 	st->e[OP_WRITE].buffer = addr_buffer;
-	SET(st->st_flags,STF_RECVFROM);
-	if (TEST(st->st_flags,STF_RREADY)) {
+	KBIT_SET(st->st_flags,STF_RECVFROM);
+	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
 		return true;
 	}
-	if (!TEST(st->st_flags,STF_REV)) {
+	if (!KBIT_TEST(st->st_flags,STF_REV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			CLR(st->st_flags,STF_RECVFROM);
+			KBIT_CLR(st->st_flags,STF_RECVFROM);
 			return false;
 		}
 	}
@@ -360,9 +360,9 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	//printf("st=[%p] got=[%d],flags=[%d]\n",e,got,flags);
 	kselectable *st = e->st;
 	kassert(st);
-	if (TEST(st->st_flags, STF_READ | STF_WRITE) == (STF_READ | STF_WRITE)) {
+	if (KBIT_TEST(st->st_flags, STF_READ | STF_WRITE) == (STF_READ | STF_WRITE)) {
 		//reset active_msec
-		if (!TEST(st->st_flags, STF_RREADY2 | STF_WREADY2)) {
+		if (!KBIT_TEST(st->st_flags, STF_RREADY2 | STF_WREADY2)) {
 			kselector_add_list(selector, st, KGL_LIST_RW);
 		}
 	} else {
@@ -374,14 +374,14 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	}
 	if (e == &st->e[OP_READ]) {
 		//printf("handle read event st=[%p]\n", st);
-		kassert(TEST(st->st_flags, STF_READ|STF_RECVFROM));
-		CLR(st->st_flags, STF_READ|STF_RECVFROM);
-		kassert(!TEST(st->st_flags, STF_RREADY|STF_RREADY2));		
+		kassert(KBIT_TEST(st->st_flags, STF_READ|STF_RECVFROM));
+		KBIT_CLR(st->st_flags, STF_READ|STF_RECVFROM);
+		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));		
 	} else 	if (e == &st->e[OP_WRITE]) {
 		//printf("handle write event st=[%p]\n", st);
-		kassert(TEST(st->st_flags, STF_WRITE));
-		CLR(st->st_flags, STF_WRITE);
-		kassert(!TEST(st->st_flags, STF_WREADY|STF_WREADY2));
+		kassert(KBIT_TEST(st->st_flags, STF_WRITE));
+		KBIT_CLR(st->st_flags, STF_WRITE);
+		kassert(!KBIT_TEST(st->st_flags, STF_WREADY|STF_WREADY2));
 	} else {
 		kassert(false);
 	}

@@ -10,15 +10,15 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 #ifdef _WIN32
 	int share_flag = FILE_SHARE_READ | FILE_SHARE_WRITE;
 	int other_flag = 0;
-	if (TEST(flag, KFILE_TEMP_MODEL)) {
+	if (KBIT_TEST(flag, KFILE_TEMP_MODEL)) {
 		share_flag = 0;
 		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
 	}
-	if (TEST(flag, KFILE_ASYNC)) {
-		SET(other_flag, FILE_FLAG_OVERLAPPED);
+	if (KBIT_TEST(flag, KFILE_ASYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
 	}
-	if (TEST(flag, KFILE_DSYNC)) {
-		SET(other_flag, FILE_FLAG_WRITE_THROUGH);
+	if (KBIT_TEST(flag, KFILE_DSYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
 	}
 	SECURITY_ATTRIBUTES sa;
 	memset(&sa, 0, sizeof(sa));
@@ -59,26 +59,26 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 #else
 	int f = O_CLOEXEC;
 #ifdef O_NOATIME
-	SET(f, O_NOATIME);
+	KBIT_SET(f, O_NOATIME);
 #endif
 #ifdef O_LARGEFILE
-	SET(f, O_LARGEFILE);
+	KBIT_SET(f, O_LARGEFILE);
 #endif
-	if (TEST(flag, KFILE_NOFOLLOW)) {
-		SET(f, O_NOFOLLOW);
+	if (KBIT_TEST(flag, KFILE_NOFOLLOW)) {
+		KBIT_SET(f, O_NOFOLLOW);
 	}
 #ifdef O_DIRECT
 #ifdef LINUX_EPOLL
-	if (TEST(flag, KFILE_ASYNC)) {
-		SET(f, O_DIRECT);
+	if (KBIT_TEST(flag, KFILE_ASYNC)) {
+		KBIT_SET(f, O_DIRECT);
 	}
 #endif
 #endif
-	if (TEST(flag, KFILE_DSYNC)) {
+	if (KBIT_TEST(flag, KFILE_DSYNC)) {
 #ifdef O_DSYNC
-		SET(f, O_DSYNC);
+		KBIT_SET(f, O_DSYNC);
 #else
-		SET(f, O_SYNC);
+		KBIT_SET(f, O_SYNC);
 #endif
 	}
 	switch (model) {

@@ -33,7 +33,7 @@ typedef struct _kfiber_waiter kfiber_waiter;
 typedef struct _kfiber_cond kfiber_cond;
 
 typedef struct _kfiber_cond_function {
-	int (*notice)(kfiber_cond* fc);
+	int (*notice)(kfiber_cond* fc,int got);
 	int (*wait)(kfiber_cond* fc);
 	kev_result(*wait_callback)(kfiber_cond* fc, KOPAQUE data, result_callback notice, void* arg);
 	void (*release)(kfiber_cond* fc);
@@ -91,12 +91,12 @@ struct _kfiber {
 	kfiber_context ctx;
 };
 
-#define kfiber_wakeup_waiter(waiter) kgl_selector_module.next(waiter->selector, waiter->data, waiter->notice, waiter->arg, 0)
-INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter)
+#define kfiber_wakeup_waiter(waiter,got) kgl_selector_module.next(waiter->selector, waiter->data, waiter->notice, waiter->arg, got)
+INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter,int got)
 {
 	while (waiter) {
 		kfiber_waiter* next = waiter->next;
-		kfiber_wakeup_waiter(waiter);
+		kfiber_wakeup_waiter(waiter,got);
 		free(waiter);
 		waiter = next;
 	}

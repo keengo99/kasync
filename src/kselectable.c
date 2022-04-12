@@ -147,13 +147,13 @@ void selectable_bind_opaque(kselectable *st, KOPAQUE data, kgl_opaque_type type)
 	st->data = data;
 	switch (type) {
 	case kgl_opaque_server:
-		SET(st->st_flags, STF_OPAQUE_SERVER);
+		KBIT_SET(st->st_flags, STF_OPAQUE_SERVER);
 		break;
 	case kgl_opaque_server_http2:
-		SET(st->st_flags, STF_OPAQUE_SERVER | STF_OPAQUE_HTTP2);
+		KBIT_SET(st->st_flags, STF_OPAQUE_SERVER | STF_OPAQUE_HTTP2);
 		break;
 	case kgl_opaque_client_http2:
-		SET(st->st_flags, STF_OPAQUE_HTTP2);
+		KBIT_SET(st->st_flags, STF_OPAQUE_HTTP2);
 		break;
 	default:
 		break;
@@ -161,7 +161,7 @@ void selectable_bind_opaque(kselectable *st, KOPAQUE data, kgl_opaque_type type)
 }
 void selectable_clean(kselectable *st)
 {
-	kassert(TEST(st->st_flags, STF_LOCK) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_LOCK) == 0);
 	kassert(st->queue.next == NULL);
 	kassert(st->queue.prev == NULL);
 	if (ksocket_opened(st->fd)) {
@@ -185,7 +185,7 @@ bool selectable_remove(kselectable *st)
 }
 void selectable_shutdown(kselectable *st)
 {
-	if (TEST(st->st_flags, STF_RECVFROM)) {
+	if (KBIT_TEST(st->st_flags, STF_RECVFROM)) {
 		closesocket(st->fd);
 		ksocket_init(st->fd);
 		return;
@@ -198,9 +198,9 @@ void selectable_shutdown(kselectable *st)
 void selectable_recvfrom_event(kselectable *st)
 {
 #ifdef STF_ET
-	if (TEST(st->st_flags, STF_ET))
+	if (KBIT_TEST(st->st_flags, STF_ET))
 #endif
-		CLR(st->st_flags,STF_RECVFROM);
+		KBIT_CLR(st->st_flags,STF_RECVFROM);
 	WSABUF buf;
 	WSABUF addr;
 	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &buf, 1);
@@ -215,11 +215,11 @@ void selectable_read_event(kselectable *st)
 {
 	//printf("handle_read_event st=[%p]\n",st);
 #ifdef STF_ET
-	if (TEST(st->st_flags, STF_ET))
+	if (KBIT_TEST(st->st_flags, STF_ET))
 #endif
-		CLR(st->st_flags, STF_READ);
+		KBIT_CLR(st->st_flags, STF_READ);
 #ifdef ENABLE_KSSL_BIO
-	if (!TEST(st->st_flags, STF_RREADY2)) {
+	if (!KBIT_TEST(st->st_flags, STF_RREADY2)) {
 		selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
 		return;
 	}
@@ -228,13 +228,13 @@ void selectable_read_event(kselectable *st)
 }
 void selectable_write_event(kselectable *st)
 {
-	CLR(st->st_flags, STF_WRITE|STF_RDHUP);
-	if (TEST(st->st_flags, STF_ERR) > 0) {
+	KBIT_CLR(st->st_flags, STF_WRITE|STF_RDHUP);
+	if (KBIT_TEST(st->st_flags, STF_ERR) > 0) {
 		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
 		return;
 	}
 #ifdef ENABLE_KSSL_BIO
-	if (!TEST(st->st_flags, STF_WREADY2)) {
+	if (!KBIT_TEST(st->st_flags, STF_WREADY2)) {
 		selectable_low_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
 		return;
 	}
@@ -253,13 +253,13 @@ static bool selectable_ssl_read(kselectable *st, result_callback result, buffer_
 	kassert(buffer != buffer_ssl_bio_read);
 	kassert(arg != ssl_bio);
 	if (BIO_pending(ssl_bio->bio) > 0) {
-		kassert(!TEST(st->st_flags, STF_READ));
+		kassert(!KBIT_TEST(st->st_flags, STF_READ));
 		//ssl still have data to read
 		st->e[OP_READ].arg = arg;
 		st->e[OP_READ].result = result;
 		st->e[OP_READ].buffer = buffer;
-		SET(st->st_flags, STF_READ | STF_RREADY2);
-		CLR(st->st_flags, STF_RDHUP);
+		KBIT_SET(st->st_flags, STF_READ | STF_RREADY2);
+		KBIT_CLR(st->st_flags, STF_RDHUP);
 		kselector_add_list(st->selector, st, KGL_LIST_READY);
 		//selectable_event_read(st,result,buffer,arg);
 		return true;
@@ -279,7 +279,7 @@ static bool selectable_ssl_write(kselectable *st, result_callback result, buffer
 		st->e[OP_WRITE].arg = arg;
 		st->e[OP_WRITE].result = result;
 		st->e[OP_WRITE].buffer = buffer;
-		SET(st->st_flags, STF_WRITE | STF_WREADY2);
+		KBIT_SET(st->st_flags, STF_WRITE | STF_WREADY2);
 		kselector_add_list(st->selector, st, KGL_LIST_READY);
 		return true;
 	}
@@ -308,7 +308,7 @@ void selectable_low_event_write(kselectable *st, result_callback result, buffer_
 		return;
 	}
 	if (errno == EAGAIN) {
-		CLR(st->st_flags, STF_WREADY);
+		KBIT_CLR(st->st_flags, STF_WREADY);
 		if (kgl_selector_module.write(st->selector, st, result, buffer, arg)) {
 			return;
 		}
@@ -333,7 +333,7 @@ void selectable_low_event_read(kselectable *st, result_callback result, buffer_c
 		return;
 	}
 	if (errno == EAGAIN) {
-		CLR(st->st_flags, STF_RREADY);
+		KBIT_CLR(st->st_flags, STF_RREADY);
 		if (kgl_selector_module.read(st->selector, st, result, buffer, arg)) {
 			return;
 		}
@@ -344,7 +344,7 @@ void selectable_low_event_read(kselectable *st, result_callback result, buffer_c
 bool selectable_try_write(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(kfiber_check_result_callback(result));
-	kassert(TEST(st->st_flags, STF_WRITE|STF_WREADY2) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_WRITE|STF_WREADY2) == 0);
 #ifdef ENABLE_KSSL_BIO
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);
@@ -355,24 +355,24 @@ bool selectable_try_write(kselectable *st, result_callback result, buffer_callba
 }
 void selectable_next_read(kselectable *st, result_callback result, void *arg)
 {
-	kassert(TEST(st->st_flags, STF_READ|STF_RREADY2) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_READ|STF_RREADY2) == 0);
 	kassert(kselector_is_same_thread(st->selector));
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = NULL;
-	SET(st->st_flags, STF_READ|STF_RREADY2);
-	CLR(st->st_flags, STF_RDHUP);
+	KBIT_SET(st->st_flags, STF_READ|STF_RREADY2);
+	KBIT_CLR(st->st_flags, STF_RDHUP);
 	kselector_add_list(st->selector, st, KGL_LIST_READY);
 }
 void selectable_next_write(kselectable *st, result_callback result, void *arg)
 {
-	kassert(TEST(st->st_flags, STF_WRITE|STF_WREADY2) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_WRITE|STF_WREADY2) == 0);
 	kassert(kselector_is_same_thread(st->selector));
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
 	st->e[OP_WRITE].buffer = NULL;
-	SET(st->st_flags, STF_WRITE | STF_WREADY2);
-	CLR(st->st_flags, STF_RDHUP);
+	KBIT_SET(st->st_flags, STF_WRITE | STF_WREADY2);
+	KBIT_CLR(st->st_flags, STF_RDHUP);
 	kselector_add_list(st->selector, st, KGL_LIST_READY);	
 }
 kev_result selectable_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
@@ -404,13 +404,13 @@ bool selectable_try_read(kselectable *st, result_callback result, buffer_callbac
 #ifdef ENABLE_KSSL_BIO
 			kassert(result != result_ssl_bio_read);
 #endif
-			kassert(!TEST(st->st_flags, STF_READ));
+			kassert(!KBIT_TEST(st->st_flags, STF_READ));
 			//ssl still have data to read
 			st->e[OP_READ].arg = arg;
 			st->e[OP_READ].result = result;
 			st->e[OP_READ].buffer = buffer;
-			SET(st->st_flags, STF_READ|STF_RREADY2);
-			CLR(st->st_flags, STF_RDHUP);
+			KBIT_SET(st->st_flags, STF_READ|STF_RREADY2);
+			KBIT_CLR(st->st_flags, STF_RDHUP);
 			kselector_add_list(st->selector, st, KGL_LIST_READY);
 			//selectable_event_read(st,result, buffer,arg);
 			return true;
@@ -426,8 +426,8 @@ bool selectable_try_read(kselectable *st, result_callback result, buffer_callbac
 kev_result selectable_event_write(kselectable *st,result_callback result, buffer_callback buffer, void *arg)
 {
 	WSABUF recvBuf[MAXSENDBUF];
-	if (TEST(st->st_flags, STF_WREADY2)) {
-		CLR(st->st_flags, STF_WREADY2);
+	if (KBIT_TEST(st->st_flags, STF_WREADY2)) {
+		KBIT_CLR(st->st_flags, STF_WREADY2);
 #ifdef ENABLE_KSSL_BIO		
 		if (st->ssl && buffer) {
 			kssl_bio *ssl_bio = &st->ssl->bio[OP_WRITE];			
@@ -458,7 +458,7 @@ kev_result selectable_event_write(kselectable *st,result_callback result, buffer
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);
-		CLR(st->st_flags, STF_WREADY);
+		KBIT_CLR(st->st_flags, STF_WREADY);
 		int err = SSL_get_error(st->ssl->ssl, got);
 		if (errno == EAGAIN || err == SSL_ERROR_WANT_WRITE) {
 #ifdef ENABLE_KSSL_BIO
@@ -475,7 +475,7 @@ kev_result selectable_event_write(kselectable *st,result_callback result, buffer
 	}
 #endif
 	if (errno==EAGAIN) {
-		CLR(st->st_flags,STF_WREADY);
+		KBIT_CLR(st->st_flags,STF_WREADY);
 		if (kgl_selector_module.write(st->selector, st, result, buffer, arg)) {
 			return kev_ok;
 		}
@@ -484,8 +484,8 @@ kev_result selectable_event_write(kselectable *st,result_callback result, buffer
 }
 kev_result selectable_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
-	if (TEST(st->st_flags, STF_RREADY2)) {
-		CLR(st->st_flags, STF_RREADY2);
+	if (KBIT_TEST(st->st_flags, STF_RREADY2)) {
+		KBIT_CLR(st->st_flags, STF_RREADY2);
 #ifndef NDEBUG
 #ifdef ENABLE_KSSL_BIO
 		if (st->ssl && buffer) {
@@ -519,7 +519,7 @@ kev_result selectable_event_read(kselectable *st, result_callback result, buffer
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);
-		CLR(st->st_flags, STF_RREADY);
+		KBIT_CLR(st->st_flags, STF_RREADY);
 		int err = SSL_get_error(st->ssl->ssl, got); 
 		if (errno == EAGAIN || err == SSL_ERROR_WANT_READ) {
 #ifdef ENABLE_KSSL_BIO
@@ -536,8 +536,8 @@ kev_result selectable_event_read(kselectable *st, result_callback result, buffer
 	}
 #endif
 	if (errno==EAGAIN) {
-		kassert(!TEST(st->st_flags, STF_RREADY2));
-		CLR(st->st_flags,STF_RREADY);
+		kassert(!KBIT_TEST(st->st_flags, STF_RREADY2));
+		KBIT_CLR(st->st_flags,STF_RREADY);
 		if (kgl_selector_module.read(st->selector, st, result, buffer, arg)) {
 			return kev_ok;
 		}

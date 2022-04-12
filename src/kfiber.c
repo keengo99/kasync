@@ -245,7 +245,7 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
 	fiber->retval = got;
 	kfiber_delete_context(fiber);
 	if (fiber->close_cond) {
-		fiber->close_cond->f->notice(fiber->close_cond);
+		fiber->close_cond->f->notice(fiber->close_cond, got);
 	}
 	kfiber_release(fiber);
 	return kev_ok;
@@ -576,7 +576,7 @@ int kfiber_ssl_handshake(kconnection* cn)
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	cn->st.ssl->handshake = 1;
-	//SET(cn->st.st_flags, STF_SSL_HANDSHAKE);
+	//KBIT_SET(cn->st.st_flags, STF_SSL_HANDSHAKE);
 	fiber->arg = &cn->st;
 	if (kselectable_ssl_handshake(&cn->st, result_fiber_ssl_handshake, fiber) != kev_fiber_ok) {
 		__kfiber_wait(fiber, cn->st.data);
@@ -591,7 +591,7 @@ int kfiber_net_close(kconnection* c)
 		kfiber* fiber = kfiber_self();
 		CHECK_FIBER(fiber);
 		c->st.data = NULL;
-		if (!TEST(c->st.st_flags, STF_ERR)) {
+		if (!KBIT_TEST(c->st.st_flags, STF_ERR)) {
 			fiber->arg = &c->st;
 			if (kev_fiber_ok != kselectable_ssl_shutdown((kselectable*)fiber->arg, result_fiber_ssl_shutdown, fiber)) {
 				__kfiber_wait(fiber, NULL);
@@ -618,8 +618,8 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 	kfiber_file* af = (kfiber_file*)xmemory_newz(sizeof(kfiber_file));
 	kgl_selector_module.aio_open(selector, &af->fp, fp);
 #ifdef KF_ASYNC_WORKER
-	if (!TEST(kf_flags, KFILE_ASYNC)) {
-		SET(af->fp.flags, KF_ASYNC_WORKER);
+	if (!KBIT_TEST(kf_flags, KFILE_ASYNC)) {
+		KBIT_SET(af->fp.flags, KF_ASYNC_WORKER);
 	}
 #endif
 	return af;
@@ -668,7 +668,7 @@ int kfiber_file_read(kfiber_file* file, char* buf, int length)
 	CHECK_FIBER(fiber);
 	kasync_file_bind_opaque(&file->fp, &fiber);
 #ifdef KF_ASYNC_WORKER
-	if (TEST(file->fp.flags, KF_ASYNC_WORKER)) {
+	if (KBIT_TEST(file->fp.flags, KF_ASYNC_WORKER)) {
 		file->fp.length = length;
 		file->fp.buf = buf;
 		file->fp.kiocb.cmd = kf_aio_read;
@@ -694,7 +694,7 @@ int kfiber_file_write(kfiber_file* file, const char* buf, int length)
 	kasync_file_bind_opaque(&file->fp, &fiber);
 	CHECK_FIBER(fiber);
 #ifdef KF_ASYNC_WORKER
-	if (TEST(file->fp.flags, KF_ASYNC_WORKER)) {
+	if (KBIT_TEST(file->fp.flags, KF_ASYNC_WORKER)) {
 		file->fp.length = length;
 		file->fp.buf = (char*)buf;
 		file->fp.kiocb.cmd = kf_aio_write;
@@ -810,7 +810,7 @@ int kfiber_chan_send(kfiber_chan* ch, void* data, int len)
 		ch->reciver = NULL;
 		while (waiter) {
 			kfiber_waiter* next = waiter->next;
-			kfiber_wakeup_waiter(waiter);
+			kfiber_wakeup_waiter(waiter,0);
 			xfree(waiter);
 			waiter = next;
 		}
@@ -839,7 +839,7 @@ int kfiber_chan_recv(kfiber_chan* ch, void** data)
 				ch->sender = NULL;
 				while (waiter) {
 					kfiber_waiter* next = waiter->next;
-					kfiber_wakeup_waiter(waiter);
+					kfiber_wakeup_waiter(waiter,0);
 					xfree(waiter);
 					waiter = next;
 				}

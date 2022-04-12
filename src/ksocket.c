@@ -149,23 +149,23 @@ SOCKET ksocket_listen(const sockaddr_i *addr,int flag)
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&n, sizeof(int));
 #endif
 #ifdef SO_REUSEPORT
-	if (TEST(flag, KSOCKET_REUSEPORT)) {
+	if (KBIT_TEST(flag, KSOCKET_REUSEPORT)) {
 		setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char *)&n, sizeof(int));
 	}
 #endif
 #ifdef IPV6_V6ONLY
-	if (TEST(flag, KSOCKET_ONLY_IPV6)) {
+	if (KBIT_TEST(flag, KSOCKET_ONLY_IPV6)) {
 		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&n, sizeof(int));
 	}
 #endif
 #ifdef TCP_FASTOPEN
-	if (TEST(flag, KSOCKET_FASTOPEN)) {
+	if (KBIT_TEST(flag, KSOCKET_FASTOPEN)) {
 		setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN, (const char *)&n, sizeof(n));
 	}
 #endif
 #ifdef IP_TRANSPARENT
 #ifdef KSOCKET_TPROXY
-	if (TEST(flag, KSOCKET_TPROXY)) {
+	if (KBIT_TEST(flag, KSOCKET_TPROXY)) {
 		int value = 1;
 		if (setsockopt(sockfd, SOL_IP, IP_TRANSPARENT, &value, sizeof(value)) < 0) {
 			//debug("setsockopt IP_TRANSPARENT failed,errno=%d\n",errno);
@@ -268,7 +268,7 @@ bool wait_socket_event(SOCKET sockfd, bool is_write, int tmo) {
 	if (poll(&poll_list, 1, tmo * 1000) <= 0) {
 		return false;
 	}
-	if (TEST(poll_list.revents, POLLERR)) {
+	if (KBIT_TEST(poll_list.revents, POLLERR)) {
 		return false;
 	}
 #else
@@ -320,9 +320,9 @@ SOCKET ksocket_half_connect(const sockaddr_i *addr, const sockaddr_i *bind_addr,
 	SOCKET sockfd;
 	int type = SOCK_STREAM;
 #ifdef SOCK_CLOEXEC
-	SET(type,SOCK_CLOEXEC);
+	KBIT_SET(type,SOCK_CLOEXEC);
 #ifndef KGL_IOCP
-	SET(type,SOCK_NONBLOCK);
+	KBIT_SET(type,SOCK_NONBLOCK);
 #endif
 #endif
 	if ((sockfd = socket(addr->v4.sin_family, type, 0)) == INVALID_SOCKET) {

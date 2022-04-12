@@ -106,14 +106,17 @@ static void __lock_thread(int mode, int n, const char *file, int line)
 		kmutex_unlock(&ssl_lock[n]);
 	}
 }
-void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+void kssl_set_callback(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+{
+	ssl_npn = npn;
+	kgl_ssl_create_sni = create_sni;
+	kgl_ssl_free_sni = free_sni;
+}
+void kssl_init2()
 {
 	SSL_load_error_strings();
 	SSL_library_init();
 	SSLeay_add_ssl_algorithms();
-	ssl_npn = npn;
-	kgl_ssl_create_sni = create_sni;
-	kgl_ssl_free_sni = free_sni;
 #ifndef OPENSSL_IS_BORINGSSL
 	if ((CRYPTO_get_id_callback() == NULL) &&
 		(CRYPTO_get_locking_callback() == NULL)) {
@@ -123,7 +126,7 @@ void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_
 		CRYPTO_set_locking_callback(__lock_thread);
 
 		int locks_num = CRYPTO_num_locks();
-		ssl_lock = (kmutex *)xmalloc(sizeof(kmutex)*locks_num);
+		ssl_lock = (kmutex*)xmalloc(sizeof(kmutex) * locks_num);
 		for (int i = 0; i < locks_num; i++) {
 			kmutex_init(&ssl_lock[i], NULL);
 		}
@@ -135,7 +138,11 @@ void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_
 	kgl_bio_init_method();
 #endif
 }
-
+void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+{
+	kssl_set_callback(npn, create_sni, free_sni);
+	kssl_init2();
+}
 static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_length)
 {
 	static RSA  *key;
@@ -214,15 +221,71 @@ static bool kgl_ssl_ecdh_curve(SSL_CTX *ctx, const char *name)
 #endif
 	return true;
 }
-
-static bool kgl_ssl_session_id_context(SSL_CTX *ssl_ctx, const char *cert_file)
+static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md)
 {
 	int                   n, i;
-	//	X509                 *cert;
-	X509_NAME            *name;
+	STACK_OF(X509_NAME)* list;
+	unsigned int          len;
+	u_char                buf[EVP_MAX_MD_SIZE];
+	X509_NAME* name;
+	list = SSL_CTX_get_client_CA_list(ssl_ctx);
+
+	if (list != NULL) {
+		n = sk_X509_NAME_num(list);
+		for (i = 0; i < n; i++) {
+			name = sk_X509_NAME_value(list, i);
+			if (X509_NAME_digest(name, EVP_sha1(), buf, &len) == 0) {
+				klog(KLOG_ERR, "X509_NAME_digest() failed");
+				return false;
+			}
+
+			if (EVP_DigestUpdate(md, buf, len) == 0) {
+				klog(KLOG_ERR, "EVP_DigestUpdate() failed");
+				return false;
+			}
+		}
+	}
+	return true;
+}
+static bool kgl_ssl_session_id_context_from_buffer(SSL_CTX *ssl_ctx, const char*cert)
+{
+	EVP_MD_CTX* md;
+	unsigned int          len;
+	u_char                buf[EVP_MAX_MD_SIZE];
+	md = EVP_MD_CTX_create();
+	if (md == NULL) {
+		return false;
+	}
+	if (EVP_DigestInit_ex(md, EVP_sha1(), NULL) == 0) {
+		klog(KLOG_ERR, "EVP_DigestInit_ex() failed");
+		goto failed;
+	}
+	if (EVP_DigestUpdate(md, cert, strlen(cert)) == 0) {
+		klog(KLOG_ERR, "EVP_DigestUpdate() failed");
+		goto failed;
+	}
+	if (!kgl_ssl_session_digest_x509_list(ssl_ctx, md)) {
+		goto failed;
+	}
+	if (EVP_DigestFinal_ex(md, buf, &len) == 0) {
+		klog(KLOG_ERR, "EVP_DigestUpdate() failed");
+		goto failed;
+	}
+	EVP_MD_CTX_destroy(md);
+	if (SSL_CTX_set_session_id_context(ssl_ctx, buf, len) == 0) {
+		klog(KLOG_ERR, "SSL_CTX_set_session_id_context() failed");
+		return false;
+	}
+	return true;
+failed:
+	EVP_MD_CTX_destroy(md);
+	return false;
+}
+static bool kgl_ssl_session_id_context(SSL_CTX *ssl_ctx, const char *cert_file)
+{
+
 	EVP_MD_CTX            *md;
 	unsigned int          len;
-	STACK_OF(X509_NAME)  *list;
 	u_char                buf[EVP_MAX_MD_SIZE];
 	FILE *fp;
 	md = EVP_MD_CTX_create();
@@ -254,26 +317,9 @@ static bool kgl_ssl_session_id_context(SSL_CTX *ssl_ctx, const char *cert_file)
 		}
 		fclose(fp);
 	}
-	list = SSL_CTX_get_client_CA_list(ssl_ctx);
-
-	if (list != NULL) {
-		n = sk_X509_NAME_num(list);
-
-		for (i = 0; i < n; i++) {
-			name = sk_X509_NAME_value(list, i);
-
-			if (X509_NAME_digest(name, EVP_sha1(), buf, &len) == 0) {
-				klog(KLOG_ERR, "X509_NAME_digest() failed");
-				goto failed;
-			}
-
-			if (EVP_DigestUpdate(md, buf, len) == 0) {
-				klog(KLOG_ERR, "EVP_DigestUpdate() failed");
-				goto failed;
-			}
-		}
+	if (!kgl_ssl_session_digest_x509_list(ssl_ctx, md)) {
+		goto failed;
 	}
-
 	if (EVP_DigestFinal_ex(md, buf, &len) == 0) {
 		klog(KLOG_ERR, "EVP_DigestUpdate() failed");
 		goto failed;
@@ -397,7 +443,93 @@ void kgl_ssl_ctx_set_early_data(SSL_CTX *ssl_ctx,bool early_data)
 	SSL_CTX_set_max_early_data(ssl_ctx, 0);
 #endif
 }
-SSL_CTX * kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
+
+
+static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const char* ca_file, void* ssl_ctx_data)
+{
+
+	if (!SSL_CTX_check_private_key(ctx)) {
+		klog(KLOG_ERR,
+			"SSL check_private_key Error: %s\n",
+			ERR_error_string(ERR_get_error(), NULL));
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+	if (ca_path != NULL || ca_file != NULL) {
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+		SSL_CTX_set_verify_depth(ctx, 1);
+		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
+			fprintf(stderr, "SSL error %s:%d: Error allocating handle: %s\n",
+				__FILE__, __LINE__, ERR_error_string(ERR_get_error(), NULL));
+			SSL_CTX_free(ctx);
+			return NULL;
+		}
+	}
+	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+	if (kgl_ssl_create_sni) {
+		if (0 == SSL_CTX_set_tlsext_servername_callback(ctx, kgl_ssl_sni)) {
+			fprintf(stderr, "kasync was built with SNI support, however, now it is linked "
+				"dynamically to an OpenSSL library which has no tlsext support, "
+				"therefore SNI is not available");
+		}
+	}
+	if (ssl_npn && ssl_ctx_data) {
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+		SSL_CTX_set_alpn_select_cb(ctx, kgl_ssl_npn_selected, NULL);
+#endif
+#if TLSEXT_TYPE_next_proto_neg
+		SSL_CTX_set_next_protos_advertised_cb(ctx, kgl_ssl_npn_advertise, NULL);
+#endif
+	}
+	//SSL_CTX_sess_set_cache_size(ctx,1000);
+	return ctx;
+}
+SSL_CTX* kgl_ssl_ctx_new_server_from_memory(const char* cert_buffer, const char* key_buffer, const char* ca_path, const char* ca_file, void* ssl_ctx_data)
+{
+	X509* cert = NULL;
+	RSA* rsa = NULL;
+	BIO* cbio = NULL, * kbio = NULL;
+	SSL_CTX* ctx = NULL;
+	if (cert_buffer == NULL || *cert_buffer == '\0') {
+		cert_buffer = key_buffer;
+	}
+	cbio = BIO_new_mem_buf((void*)cert_buffer, -1);
+	cert = PEM_read_bio_X509(cbio, NULL, 0, NULL);
+	if (cert == NULL) {
+		goto failed;
+	}
+	kbio = BIO_new_mem_buf((void*)key_buffer, -1);
+	rsa = PEM_read_bio_RSAPrivateKey(kbio, NULL, 0, NULL);
+	if (rsa == NULL) {
+		goto failed;
+	}
+	ctx = kgl_ssl_ctx_new(true, ssl_ctx_data);
+	if (ctx == NULL) {
+		fprintf(stderr, "cann't init_ctx\n");
+		goto failed;
+	}
+	SSL_CTX_use_certificate(ctx, cert);	
+	SSL_CTX_use_RSAPrivateKey(ctx, rsa);
+	kgl_ssl_session_id_context_from_buffer(ctx, cert_buffer);
+failed:
+	if (cert) {
+		X509_free(cert);
+	}
+	if (rsa) {
+		RSA_free(rsa);
+	}
+	if (cbio) {
+		BIO_free(cbio);
+	}
+	if (kbio) {
+		BIO_free(kbio);
+	}
+	if (ctx) {
+		return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
+	}
+	return NULL;
+}
+SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
 {
 	SSL_CTX * ctx = kgl_ssl_ctx_new(true,ssl_ctx_data);
 	if (ctx == NULL) {
@@ -423,55 +555,8 @@ SSL_CTX * kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, co
 		SSL_CTX_free(ctx);
 		return NULL;
 	}
-
-	if (!SSL_CTX_check_private_key(ctx)) {
-		klog(KLOG_ERR,
-			"SSL check_private_key [%s] [%s]: Error: %s\n",
-			cert_file,
-			key_file,
-			ERR_error_string(ERR_get_error(), NULL));
-		SSL_CTX_free(ctx);
-		return NULL;
-	}
-	if (ca_path != NULL || ca_file != NULL) {
-		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-		SSL_CTX_set_verify_depth(ctx, 1);
-		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
-			fprintf(stderr, "SSL error %s:%d: Error allocating handle: %s\n",
-				__FILE__, __LINE__, ERR_error_string(ERR_get_error(), NULL));
-			SSL_CTX_free(ctx);
-			return NULL;
-		}
-	}
-	/*
-	int session_context_len = strlen(cert_file);
-	const char *session_context = cert_file;
-	int pos = session_context_len - SSL_MAX_SSL_SESSION_ID_LENGTH;
-	if (pos>0) {
-		session_context_len -= pos;
-		session_context += pos;
-	}
-	SSL_CTX_set_session_id_context(ctx,(const unsigned char *)session_context,session_context_len);
-	*/
 	kgl_ssl_session_id_context(ctx, cert_file);
-	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
-	if (kgl_ssl_create_sni) {
-		if (0 == SSL_CTX_set_tlsext_servername_callback(ctx, kgl_ssl_sni)) {
-			fprintf(stderr, "kasync was built with SNI support, however, now it is linked "
-				"dynamically to an OpenSSL library which has no tlsext support, "
-				"therefore SNI is not available");
-		}
-	}
-	if (ssl_npn && ssl_ctx_data) {
-#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
-		SSL_CTX_set_alpn_select_cb(ctx, kgl_ssl_npn_selected, NULL);
-#endif
-#if TLSEXT_TYPE_next_proto_neg
-		SSL_CTX_set_next_protos_advertised_cb(ctx, kgl_ssl_npn_advertise, NULL);
-#endif
-	}
-	//SSL_CTX_sess_set_cache_size(ctx,1000);
-	return ctx;
+	return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
 }
 kssl_status kgl_ssl_handshake_status(SSL *ssl, int re)
 {
@@ -589,7 +674,7 @@ void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols)
 		kgl_string_bitmask_t *h = kgl_ssl_protocols;
 		while (h->name.data) {
 			if (strcasecmp(h->name.data, hot) == 0) {
-				SET(mask, h->mask);
+				KBIT_SET(mask, h->mask);
 			}
 			h++;
 		}

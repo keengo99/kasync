@@ -110,7 +110,7 @@ static kev_result selector_iterator(KOPAQUE data, void *arg, int got)
 				goto done;
 			}
 		}
-	}	
+	}
 	while (node) {
 		kgl_block_queue *brq = (kgl_block_queue *)node->data;
 		while (brq) {
@@ -124,7 +124,7 @@ static kev_result selector_iterator(KOPAQUE data, void *arg, int got)
 		node = rb_next(node);
 	}
 done:
-	param->cond->f->notice(param->cond);
+	param->cond->f->notice(param->cond, got);
 	return kev_ok;
 }
 void selector_manager_iterator(void *ctx, selectable_iterator it)

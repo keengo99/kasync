@@ -108,21 +108,21 @@ static bool epoll_add_event(int kdpfd,kselectable *st,uint16_t ev)
 	int op = EPOLL_CTL_ADD;
 	uint32_t events = 0;
 	uint16_t prev_ev = st->st_flags;
-	if (TEST(ev,STF_REV)) {
+	if (KBIT_TEST(ev,STF_REV)) {
 		events |= EPOLLIN|EPOLLRDHUP|EPOLLET;
-		if (TEST(prev_ev,STF_WEV)) {
+		if (KBIT_TEST(prev_ev,STF_WEV)) {
 			op = EPOLL_CTL_MOD;
 			events|=EPOLLOUT;
 		}
-		SET(st->st_flags,STF_REV|STF_ET|STF_WREADY);
+		KBIT_SET(st->st_flags,STF_REV|STF_ET|STF_WREADY);
 	}
-	if (TEST(ev,STF_WEV)) {
+	if (KBIT_TEST(ev,STF_WEV)) {
 		events |= EPOLLOUT|EPOLLRDHUP|EPOLLET;
-		if (TEST(prev_ev,STF_REV)) {
+		if (KBIT_TEST(prev_ev,STF_REV)) {
 			op = EPOLL_CTL_MOD;
 			events|=EPOLLIN;
 		}
-		SET(st->st_flags,STF_WEV|STF_ET);
+		KBIT_SET(st->st_flags,STF_WEV|STF_ET);
 	}
 	SOCKET sockfd = st->fd;
 	event.events = events;
@@ -148,7 +148,7 @@ static void epoll_selector_init(kselector *selector)
 	ctx->kdpfd = epoll_create(MAXEVENT);
 #endif
 	kepoll_notice_init(selector,&ctx->notice_st,result_notice_event,&ctx->notice_st);
-	SET(ctx->notice_st.st.st_flags,STF_READ|STF_REV);
+	KBIT_SET(ctx->notice_st.st.st_flags,STF_READ|STF_REV);
 	struct epoll_event epevent;
 	epevent.events = EPOLLIN;
 	epevent.data.ptr = &ctx->notice_st.st;
@@ -158,7 +158,7 @@ static void epoll_selector_init(kselector *selector)
 
 	//init aio_st
 	ctx->aio_st.st.selector = selector;
-	SET(ctx->aio_st.st.st_flags,STF_READ|STF_REV);
+	KBIT_SET(ctx->aio_st.st.st_flags,STF_READ|STF_REV);
 	ctx->aio_st.st.e[OP_READ].arg = &ctx->aio_st;
 	ctx->aio_st.st.e[OP_READ].result = result_aio_event;
 	ctx->aio_st.st.fd = eventfd(0, EFD_CLOEXEC);
@@ -201,13 +201,13 @@ static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, r
 	st->e[OP_WRITE].result = result;
 	SOCKET sockfd = st->fd;
 	int poll_op;
-	if (TEST(st->st_flags,STF_REV)) {
+	if (KBIT_TEST(st->st_flags,STF_REV)) {
 		poll_op = EPOLL_CTL_MOD;
 	} else {
 		poll_op = EPOLL_CTL_ADD;
 	}
-	CLR(st->st_flags,STF_WRITE|STF_RDHUP);
-	SET(st->st_flags,STF_READ|STF_REV);
+	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
+	KBIT_SET(st->st_flags,STF_READ|STF_REV);
 	ev.events = EPOLLIN;
 	ev.data.ptr = st;
 	int ret = epoll_ctl(es->kdpfd, poll_op, sockfd, &ev);
@@ -220,14 +220,14 @@ static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, r
 static bool epoll_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	assert(TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP|STF_REV|STF_WEV)==0);
+	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP|STF_REV|STF_WEV)==0);
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
 	st->e[OP_WRITE].buffer = NULL;
-	SET(st->st_flags,STF_WRITE);
-	if (!TEST(st->st_flags,STF_WEV|STF_REV)) {
+	KBIT_SET(st->st_flags,STF_WRITE);
+	if (!KBIT_TEST(st->st_flags,STF_WEV|STF_REV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_WEV|STF_REV)) {
-			CLR(st->st_flags,STF_WRITE);
+			KBIT_CLR(st->st_flags,STF_WRITE);
 			return false;
 		}
 	}
@@ -237,20 +237,20 @@ static bool epoll_selector_connect(kselector *selector, kselectable *st, result_
 static void epoll_selector_remove(kselector *selector, kselectable *st)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	if (!TEST(st->st_flags,STF_REV|STF_WEV)) {
+	if (!KBIT_TEST(st->st_flags,STF_REV|STF_WEV)) {
 		//socket not set event
 		return;
 	}
 	kselector_remove_list(selector,st);
 	SOCKET sockfd = st->fd;
 #ifndef NDEBUG
-	if (TEST(st->st_flags,STF_ET)) {
-		assert(TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP)==0);
+	if (KBIT_TEST(st->st_flags,STF_ET)) {
+		assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP)==0);
 	}
 	//klog(KLOG_DEBUG,"removeSocket st=%p,sockfd=%d\n",st,sockfd);
 #endif
 	struct epoll_event ev;
-	CLR(st->st_flags,STF_REV|STF_WEV|STF_ET|STF_RREADY|STF_WREADY);
+	KBIT_CLR(st->st_flags,STF_REV|STF_WEV|STF_ET|STF_RREADY|STF_WREADY);
 	if (epoll_ctl(es->kdpfd, EPOLL_CTL_DEL,sockfd, &ev) != 0) {
 		klog(KLOG_ERR, "epoll del sockfd error: fd=%d,errno=%d\n", sockfd,errno);
 		return;
@@ -262,16 +262,16 @@ static bool epoll_selector_readhup(kselector *selector, kselectable *st, result_
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	//printf("st=[%p] read_hup\n",st);
 #ifdef EPOLLRDHUP
-	if (TEST(st->st_flags,STF_READ|STF_WRITE)) {
+	if (KBIT_TEST(st->st_flags,STF_READ|STF_WRITE)) {
 		return false;
 	}
-	SET(st->st_flags,STF_RDHUP);
+	KBIT_SET(st->st_flags,STF_RDHUP);
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
 	st->e[OP_WRITE].buffer = NULL;
-	if (!TEST(st->st_flags,STF_WEV|STF_REV)) {
+	if (!KBIT_TEST(st->st_flags,STF_WEV|STF_REV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_WEV|STF_REV)) {
-			CLR(st->st_flags,STF_RDHUP);
+			KBIT_CLR(st->st_flags,STF_RDHUP);
 			return false;
 		}
 	}
@@ -283,11 +283,11 @@ static bool epoll_selector_readhup(kselector *selector, kselectable *st, result_
 static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 {
 #ifdef EPOLLRDHUP
-	if (!TEST(st->st_flags,STF_RDHUP)) {
+	if (!KBIT_TEST(st->st_flags,STF_RDHUP)) {
 			return true;
 	}
-	assert(TEST(st->st_flags,STF_READ|STF_WRITE)==0);
-	CLR(st->st_flags,STF_RDHUP);
+	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE)==0);
+	KBIT_CLR(st->st_flags,STF_RDHUP);
 	//if st in ready list,remove it
 	epoll_selector_remove(selector,st);
 	return true;
@@ -298,19 +298,19 @@ static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 static bool epoll_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	assert(TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
+	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
 	st->e[OP_WRITE].buffer = addr_buffer;
-	SET(st->st_flags,STF_RECVFROM);
-	if (TEST(st->st_flags,STF_RREADY)) {
+	KBIT_SET(st->st_flags,STF_RECVFROM);
+	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
 		return true;
 	}
-	if (!TEST(st->st_flags,STF_REV)) {
+	if (!KBIT_TEST(st->st_flags,STF_REV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			CLR(st->st_flags,STF_RECVFROM);
+			KBIT_CLR(st->st_flags,STF_RECVFROM);
 			return false;
 		}
 	}
@@ -323,19 +323,19 @@ static bool epoll_selector_read(kselector *selector, kselectable *st, result_cal
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	//printf("st=[%p] read\n",st);
-	assert(TEST(st->st_flags,STF_READ)==0);
+	assert(KBIT_TEST(st->st_flags,STF_READ)==0);
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
-	SET(st->st_flags,STF_READ);
-	CLR(st->st_flags,STF_RDHUP);
-	if (TEST(st->st_flags,STF_RREADY)) {
+	KBIT_SET(st->st_flags,STF_READ);
+	KBIT_CLR(st->st_flags,STF_RDHUP);
+	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
 		return true;
 	}
-	if (!TEST(st->st_flags,STF_REV)) {
+	if (!KBIT_TEST(st->st_flags,STF_REV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			CLR(st->st_flags,STF_READ);
+			KBIT_CLR(st->st_flags,STF_READ);
 			return false;
 		}
 	}
@@ -347,19 +347,19 @@ static bool epoll_selector_read(kselector *selector, kselectable *st, result_cal
 static bool epoll_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	assert(TEST(st->st_flags,STF_WRITE)==0);
+	assert(KBIT_TEST(st->st_flags,STF_WRITE)==0);
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
 	st->e[OP_WRITE].buffer = buffer;
-	SET(st->st_flags,STF_WRITE);
-	CLR(st->st_flags,STF_RDHUP);
-	if (TEST(st->st_flags,STF_WREADY)) {
+	KBIT_SET(st->st_flags,STF_WRITE);
+	KBIT_CLR(st->st_flags,STF_RDHUP);
+	if (KBIT_TEST(st->st_flags,STF_WREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
 		return true;
 	}
-	if (!TEST(st->st_flags,STF_WEV)) {
+	if (!KBIT_TEST(st->st_flags,STF_WEV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
-			CLR(st->st_flags,STF_WRITE);
+			KBIT_CLR(st->st_flags,STF_WRITE);
 			return false;
 		}
 	}
@@ -385,32 +385,32 @@ static int epoll_selector_select(kselector *selector) {
 #ifndef NDEBUG
 		//klog(KLOG_DEBUG,"event happened st=[%p] ev=[%d]\n",st,ev);
 #endif
-		//if (TEST(ev, EPOLLHUP | EPOLLERR)) {
-		//	SET(st->st_flags, STF_ERR);
+		//if (KBIT_TEST(ev, EPOLLHUP | EPOLLERR)) {
+		//	KBIT_SET(st->st_flags, STF_ERR);
 		//}
 #ifdef EPOLLRDHUP
-		if (TEST(ev,EPOLLRDHUP|EPOLLIN)==(EPOLLRDHUP|EPOLLIN)) {
-			SET(st->st_flags, STF_ERR);
+		if (KBIT_TEST(ev,EPOLLRDHUP|EPOLLIN)==(EPOLLRDHUP|EPOLLIN)) {
+			KBIT_SET(st->st_flags, STF_ERR);
 		}
 #endif
 		//write ready
-		if (TEST(ev,EPOLLRDHUP)) {
-			SET(st->st_flags,STF_WREADY);
-			if (TEST(st->st_flags,STF_WRITE|STF_RDHUP)) {
+		if (KBIT_TEST(ev,EPOLLRDHUP)) {
+			KBIT_SET(st->st_flags,STF_WREADY);
+			if (KBIT_TEST(st->st_flags,STF_WRITE|STF_RDHUP)) {
 				kselector_add_list(selector,st,KGL_LIST_READY);
 				in_ready_list = true;
 			}
-		} else if (TEST(ev,EPOLLOUT)) {
-			SET(st->st_flags,STF_WREADY);
-			if (TEST(st->st_flags,STF_WRITE)) {
+		} else if (KBIT_TEST(ev,EPOLLOUT)) {
+			KBIT_SET(st->st_flags,STF_WREADY);
+			if (KBIT_TEST(st->st_flags,STF_WRITE)) {
 				kselector_add_list(selector,st,KGL_LIST_READY);
 				in_ready_list = true;
 			}
 		}
 		//read ready
-		if (TEST(ev,EPOLLIN|EPOLLPRI)) {
-			SET(st->st_flags,STF_RREADY);
-			if (TEST(st->st_flags,STF_READ|STF_RECVFROM) && !in_ready_list) {
+		if (KBIT_TEST(ev,EPOLLIN|EPOLLPRI)) {
+			KBIT_SET(st->st_flags,STF_RREADY);
+			if (KBIT_TEST(st->st_flags,STF_READ|STF_RECVFROM) && !in_ready_list) {
 				kselector_add_list(selector,st,KGL_LIST_READY);
 			}
 		}

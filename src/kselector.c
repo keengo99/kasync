@@ -220,7 +220,7 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			klog(KLOG_DEBUG, "request timeout st=%p\n", (kselectable *)rq);
 #endif
 			kassert(selector->count > 0);
-			if (TEST(rq->st_flags, STF_RTIME_OUT) && TEST(rq->st_flags,STF_READ|STF_RECVFROM)>0) {
+			if (KBIT_TEST(rq->st_flags, STF_RTIME_OUT) && KBIT_TEST(rq->st_flags,STF_READ|STF_RECVFROM)>0) {
 				//set read time out
 				klist_append(&selector->list[i], l);
 				rq->active_msec = kgl_current_msec;
@@ -295,22 +295,22 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			continue;
 		}
 		uint16_t st_flags = ready_ev->st.st_flags;
-		if (TEST(st_flags, STF_WREADY | STF_WREADY2) && TEST(st_flags, STF_WRITE | STF_RDHUP)) {
+		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
 			selectable_write_event(&ready_ev->st);
-			CLR(st_flags, STF_WRITE | STF_RDHUP);
+			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
-		if (TEST(st_flags, STF_RREADY | STF_RREADY2)) {
-			if (TEST(st_flags, STF_READ)) {
+		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2)) {
+			if (KBIT_TEST(st_flags, STF_READ)) {
 				selectable_read_event(&ready_ev->st);
-				CLR(st_flags, STF_READ);
-			} else if (TEST(st_flags, STF_RECVFROM)) {
+				KBIT_CLR(st_flags, STF_READ);
+			} else if (KBIT_TEST(st_flags, STF_RECVFROM)) {
 				selectable_recvfrom_event(&ready_ev->st);
-				CLR(st_flags, STF_RECVFROM);
+				KBIT_CLR(st_flags, STF_RECVFROM);
 			}
 		}
-		if (TEST(st_flags, STF_READ | STF_WRITE | STF_RECVFROM) &&
+		if (KBIT_TEST(st_flags, STF_READ | STF_WRITE | STF_RECVFROM) &&
 #ifdef STF_ET
-			TEST(st_flags, STF_ET) &&
+			KBIT_TEST(st_flags, STF_ET) &&
 #endif
 			ready_ev->queue.next == NULL) {
 			kselector_add_list(selector, &ready_ev->st, KGL_LIST_RW);

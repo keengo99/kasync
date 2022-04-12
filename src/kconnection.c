@@ -82,7 +82,7 @@ kev_result kconnection_destroy(kconnection *c)
 #ifdef KSOCKET_SSL
 	if (kconnection_is_ssl_handshake(c)) {
 		c->st.data = NULL;
-		if (!TEST(c->st.st_flags, STF_ERR)) {
+		if (!KBIT_TEST(c->st.st_flags, STF_ERR)) {
 			return kselectable_ssl_shutdown(&c->st, result_ssl_shutdown, c);
 		}
 	}

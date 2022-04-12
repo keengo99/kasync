@@ -72,9 +72,9 @@ KBEGIN_DECLS
 #endif
 #define kgl_countof(array) (sizeof(array) / sizeof(array[0]))
 
-#define SET(a,b)   ((a)|=(b))
-#define CLR(a,b)   ((a)&=~(b))
-#define TEST(a,b)  ((a)&(b))
+#define KBIT_SET(a,b)   ((a)|=(b))
+#define KBIT_CLR(a,b)   ((a)&=~(b))
+#define KBIT_TEST(a,b)  ((a)&(b))
 #define SAFE_STRCPY(s,s1)   do {memset(s,0,sizeof(s));strncpy(s,s1,sizeof(s)-1);}while(0)
 #ifndef MAX
 #define MAX(a,b)  ((a)>(b)?(a):(b))
