@@ -228,6 +228,8 @@ static kev_result iocp_accept_result(KOPAQUE data, void *arg, int got)
 		ss->addr_len = sizeof(ss->accept_addr);
 		getpeername(ss->accept_sockfd, (struct sockaddr *)&ss->accept_addr, &ss->addr_len);
 	}
+	return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg, got);
+#if 0
 	kev_result ret = ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg, got);
 	if (!KEV_AVAILABLE(ret)) {
 		return ret;
@@ -240,6 +242,12 @@ static kev_result iocp_accept_result(KOPAQUE data, void *arg, int got)
 	} while (!kiocp_accept_ex(ss));
 
 	return kev_ok;
+#endif
+}
+static bool iocp_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
+{
+	ss->st.e[OP_WRITE].arg = arg;
+	return kiocp_accept_ex(ss);
 }
 static bool iocp_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
 {
@@ -247,9 +255,9 @@ static bool iocp_selector_listen(kselector *selector, kserver_selectable *ss, re
 	ss->st.e[OP_READ].arg = ss;
 	ss->st.e[OP_READ].result = iocp_accept_result;
 
-	ss->st.e[OP_WRITE].arg = ss;
+
 	ss->st.e[OP_WRITE].result = result;
-	return kiocp_accept_ex(ss);
+	return true;
 }
 static void iocp_selector_next(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got)
 {
@@ -408,6 +416,7 @@ static kselector_module iocp_selector_module = {
 	iocp_selector_bind,
 
 	iocp_selector_listen,
+	iocp_selector_accept,
 	iocp_selector_connect,
 	kselector_default_remove,
 	iocp_selector_read,

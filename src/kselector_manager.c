@@ -348,30 +348,6 @@ const char *selector_manager_event_name()
 {
 	return kgl_selector_module.name;
 }
-bool selector_manager_listen(kserver *server, result_callback callback)
-{
-	kassert(server->ss);
-	if (server->ss == NULL) {
-		return false;
-	}
-	if (!is_server_multi_selectable(server)) {
-		kselector *selector = get_perfect_selector();		
-		server->ss->st.selector = selector;
-		kserver_refs(server);
-		kgl_selector_module.listen(selector,server->ss, callback);
-		return true;
-	}
-	kserver_selectable *ss = server->ss;
-	int index = 0;
-	while (ss) {
-		kselector *selector = get_selector_by_index(index++);
-		ss->st.selector = selector;
-		kserver_refs(server);
-		kgl_selector_module.listen(selector,ss, callback);
-		ss = ss->next;
-	}
-	return true;
-}
 int kasync_fiber_main(void* arg, int argc)
 {
 	void** args = (void**)arg;

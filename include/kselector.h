@@ -31,6 +31,7 @@ typedef kev_result (*aio_callback)(kasync_file *fp, void *arg, char *buf, int le
 
 typedef void (*selector_init)(kselector *selector);
 typedef bool (*selector_listen)(kselector *selector, kserver_selectable *st, result_callback result);
+typedef bool (*selector_accept)(kselector* selector, kserver_selectable* st, void *arg);
 typedef void (*selector_bind)(kselector *selector, kselectable *st);
 
 typedef void (*selector_remove)(kselector *selector,kselectable *st);
@@ -81,6 +82,7 @@ typedef struct {
 	selector_bind bind;
 
 	selector_listen listen;
+	selector_accept accept;
 	selector_connect connect;
 	selector_remove remove;
 	selector_read read;

@@ -1,7 +1,51 @@
 #include "gtest/gtest.h"
 #include "kselector_manager.h"
+#include "ktest.h"
+#include "kfiber.h"
 
+void kfiber_client_connect_ssl(kserver* server)
+{
+	kconnection* cn = kconnection_new(&server->addr);
+	ASSERT_TRUE(0 == kfiber_net_connect(cn, NULL, 0));
+	SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_client(NULL, NULL, NULL);
+	kconnection_ssl_connect(cn, ssl_ctx, NULL);
+	ASSERT_TRUE(0 == kfiber_ssl_handshake(cn));
+	kfiber_client_fiber(cn);
+}
+int kfiber_client_test_ssl(void* arg, int got)
+{
+	kserver* server = (kserver*)arg;
+	for (int i = 0; i < 4; i++) {
+		kfiber_client_connect_ssl(server);
+	}
+	return 0;
+}
+
+TEST(ssl, https_client) {
+	GTEST_SKIP();
+	sockaddr_i addr;
+	ASSERT_TRUE(0 == kfiber_net_getaddr("www.baidu.com", 443, &addr));
+	kconnection* cn = kconnection_new(&addr);
+
+	ASSERT_TRUE(0 == kfiber_net_connect(cn, NULL, 0));
+	SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_client(NULL, NULL, NULL);
+	kconnection_ssl_connect(cn, ssl_ctx, NULL);
+	const char* request = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
+	ASSERT_TRUE(0 == kfiber_ssl_handshake(cn));
+	int len = strlen(request);
+	ASSERT_TRUE(kfiber_net_write_full(cn, request, &len));
+	ASSERT_TRUE(len == 0);
+	char buf[1024];
+	 len = kfiber_net_read(cn, buf, sizeof(buf)-1);
+	 ASSERT_TRUE(len > 0);
+	if (len > 0) {
+		buf[len] = '\0';
+		ASSERT_TRUE(strncmp(buf, kgl_expand_string("HTTP/1.1")) == 0);
+	}
+	kfiber_net_close(cn);
+}
 TEST(ssl, server_ssl) {
+
 	SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_server_from_memory(
 		"-----BEGIN CERTIFICATE-----\n\
 MIIDETCCAfkCFGqw5HR92Ds5slo2Pfq8z3Bxdo1iMA0GCSqGSIb3DQEBCwUAMEUx\n\
@@ -52,8 +96,13 @@ mBktbUKiCi0n5NrLYQFnSLMAmGtn8stH+rSmB9pvk/YlSXbtRhmoeltO+WOx8i+4\n\
 	ASSERT_FALSE(ssl_ctx == NULL);
 	kserver* server = kserver_init();
 	kgl_ssl_ctx* ctx2 = kgl_new_ssl_ctx(ssl_ctx);
-	kgl_add_ref_ssl_ctx(ctx2);
-	ASSERT_TRUE(kserver_open(server, "127.0.0.1", 0, 0, ctx2));//ipv4
+	ASSERT_TRUE(kserver_bind(server, "::1", 0, ctx2));//ipv4
 	uint16_t port = ksocket_addr_port(&server->addr);
-	ASSERT_TRUE(kserver_open(kserver_init(), "::1", 0, 0, ctx2)); //ipv6
+	ASSERT_TRUE(kserver_open(server, 0, accept_callback));
+	ASSERT_TRUE(0 == kfiber_client_test_ssl(server, 0));
+	kserver_shutdown(server);
+	kfiber_msleep(100);
+	ASSERT_TRUE(server->refs == 1);
+	kserver_destroy(server);
+	//ASSERT_TRUE(kserver_bind(kserver_init(), "::1", 0, ctx2)); //ipv6
 }

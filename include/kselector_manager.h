@@ -12,6 +12,7 @@ void selector_manager_thread_init(result_callback cb, void *arg);
 void selector_manager_add_timer(result_callback timer,void *arg,int msec, kselectable *st);
 void kselector_add_timer_ts(kselector *selector,result_callback timer, void *arg, int msec, kselectable *st);
 bool is_selector_manager_init();
+
 void selector_manager_start(void(*time_hook)(), bool thread);
 void selector_manager_close();
 void selector_manager_set_timeout(int connect_tmo_sec,int rw_tmo_sec);
@@ -21,7 +22,6 @@ kselector *get_perfect_selector();
 kselector *get_selector_by_index(int index);
 int kasync_main(kfiber_start_func main, void* arg, int argc);
 void kasync_init();
-bool selector_manager_listen(kserver *st, result_callback callback);
 const char *selector_manager_event_name();
 KEND_DECLS
 #endif

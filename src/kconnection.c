@@ -170,7 +170,8 @@ kev_result kselectable_ssl_handshake(kselectable *st,result_callback cb, void *a
 check_status:
 #ifdef ENABLE_KSSL_BIO
 	if (status != ret_error && BIO_pending(ssl->bio[OP_WRITE].bio) > 0) {
-		return selectable_write(st, cb, st->data, arg);
+		//want write
+		return selectable_write(st, cb, NULL, arg);
 	}
 #endif
 	switch (status) {

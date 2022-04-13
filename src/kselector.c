@@ -121,6 +121,9 @@ void kselector_next(kselector *selector, KOPAQUE data, result_callback result, v
 }
 void kselector_add_list(kselector *selector, kselectable *st, int list)
 {
+	if (!kselector_is_same_thread(selector)) {
+		assert(false);
+	}
 	kassert(kselector_is_same_thread(selector));
 	st->tmo_left = st->tmo;
 	kassert(st->selector == selector);

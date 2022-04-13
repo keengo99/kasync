@@ -58,7 +58,10 @@ struct _kfiber {
 	uint16_t st_flags;//always set STF_FIBER
 	/////////以上三个必须和kselectable相同
 	uint16_t stk_page;
-	volatile int retval;
+	union {
+		volatile int start_arg;
+		volatile int retval;
+	};
 	volatile int32_t ref;
 	volatile uint8_t start_called;
 #ifndef NDEBUG

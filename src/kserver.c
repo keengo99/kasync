@@ -19,13 +19,8 @@ typedef struct {
 } kserver_update_ssl_ctx_param;
 #endif
 
-int kgl_failed_tries = 0;
-kev_result next_server_request(KOPAQUE data, void *arg, int got)
-{
-	kconnection *c = (kconnection *)arg;
-	c->server->accept_callback(c,c->server->ctx);
-	return kev_ok;
-}
+static int kgl_failed_tries = 0;
+
 #ifndef KGL_IOCP
 kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 {
@@ -34,44 +29,14 @@ kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 	return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);
 }
 #endif
-void accept_result(kserver_selectable *ss, SOCKET sockfd, sockaddr_i *sockaddr)
-{
-#ifndef NDEBUG
-	//klog(KLOG_DEBUG,"new client %s:%d connect to %s:%d sockfd=%d\n", socket->get_remote_ip().c_str(), socket->get_remote_port(),socket->get_self_ip().c_str(),socket->get_self_port(),socket->get_socket());
-#endif
 
-	kconnection *c = kconnection_new(sockaddr);	
-	c->st.fd = sockfd;
-	c->server = ss->server;
-	kserver_refs(ss->server);	
-	if (is_server_multi_selectable(ss->server)) {
-		c->st.selector = ss->st.selector;
-	} else {
-		c->st.selector = get_perfect_selector();
-	}
-#ifdef KSOCKET_SSL
-	SSL_CTX *ssl_ctx = kserver_selectable_get_ssl_ctx(ss);
-	if (ssl_ctx) {
-		if (!kconnection_ssl_accept(c,ssl_ctx)) {
-			klog(KLOG_ERR, "cann't create ssl object\n");
-			kconnection_destroy(c);
-			return;
-		}
-	}
-#endif
-	if (ss->st.selector == c->st.selector) {
-		c->server->accept_callback(c,c->server->ctx);
-		return;
-	}
-	selectable_next(&c->st, next_server_request, c,0);
-}
-SOCKET kserver_get_socket(kserver_selectable *ss, int got)
+static SOCKET kserver_get_socket(kserver_selectable* ss, int got)
 {
 #ifndef _WIN32
 	return got;
 #else
 	SOCKET sockfd;
-	if (got < 0) {		
+	if (got < 0) {
 		ksocket_close(ss->accept_sockfd);
 		ksocket_init(sockfd);
 	} else {
@@ -81,28 +46,41 @@ SOCKET kserver_get_socket(kserver_selectable *ss, int got)
 	return sockfd;
 #endif
 }
-kev_result handle_server_listen(KOPAQUE data, void *arg, int got)
-{
-	kserver_selectable *ss = (kserver_selectable *)arg;
-	SOCKET sockfd = kserver_get_socket(ss, got);
-	if (ksocket_opened(sockfd)) {
-		accept_result(ss,sockfd,&ss->accept_addr);
-	} else {
-		klog(KLOG_ERR, "cann't accept connect,errno=[%d]\n", errno);
+kselector* kserver_get_perfect_selector(kserver_selectable* ss) {
+	if (is_server_multi_selectable(ss->server)) {
+		return ss->st.selector;
 	}
-	if (ss->server->closed) {
-		selectable_remove(&ss->st);
-		ss->server->started = false;
-		kserver_release(ss->server);
-		return kev_destroy;
-	}
-	return kev_ok;
+	return get_perfect_selector();
 }
+kconnection* accept_result_new_connection(KOPAQUE data,int got)
+{
+	kserver_selectable* ss = (kserver_selectable*)data;
+	SOCKET sockfd = kserver_get_socket(ss, got);
+	if (!ksocket_opened(sockfd)) {
+		return NULL;
+	}
+	kconnection* c = kconnection_new(&ss->accept_addr);
+	c->st.fd = sockfd;
+	c->server = ss->server;
+	kserver_refs(ss->server);	
+#ifdef KSOCKET_SSL
+	SSL_CTX* ssl_ctx = kserver_selectable_get_ssl_ctx(ss);
+	if (ssl_ctx) {
+		if (!kconnection_ssl_accept(c, ssl_ctx)) {
+			klog(KLOG_ERR, "cann't create ssl object\n");
+			kconnection_real_destroy(c);
+			return NULL;
+		}
+	}
+#endif
+	return c;
+};
 kserver *kserver_init()
 {
 	kserver *server = xmemory_new(kserver);
 	memset(server, 0, sizeof(kserver));
 	server->refs = 1;
+	klist_init(&server->ss);
 	return server;
 }
 void kserver_selectable_free(kserver_selectable *ss) {
@@ -128,9 +106,15 @@ void kserver_selectable_free(kserver_selectable *ss) {
 #endif
 	xfree(ss);
 }
+bool kserver_selectable_accept(kserver_selectable* ss, void *arg)
+{
+	assert(ss->st.data == ss);
+	assert(ss->st.e[STF_READ].result != NULL);
+	return	kgl_selector_module.accept(ss->st.selector, ss, arg);
+}
 kserver_selectable *kserver_selectable_init(kserver *server, SOCKET sockfd)
 {
-	kserver_selectable *ss = (kserver_selectable *)malloc(sizeof(kserver_selectable));
+	kserver_selectable *ss = (kserver_selectable *)xmalloc(sizeof(kserver_selectable));
 	memset(ss, 0, sizeof(kserver_selectable));
 	ss->server = server;
 	ss->st.fd = sockfd;
@@ -138,53 +122,69 @@ kserver_selectable *kserver_selectable_init(kserver *server, SOCKET sockfd)
 	ss->tmp_addr_buf = (char *)xmalloc(2 * sizeof(sockaddr_i) + 64);
 	ksocket_init(ss->accept_sockfd);
 #endif
+	kserver_refs(server);
+	ss->ssl_ctx = server->ssl_ctx;
+	if (ss->ssl_ctx) {
+		kgl_add_ref_ssl_ctx(ss->ssl_ctx);
+	}
 	return ss;
 }
-void add_server_socket(kserver *server,SOCKET sockfd)
+kserver_selectable *add_server_socket(kserver *server,SOCKET sockfd)
 {
 	kserver_selectable *ss = kserver_selectable_init(server, sockfd);
-	ss->next = server->ss;
-	server->ss = ss;
+	klist_append(&server->ss, &ss->queue);
+	return ss;
 }
-bool kserver_internal_open(kserver *server,const char *ip,u_short port,int flag)
+static kserver_selectable* kserver_listen_on_selector(kselector *selector, kserver* server, int flag, result_callback accept_callback)
 {
-	if (*ip=='/') {
-#ifdef KSOCKET_UNIX	
-		ksocket_unix_addr(ip,&server->un_addr);
-#endif
-	} else {
-		if (!ksocket_getaddr(ip, port, 0, AI_NUMERICHOST, &server->addr)) {
-			return false;
-		}
-	}
 	KBIT_SET(flag, KSOCKET_REUSEPORT);
-	int selector_count = get_selector_count();
-	int i;
-	for (i = 0; i < selector_count; i++) {
-		SOCKET sockfd = ksocket_listen(&server->addr, flag);
+	SOCKET sockfd;
+	for (;;) {
+		sockfd = ksocket_listen(&server->addr, flag);
 		if (ksocket_opened(sockfd)) {
-			if (port == 0) {
-				//update addr
-				socklen_t addr_len = (socklen_t)ksocket_addr_len(&server->addr);
-				getsockname(sockfd, (struct sockaddr *)&server->addr, &addr_len);
-				//update port is set
-				port = 1;
-			}
-			add_server_socket(server, sockfd);
-#ifdef _WIN32
 			break;
-#endif
-			continue;
 		}
-		break;
+		if (kgl_failed_tries > 10) {
+			break;
+		}
+		kgl_failed_tries++;
+		if (kfiber_self() == NULL) {
+			kgl_msleep(500);
+		} else {
+			kfiber_msleep(500);
+		}
 	}
-	return server->ss != NULL;
+	if (!ksocket_opened(sockfd)) {
+		return NULL;
+	}
+	if (ksocket_addr_port(&server->addr) == 0) {
+		//update addr
+		socklen_t addr_len = (socklen_t)ksocket_addr_len(&server->addr);
+		getsockname(sockfd, (struct sockaddr*)&server->addr, &addr_len);
+	}
+	kserver_selectable* ss = add_server_socket(server, sockfd);
+	if (ss == NULL) {
+		return NULL;
+	}
+	ss->st.data = ss;
+	ss->st.selector = selector;
+	assert(ss->st.selector);
+	kgl_selector_module.listen(ss->st.selector, ss, accept_callback);
+	return ss;
 }
-bool kserver_bind_address(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx)
+kserver_selectable* kserver_listen(kserver* server, int flag, result_callback accept_callback)
+{
+	return kserver_listen_on_selector(kgl_get_tls_selector(), server, flag, accept_callback);
+}
+
+bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *ssl_ctx)
 {
 #ifdef KSOCKET_SSL
 	if (server->ssl && ssl_ctx == NULL) {
 		return false;
+	}
+	if (ssl_ctx) {
+		server->ssl = 1;
 	}
 #endif
 	if (*ip=='/') {
@@ -199,84 +199,69 @@ bool kserver_bind_address(kserver *server, const char *ip, uint16_t port, int fl
 #endif
 		return false;
 	}
-	KBIT_SET(flag, KSOCKET_REUSEPORT);
 #ifdef KSOCKET_SSL
 	kserver_set_ssl_ctx(server, ssl_ctx);
 #endif
 	return true;
 }
-bool kserver_open(kserver *server, const char *ip, uint16_t port, int flag, kgl_ssl_ctx *ssl_ctx) {
-	kassert(server->ss == NULL);
-	bool result = false;
-#ifdef KSOCKET_SSL
-	if (server->ssl && ssl_ctx == NULL) {
-		return false;
-	}
-#endif
-	//int flag = (ipv4 ? KSOCKET_ONLY_IPV4 : KSOCKET_ONLY_IPV6);
-#ifdef ENABLE_TPROXY
-	//if (KBIT_TEST(server->flags, WORK_MODEL_TPROXY)) {
-	//	flag |= KSOCKET_TPROXY;
-	//}
-#endif
-	for (;;) {
-		result = kserver_internal_open(server,ip,port,flag);
-		if (result) {
-			break;
-		}
-		if (kgl_failed_tries > 10) {
-			break;
-		}
-		kgl_failed_tries++;
-		if (kfiber_self() == NULL) {
-			kgl_msleep(500);
-		} else {
-			kfiber_msleep(500);
-		}
-	}
-	if (!result) {
-		int err = errno;
-		klog(KLOG_ERR, "cann't listen [%s:%d],error=[%d]\n", ip, port, err);
-#ifdef KSOCKET_SSL
-		if (ssl_ctx) {
-			kgl_release_ssl_ctx(ssl_ctx);
-		}
-#endif
-		return false;
-	}
-	if (port==0) {
-		port = ksocket_addr_port(&server->addr);
-	}
-	klog(KLOG_NOTICE, "listen [%s:%d] success\n", ip, port);
-#ifdef KSOCKET_SSL
-	kserver_set_ssl_ctx(server, ssl_ctx);
-#endif
-	return true;
-}
-void kserver_bind(kserver *server, kserver_accept_callback accept_callback, kserver_close_callback close_callback, void *ctx)
+static kev_result kserver_next_accept(KOPAQUE data, void* arg, int got)
 {
-	server->accept_callback = accept_callback;
-	server->close_callback = close_callback;
-	server->ctx = ctx;
-}
-bool kserver_accept(kserver *server)
-{	
-	kassert(!server->started);
-	if (selector_manager_listen(server, handle_server_listen)) {
-		server->started = 1;
-		return true;
+	kserver_selectable* ss = (kserver_selectable*)arg;
+	if (!kgl_selector_module.accept(kgl_get_tls_selector(), ss, NULL)) {
+		kserver_selectable_destroy(ss);
 	}
-	return false;
+	return kev_ok;
 }
+static void kserver_selectable_start(kserver_selectable* ss) {
 
-void kserver_free(kserver *server) {
-	while (server->ss) {
-		kserver_selectable *next = server->ss->next;
-		kserver_selectable_free(server->ss);
-		server->ss = next;
+	if (ss->st.selector == kgl_get_tls_selector()) {
+		kserver_next_accept(NULL, ss, 0);
+	} else {
+		selectable_next(&ss->st, kserver_next_accept, ss, 0);
 	}
-	if (server->close_callback) {
-		server->close_callback(server->ctx);
+}
+bool kserver_open(kserver* server, int flag, result_callback accept_callback)
+{
+	KBIT_SET(flag, KSOCKET_REUSEPORT);
+	int i;
+	bool result = false;
+	assert(!server->started);
+	if (!is_server_supported_multi_selectable()) {
+		kserver_selectable *ss = kserver_listen_on_selector(get_perfect_selector(), server, flag, accept_callback);
+		if (ss != NULL) {
+			server->started = true;
+			result = true;
+			kserver_selectable_start(ss);
+		}
+		return result;
+	}
+	int selector_count = get_selector_count();
+	for (i = 0; i < selector_count; i++) {
+		kserver_selectable* ss = kserver_listen_on_selector(get_selector_by_index(i), server, flag, accept_callback);
+		if (ss != NULL) {
+			result = true;
+			server->started = true;
+			kserver_selectable_start(ss);
+		}
+	}
+	return result;
+}
+static void kserver_free(kserver *server) {
+	assert(klist_empty(&server->ss));
+	for (;;) {
+		kgl_list* pos = klist_head(&server->ss);
+		if (pos == &server->ss) {
+			break;
+		}
+		klist_remove(pos);
+		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
+		kserver_selectable_free(ss);
+	}
+	if (server->free_opaque) {
+		server->free_opaque(server->data);
+	}
+	if (server->ssl_ctx) {
+		kgl_release_ssl_ctx(server->ssl_ctx);
 	}
 	xfree(server);
 }
@@ -287,18 +272,18 @@ void kserver_release(kserver *server)
 	}
 	return;
 }
-void kserver_accept2(kserver_selectable *ss,result_callback accept_callback,void *arg)
+
+void kserver_selectable_destroy(kserver_selectable *ss)
 {
-	kselector * selector = kgl_get_tls_selector();
-	kserver_refs(ss->server);
-	kgl_selector_module.listen(selector,ss, handle_server_listen);
-}
-void kserver_close2(kserver_selectable *ss)
-{
-	if (ksocket_opened(ss->st.fd)) {			
+	if (ksocket_opened(ss->st.fd)) {
 		ksocket_close(ss->st.fd);
 		ksocket_init(ss->st.fd);
 	}
+	assert(ss->server);
+	assert(!klist_empty(&ss->server->ss));
+	klist_remove(&ss->queue);
+	kserver_release(ss->server);
+	kserver_selectable_free(ss);
 }
 void kserver_shutdown(kserver_selectable *ss)
 {
@@ -306,17 +291,29 @@ void kserver_shutdown(kserver_selectable *ss)
 		ksocket_shutdown(ss->st.fd, SHUT_RDWR);
 	}
 }
+void kserver_shutdown(kserver* server)
+{
+	server->closed = true;
+	kgl_list* pos;
+	klist_foreach(pos, &server->ss) {
+		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
+		selectable_shutdown(&ss->st);
+	}
+}
 void kserver_close(kserver *server)
 {
 	server->closed = true;
-	kserver_selectable *ss = server->ss;
-	while (ss) {
+	kgl_list* pos;
+	klist_foreach(pos, &server->ss) {
+		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
 		if (ksocket_opened(ss->st.fd)) {
+#ifdef _WIN32
+			ksocket_cancel(ss->st.fd);
+#endif
 			ksocket_shutdown(ss->st.fd, SHUT_RDWR);
 			ksocket_close(ss->st.fd);
 			ksocket_init(ss->st.fd);
 		}
-		ss = ss->next;
 	}
 }
 #ifdef KSOCKET_SSL
@@ -336,12 +333,17 @@ static kev_result kserver_ssl_ctx_next_update(KOPAQUE data, void *arg, int got)
 }
 void kserver_set_ssl_ctx(kserver *server, kgl_ssl_ctx *ssl_ctx)
 {
-	if (server->ssl && ssl_ctx == NULL) {
+	if (server->ssl_ctx && ssl_ctx == NULL) {
 		//cann't set ssl_ctx to NULL
 		return;
 	}
-	kserver_selectable *ss = server->ss;
-	while (ss) {
+	if (server->ssl_ctx) {
+		kgl_release_ssl_ctx(server->ssl_ctx);
+	}
+	server->ssl_ctx = ssl_ctx;
+	kgl_list* pos;
+	klist_foreach(pos, &server->ss) {
+		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);	
 		if (ssl_ctx) {
 			kgl_add_ref_ssl_ctx(ssl_ctx);
 		}
@@ -353,10 +355,6 @@ void kserver_set_ssl_ctx(kserver *server, kgl_ssl_ctx *ssl_ctx)
 			param->ssl_ctx = ssl_ctx;
 			selectable_next(&ss->st, kserver_ssl_ctx_next_update, param, 0);
 		}
-		ss = ss->next;
-	}
-	if (ssl_ctx) {
-		kgl_release_ssl_ctx(ssl_ctx);
 	}
 }
 #endif

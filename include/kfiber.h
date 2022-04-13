@@ -6,6 +6,7 @@
 #include "ksocket.h"
 #include "kasync_file.h"
 #include "kconnection.h"
+#include "kserver.h"
 #include "kfiber_internal.h"
 KBEGIN_DECLS
 #define _ST_PAGE_SIZE 4096
@@ -28,9 +29,10 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size);
 int kfiber_start(kfiber* fiber,int len);
 int kfiber_create(kfiber_start_func start, void *arg, int len, int stk_size, kfiber **fiber);
 int kfiber_create2(kselector *selector, kfiber_start_func start, void *start_arg, int len, int stk_size, kfiber** fiber);
-int kfiber_next(kfiber_start_func start, void* start_arg, int len);
-void kfiber_yield();
+//void kfiber_yield();
+//kfiber next deprecated
 bool kfiber_has_next();
+int kfiber_next(kfiber_start_func start, void* start_arg, int len);
 kfiber *kfiber_self();
 //增加fiber引用
 kfiber *kfiber_ref_self(bool thread_safe);
@@ -56,7 +58,8 @@ int kfiber_chan_close(kfiber_chan *ch);
 
 //socket
 #define kfiber_net_open kconnection_new
-
+int kfiber_net_listen(kserver* server, int flag, kserver_selectable **ss);
+int kfiber_net_accept(kserver_selectable* ss, kconnection **cn);
 int kfiber_net_getaddr(const char *hostname, uint16_t port, sockaddr_i *addr);
 int kfiber_net_connect(kconnection *cn, sockaddr_i *bind_addr, int tproxy_mask);
 int kfiber_net_write(kconnection *cn, const char *buf, int len);
