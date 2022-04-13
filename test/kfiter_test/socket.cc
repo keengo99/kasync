@@ -68,7 +68,7 @@ TEST(socket, server_open) {
     kfiber_msleep(200);
     //printf("server->refs = [%d]\n", server->refs);
     assert(server->refs == 1);
-    kserver_destroy(server);
+    kserver_release(server);
 }
 
 

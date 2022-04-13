@@ -103,6 +103,6 @@ mBktbUKiCi0n5NrLYQFnSLMAmGtn8stH+rSmB9pvk/YlSXbtRhmoeltO+WOx8i+4\n\
 	kserver_shutdown(server);
 	kfiber_msleep(100);
 	ASSERT_TRUE(server->refs == 1);
-	kserver_destroy(server);
+	kserver_release(server);
 	//ASSERT_TRUE(kserver_bind(kserver_init(), "::1", 0, ctx2)); //ipv6
 }

@@ -11,7 +11,7 @@
 #define IS_VALIDE_CONNECTION(got) (got>=0)
 
 #define KACCEPT_CALLBACK_DECLEAR(fn)\
-kev_result fn##(KOPAQUE data, void *arg, int got)
+kev_result fn(KOPAQUE data, void *arg, int got)
 
 #define KACCEPT_CALLBACK(fn)\
 static kev_result user_##fn##(KOPAQUE data, void *arg, int got);\

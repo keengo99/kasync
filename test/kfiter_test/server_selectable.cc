@@ -10,7 +10,7 @@ KFIBER_FUNCTION(server_fiber) {
         ASSERT_TRUE(c != NULL);
         kfiber_server_test(c, 0);
     }
-    kserver_selectable_close(ss);
+    kserver_selectable_destroy(ss);
 }
 TEST(socket, server_selectable) {
     kserver* server = kserver_init();
@@ -26,5 +26,5 @@ TEST(socket, server_selectable) {
         kfiber_client_connect(server);
     }
     ASSERT_TRUE(server->refs == 1);
-    kserver_destroy(server);
+    kserver_release(server);
 }

@@ -4,7 +4,7 @@
 #include "kserver.h"
 
 #define KFIBER_FUNCTION_DECLEAR(fiber_name) \
-int fiber_name##(void *arg,int got)
+int fiber_name(void *arg,int got)
 
 #define KFIBER_FUNCTION(fiber_name) \
 void void_##fiber_name##(void *arg,int got);\
