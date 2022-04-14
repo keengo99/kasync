@@ -22,7 +22,7 @@ int kfiber_client_test_ssl(void* arg, int got)
 }
 
 TEST(ssl, https_client) {
-	GTEST_SKIP();
+	//GTEST_SKIP();
 	sockaddr_i addr;
 	ASSERT_TRUE(0 == kfiber_net_getaddr("www.baidu.com", 443, &addr));
 	kconnection* cn = kconnection_new(&addr);

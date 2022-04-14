@@ -108,6 +108,31 @@ static void kqueue_selector_next(kselector *selector,KOPAQUE data, result_callba
 		perror("notice error");
 	}
 }
+static bool kqueue_selector_accept(kselector *selector, kserver_selectable *ss, void *arg)
+{
+	kqueue_selector *es = (kqueue_selector *)selector->ctx;
+	kselectable *st = &ss->st;
+	struct kevent changes[2];
+	    int ev_count = 0;
+	st->e[OP_WRITE].arg = arg;
+	assert(st->e[OP_READ].result == kselector_event_accept);
+	KBIT_SET(st->st_flags,STF_READ);
+	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
+		kselector_add_list(selector,st,KGL_LIST_READY);
+		return true;
+	}
+	if (KBIT_TEST(st->st_flags,STF_REV)) {
+		return true;
+	}
+	KBIT_SET(st->st_flags,STF_REV|STF_ET);
+	EV_SET(&changes[ev_count++], st->fd, EVFILT_READ, EV_ADD|EV_CLEAR, 0, 0, (kqueue_udata_t)st);
+	    KBIT_SET(st->st_flags,STF_READ|STF_REV|STF_ET);
+	    if(kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL)==-1){
+		    klog(KLOG_ERR,"cann't addSocket sockfd=%d for read\n",st->fd);
+		    return false;
+	    }
+	return true;
+}
 static bool kqueue_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
 {
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
@@ -118,16 +143,10 @@ static bool kqueue_selector_listen(kselector *selector, kserver_selectable *ss, 
     st->e[OP_READ].result = kselector_event_accept;
     st->e[OP_READ].buffer = NULL;
 	
-	st->e[OP_WRITE].arg = ss;
+	st->e[OP_WRITE].arg = NULL;
 	st->e[OP_WRITE].result = result;
     assert(KBIT_TEST(st->st_flags,STF_READ)==0);
-    EV_SET(&changes[ev_count++], st->fd, EVFILT_READ, EV_ADD, 0, 0, (kqueue_udata_t)st);
-    KBIT_SET(st->st_flags,STF_READ|STF_REV);
-    if(kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL)==-1){
-            klog(KLOG_ERR,"cann't addSocket sockfd=%d for read\n",st->fd);
-            return false;
-    }
-    return true;
+        return true;
 }
 static bool kqueue_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {
@@ -199,57 +218,49 @@ static bool kqueue_selector_recvfrom(kselector *selector, kselectable *st, resul
 {
 	return false;
 }
-static void kqueue_selector_select(kselector *selector) 
+static int kqueue_selector_select(kselector *selector) 
 {
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
 	struct kevent events[MAXEVENT]; 
 	struct timespec tm;
 	tm.tv_sec = SELECTOR_TMO_MSEC/1000;
 	tm.tv_nsec = SELECTOR_TMO_MSEC * 1000 - tm.tv_sec * 1000000;
-	int ret = 0;
-	for (;;) {
-#ifdef MALLOCDEBUG
-		if (kselector_can_close(selector)) {
-			return;
-		}
-#endif
-		kselector_check_timeout(selector,ret);
-		ret = kevent(es->kdpfd, NULL, 0, events, MAXEVENT, &tm);
-		if (selector->utm) {
-			kselector_update_time();	
-		}
-		for (int n = 0; n < ret; ++n) {
-			kselectable *st = (kselectable *) events[n].udata;
+	int ret = kevent(es->kdpfd, NULL, 0, events, MAXEVENT, &tm);
+	if (selector->utm) {
+		kselector_update_time();	
+	}
+	for (int n = 0; n < ret; ++n) {
+		kselectable *st = (kselectable *) events[n].udata;
 #ifndef NDEBUG
-			klog(KLOG_DEBUG,"select st=%p,st_flags=%d,events=%d at %p\n",st,st->st_flags,events[n].filter,pthread_self());
+		//klog(KLOG_DEBUG,"select st=%p,st_flags=%d,events=%d at %p\n",st,st->st_flags,events[n].filter,pthread_self());
 #endif
-			switch (events[n].filter) {
-			case EVFILT_WRITE:
-				KBIT_SET(st->st_flags,STF_WREADY);
-				if (KBIT_TEST(st->st_flags,STF_WRITE)) {
-					kselector_add_list(selector,st,KGL_LIST_READY);
-				}
-				break;
-			case EVFILT_READ:
-			case EVFILT_USER:
-				KBIT_SET(st->st_flags,STF_RREADY);
-				if (KBIT_TEST(st->st_flags,STF_READ)) {
-					kselector_add_list(selector,st,KGL_LIST_READY);
-				}
-				break;
-			case EVFILT_AIO:
-				if (KBIT_TEST(st->st_flags,STF_READ)) {
-					KBIT_SET(st->st_flags,STF_RREADY);
-				} else if (KBIT_TEST(st->st_flags,STF_WRITE)){
-					KBIT_SET(st->st_flags,STF_WREADY);
-				}
+		switch (events[n].filter) {
+		case EVFILT_WRITE:
+			KBIT_SET(st->st_flags,STF_WREADY);
+			if (KBIT_TEST(st->st_flags,STF_WRITE)) {
 				kselector_add_list(selector,st,KGL_LIST_READY);
-				break;
-			default:
-				kassert(false);
 			}
+			break;
+		case EVFILT_READ:
+		case EVFILT_USER:
+			KBIT_SET(st->st_flags,STF_RREADY);
+			if (KBIT_TEST(st->st_flags,STF_READ)) {
+				kselector_add_list(selector,st,KGL_LIST_READY);
+			}
+			break;
+		case EVFILT_AIO:
+			if (KBIT_TEST(st->st_flags,STF_READ)) {
+				KBIT_SET(st->st_flags,STF_RREADY);
+			} else if (KBIT_TEST(st->st_flags,STF_WRITE)){
+				KBIT_SET(st->st_flags,STF_WREADY);
+			}
+			kselector_add_list(selector,st,KGL_LIST_READY);
+			break;
+		default:
+			kassert(false);
 		}
 	}
+	return ret;
 }
 void kqueue_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
@@ -330,7 +341,7 @@ static void kqueue_selector_remove(kselector *selector, kselectable *st)
 	}
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
 #ifndef NDEBUG
-	klog(KLOG_DEBUG,"remove socket st=%p\n",st);
+	//klog(KLOG_DEBUG,"remove socket st=%p\n",st);
 #endif
 	struct kevent changes[2];
 	int ev_count = 0;
@@ -349,6 +360,7 @@ static kselector_module kqueue_selector_module = {
 	kqueue_selector_destroy,
 	kselector_default_bind,
 	kqueue_selector_listen,
+	kqueue_selector_accept,
 	kqueue_selector_connect,
 	kqueue_selector_remove,
 	kqueue_selector_read,

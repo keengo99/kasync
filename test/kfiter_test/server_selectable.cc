@@ -13,7 +13,7 @@ KFIBER_FUNCTION(server_fiber) {
     kserver_selectable_destroy(ss);
 }
 TEST(socket, server_selectable) {
-    GTEST_SKIP();
+    //GTEST_SKIP();
     kserver* server = kserver_init();
     ASSERT_TRUE(kserver_bind(server, "::1", 0,  NULL));//ipv6
     //kserver_selectable* ss = kserver_listen(server, 0, accept_callback, NULL);
