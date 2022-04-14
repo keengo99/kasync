@@ -188,36 +188,40 @@ static void epoll_selector_next(kselector *selector, KOPAQUE data, result_callba
 	kepoll_notice(&es->notice_st, data, result, arg, got);
 	return;
 }
-static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+static bool epoll_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	struct epoll_event ev;
 	kselectable *st = &ss->st;
+	st->e[OP_WRITE].arg = arg;
+	assert(st->e[OP_READ].result == kselector_event_accept);
+	KBIT_SET(st->st_flags,STF_READ);
+	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
+		kselector_add_list(selector,st,KGL_LIST_READY);
+		return true;
+	}
+	if (KBIT_TEST(st->st_flags,STF_REV)) {
+		return true;
+	}
+	KBIT_SET(st->st_flags,STF_REV|STF_ET);
+	ev.events = EPOLLIN|EPOLLRDHUP|EPOLLET;
+	ev.data.ptr = st;
+	int ret = epoll_ctl(es->kdpfd, EPOLL_CTL_ADD, st->fd, &ev);
+	if (ret!=0) {
+		KBIT_CLR(st->st_flags,STF_READ|STF_ET|STF_REV);
+		return false;
+	}	
+	return true;
+}
+static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+{
+	kepoll_selector *es = (kepoll_selector *)selector->ctx;	
+	kselectable *st = &ss->st;
 	st->e[OP_READ].arg = ss;
 	st->e[OP_READ].result = kselector_event_accept;
 	st->e[OP_READ].buffer = NULL;
-	
-	st->e[OP_WRITE].arg = ss;
+	KBIT_SET(st->st_flags,STF_RREADY);	
 	st->e[OP_WRITE].result = result;
-	SOCKET sockfd = st->fd;
-	int poll_op;
-	if (KBIT_TEST(st->st_flags,STF_REV)) {
-		poll_op = EPOLL_CTL_MOD;
-	} else {
-		poll_op = EPOLL_CTL_ADD;
-	}
-	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
-	KBIT_SET(st->st_flags,STF_READ|STF_REV);	
-	ev.events = EPOLLIN;
-	ev.data.ptr = st;
-	if (KBIT_TEST(st->st_flags,STF_ET)) {
-		KBIT_SET(ev.events,EPOLLET);
-	}
-	int ret = epoll_ctl(es->kdpfd, poll_op, sockfd, &ev);
-	if (ret !=0) {
-		klog(KLOG_ERR, "epoll add listen event error: fd=%d,errno=%d %s\n", sockfd,errno,strerror(errno));
-		return false;
-	}
 	return true;
 }
 static bool epoll_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
@@ -246,12 +250,7 @@ static void epoll_selector_remove(kselector *selector, kselectable *st)
 	}
 	kselector_remove_list(selector,st);
 	SOCKET sockfd = st->fd;
-#ifndef NDEBUG
-	if (KBIT_TEST(st->st_flags,STF_ET)) {
-		assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP)==0);
-	}
-	//klog(KLOG_DEBUG,"removeSocket st=%p,sockfd=%d\n",st,sockfd);
-#endif
+	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RDHUP)==0);
 	struct epoll_event ev;
 	KBIT_CLR(st->st_flags,STF_REV|STF_WEV|STF_ET|STF_RREADY|STF_WREADY);
 	if (epoll_ctl(es->kdpfd, EPOLL_CTL_DEL,sockfd, &ev) != 0) {
@@ -411,12 +410,14 @@ static int epoll_selector_select(kselector *selector) {
 			}
 		}
 		//read ready
-		if (KBIT_TEST(ev,EPOLLIN|EPOLLPRI)) {
+		if (KBIT_TEST(ev,EPOLLIN|EPOLLPRI|EPOLLHUP)) {
 			KBIT_SET(st->st_flags,STF_RREADY);
 			if (KBIT_TEST(st->st_flags,STF_READ|STF_RECVFROM) && !in_ready_list) {
+				in_ready_list = true;
 				kselector_add_list(selector,st,KGL_LIST_READY);
 			}
 		}
+		assert(in_ready_list);
 	}
 	return ret;
 }
@@ -505,6 +506,7 @@ static kselector_module epoll_selector_module = {
 	epoll_selector_destroy,
 	kselector_default_bind,
 	epoll_selector_listen,
+	epoll_selector_accept,
 	epoll_selector_connect,
 	epoll_selector_remove,
 	epoll_selector_read,

@@ -8,14 +8,16 @@
 #include "kmalloc.h"
 #include "kgl_ssl.h"
 #include "kcountable.h"
+#include "ksync.h"
+
 #define IS_VALIDE_CONNECTION(got) (got>=0)
 
 #define KACCEPT_CALLBACK_DECLEAR(fn)\
 kev_result fn(KOPAQUE data, void *arg, int got)
 
 #define KACCEPT_CALLBACK(fn)\
-static kev_result user_##fn##(KOPAQUE data, void *arg, int got);\
-kev_result fn##(KOPAQUE data, void *arg, int got) { \
+static kev_result user_##fn##_callback(KOPAQUE data, void *arg, int got);\
+kev_result fn(KOPAQUE data, void *arg, int got) { \
 	assert(arg==NULL);\
 	kserver_selectable *ss = (kserver_selectable *)data;\
 	assert(ss->st.selector == kgl_get_tls_selector());\
@@ -26,16 +28,16 @@ kev_result fn##(KOPAQUE data, void *arg, int got) { \
 	}\
 	cn->st.selector = kserver_get_perfect_selector(ss);\
 	if (cn->st.selector!=ss->st.selector) {\
-		kgl_selector_module.next(cn->st.selector, data, user_##fn##, cn, got);\
+		kgl_selector_module.next(cn->st.selector, data, user_##fn##_callback, cn, got);\
 	} else {\
-		user_##fn##(data, cn, got);\
+		user_##fn##_callback(data, cn, got);\
 	}\
 	if (ss->server->closed || !kserver_selectable_accept(ss, arg)) {\
 		kserver_selectable_destroy(ss); \
 	}\
 	return kev_ok;\
 }\
-kev_result user_##fn##(KOPAQUE data, void *arg, int got)
+kev_result user_##fn##_callback(KOPAQUE data, void *arg, int got)
 
 KBEGIN_DECLS
 
@@ -61,6 +63,7 @@ struct kserver_s {
 	kserver_free_opaque  free_opaque;
 	KOPAQUE data;
 	kgl_list ss;
+	kmutex ss_lock;
 #ifdef KSOCKET_UNIX
 	union {
 		sockaddr_i addr;
@@ -81,13 +84,7 @@ struct kserver_s {
 	uint8_t dynamic:1;
 	uint8_t global:1;
 };
-INLINE bool is_server_multi_selectable(kserver *server) {
-	kgl_list *ss_list =  klist_head(&server->ss);
-	if (ss_list == &server->ss) {
-		return false;
-	}
-	return ss_list->next != &server->ss;
-}
+bool is_server_multi_selectable(kserver *server);
 kserver *kserver_init();
 INLINE bool is_server_supported_multi_selectable()
 {
@@ -113,11 +110,10 @@ bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
 void kserver_selectable_destroy(kserver_selectable *ss);
 kconnection* accept_result_new_connection(KOPAQUE data, int got);
 
-void kserver_shutdown(kserver* server);
 //kserver_close并不会释放server,释放server要调用kserver_release
 void kserver_close(kserver *server);
+#define kserver_shutdown kserver_close
 void kserver_release(kserver *server);
-
 
 #ifdef KSOCKET_SSL
 //bool kserver_open_ssl(kserver *server, const char *ip, uint16_t port, int flag, SSL_CTX *ssl_ctx);
@@ -131,12 +127,10 @@ INLINE SSL_CTX *kserver_selectable_get_ssl_ctx(kserver_selectable *ss)
 }
 INLINE SSL_CTX *kserver_get_ssl_ctx(kserver *server)
 {
-	kgl_list* ss_list = klist_head(&server->ss);
-	if (ss_list == &server->ss) {
+	if (server->ssl_ctx==NULL) {
 		return NULL;
 	}
-
-	return kserver_selectable_get_ssl_ctx(kgl_list_data(ss_list, kserver_selectable, queue));
+	return kgl_get_ssl_ctx(server->ssl_ctx);
 }
 #endif
 kselector* kserver_get_perfect_selector(kserver_selectable* ss);

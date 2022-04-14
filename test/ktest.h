@@ -7,12 +7,12 @@
 int fiber_name(void *arg,int got)
 
 #define KFIBER_FUNCTION(fiber_name) \
-void void_##fiber_name##(void *arg,int got);\
-int  fiber_name## (void *arg, int got) {\
-	void_##fiber_name##(arg, got);\
+void void_##fiber_name##_fn(void *arg,int got);\
+int  fiber_name(void *arg, int got) {\
+	void_##fiber_name##_fn(arg, got);\
 	return 0;\
 }\
-void void_##fiber_name##(void *arg,int got)
+void void_##fiber_name##_fn(void *arg,int got)
 
 KFIBER_FUNCTION_DECLEAR(kfiber_server_test);
 void kfiber_client_connect(kserver* server);

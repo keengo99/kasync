@@ -10,7 +10,10 @@
 #include "kfiber_sync.h"
 #ifdef _WIN32
 #include "kiocp_selector.h"
+#else
+#include <signal.h>
 #endif
+
 #ifdef LINUX
 #ifdef LINUX_IOURING
 #include "kiouring_selector.h"
@@ -364,6 +367,9 @@ void kasync_init()
 	if (kgl_selector_module.name) {
 		return;
 	}
+#ifndef _WIN32
+	signal(SIGPIPE,SIG_IGN);
+#endif
 	ksocket_startup();
 	kselector_update_time();
 	pthread_key_create(&kgl_selector_key, NULL);

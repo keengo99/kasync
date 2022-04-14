@@ -179,6 +179,8 @@ void kfiber_wakeup(kfiber* fiber, void* obj, int ret)
 {
 	kfiber* fiber_from = kfiber_self();
 	kassert(fiber_from);
+	kassert(fiber_from->selector);
+	kassert(fiber->selector);
 	kassert(fiber_from->selector == fiber->selector);
 #ifndef NDEBUG
 	if (fiber->wait_flag) {
@@ -247,6 +249,7 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
 	fiber->retval = got;
 	kfiber_delete_context(fiber);
 	if (fiber->close_cond) {
+		printf("notice fiber got=[%d]\n",got);
 		fiber->close_cond->f->notice(fiber->close_cond, got);
 	}
 	kfiber_release(fiber);

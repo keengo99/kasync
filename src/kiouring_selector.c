@@ -142,7 +142,7 @@ static bool iouring_add_accept_event(kselector *selector,kserver_selectable *ss,
 	}
 	KBIT_SET(ss->st.st_flags,STF_READ);
 	ss->addr_len = (socklen_t)ksocket_addr_len(&ss->accept_addr);
-	io_uring_prep_accept(sqe, e->st->fd,(struct sockaddr *)&ss->accept_addr,&ss->addr_len,SOCK_CLOEXEC);
+	io_uring_prep_accept(sqe, e->st->fd,(struct sockaddr *)&ss->accept_addr,&ss->addr_len,SOCK_CLOEXEC);
 	io_uring_sqe_set_data(sqe, e);
 	return true;
 
@@ -152,22 +152,21 @@ static kev_result iouring_listen_result(KOPAQUE data, void *arg,int got)
 	kserver_selectable *ss = (kserver_selectable *)arg;
 	kselectable *st = &ss->st;
 	if (got<0) {
-		klog(KLOG_ERR,"iouring accept failed. error=[%d]\n",got);
+		//klog(KLOG_ERR,"iouring accept failed. error=[%d]\n",got);
 		ksocket_init(got);
 	}
-	kev_result ret = st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg,got);
-	if (!KEV_AVAILABLE(ret)) {
-		return ret;
-	}
-	if (!iouring_add_accept_event(st->selector,ss,&st->e[OP_READ])) {
-		klog(KLOG_ERR,"add accept event failed\n");
-	}
-	return kev_ok;
+	return st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg,got);	
+}
+static bool iouring_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
+{
+	kselectable *st = &ss->st;
+	st->e[OP_WRITE].arg = arg;
+	kgl_event *e = &st->e[OP_READ];
+	return iouring_add_accept_event(selector,ss,e);
 }
 static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
 {
-	//printf("*****listen now\n");
-	
+	//printf("*****listen now\n");	
 	kselectable *st = &ss->st;
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = ss;
@@ -175,10 +174,11 @@ static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss,
 	e->buffer = NULL;
 	e->st = st;
 	
-	st->e[OP_WRITE].arg = ss;
+	
 	st->e[OP_WRITE].result = result;
 	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
-	return iouring_add_accept_event(selector,ss,e);
+	return true;
+	//return iouring_add_accept_event(selector,ss,e);
 }
 static bool iouring_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
@@ -317,7 +317,9 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
-	io_uring_prep_connect(sqe, st->fd,(struct sockaddr *)addr_buf.iov_base,(socklen_t)addr_buf.iov_len);
+	io_uring_prep_connect(sqe, st->fd,
+(struct sockaddr *)addr_buf.iov_base,
+(socklen_t)addr_buf.iov_len);
 	io_uring_sqe_set_data(sqe, e);
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
@@ -408,28 +410,19 @@ static int iouring_handle_cq(kselector *selector,struct io_uring *ring,int count
 	io_uring_smp_store_release(cq->khead, head);
 	return result;
 }
-static void iouring_selector_select(kselector *selector)
+static int iouring_selector_select(kselector *selector)
 {
 	kiouring_selector *es = (kiouring_selector *)selector->ctx;
 	struct __kernel_timespec tm;
 	memset(&tm,0,sizeof(tm));
 	tm.tv_sec = SELECTOR_TMO_MSEC/1000;
 	tm.tv_nsec = SELECTOR_TMO_MSEC * 1000 - tm.tv_sec * 1000000;
-	int result = 0;
-	for (;;) {
-#ifdef MALLOCDEBUG
-        if (kselector_can_close(selector)) {
-                return;
-        }
-#endif
-		kselector_check_timeout(selector,(int)result);
-        iouring_add_timeout(&es->ring,1,&tm);
-		int n = io_uring_submit_and_wait(&es->ring, 1);
-		if (selector->utm) {
-			kselector_update_time();
-		}
-		result = iouring_handle_cq(selector,&es->ring,n);		
+	iouring_add_timeout(&es->ring,1,&tm);
+	int n = io_uring_submit_and_wait(&es->ring, 1);
+	if (selector->utm) {
+		kselector_update_time();
 	}
+	return iouring_handle_cq(selector,&es->ring,n);
 }
 static kselector_module iouring_selector_module = {
 	"iouring",
@@ -437,6 +430,7 @@ static kselector_module iouring_selector_module = {
 	iouring_selector_destroy,
 	kselector_default_bind,
 	iouring_selector_listen,
+	iouring_selector_accept,
 	iouring_selector_connect,
 	kselector_default_remove,
 	iouring_selector_read,

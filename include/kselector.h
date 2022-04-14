@@ -126,7 +126,6 @@ KTHREAD_FUNCTION kselector_thread(void *param);
 bool kselector_is_same_thread(kselector *selector);
 void kselector_add_list(kselector *selector,kselectable *st, int list);
 void kselector_add_fiber_ready(kselector* selector, kfiber* fiber);
-void kselector_next(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got);
 void kselector_remove_list(kselector *selector, kselectable *st);
 void kselector_update_time();
 void kselector_check_timeout(kselector *selector,int event_number);

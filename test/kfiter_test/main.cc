@@ -17,7 +17,6 @@ int main(int argc, char** argv)
 	testing::InitGoogleTest(&argc,argv);
 	kasync_init();
 	kssl_init2();
-	kfiber_init();
 	kgl_addr_init();
 	selector_manager_init(1, true);
 	//selector_manager_on_ready(main_test, NULL);

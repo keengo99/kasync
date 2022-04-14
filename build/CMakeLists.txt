@@ -40,6 +40,8 @@ if (GTEST_ROOT)
     if (CMAKE_SYSTEM_NAME MATCHES "Linux") 
         #linux
         add_compile_options(-Wno-invalid-offsetof)
+        add_compile_options(-ggdb3)
+        add_compile_options(-O0)
         if (LINUX_IOURING)
             list(APPEND KASYNC_TEST_LIBS uring)
         endif()

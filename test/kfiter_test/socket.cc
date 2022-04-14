@@ -25,7 +25,7 @@ KFIBER_FUNCTION(kfiber_server_test)
     selectable_shutdown(&cn->st);
 	kfiber_net_close(cn);	
 }
-KACCEPT_CALLBACK(accept_callback) {
+KACCEPT_CALLBACK(accept_callback) {   
     kconnection* cn = (kconnection*)arg;
     assert(cn != NULL);
     assert(0==kfiber_create(kfiber_server_test, cn, 0, 0, NULL));
@@ -57,15 +57,33 @@ int kfiber_client_test(void *arg, int got)
     }
     return 0;
 }
-TEST(socket, server_open) {
+TEST(socket, server_open_close) {
     kserver* server = kserver_init();  
     ASSERT_TRUE(kserver_bind(server, "127.0.0.1", 0, NULL));//ipv4
     ASSERT_TRUE(kserver_open(server, 0, accept_callback));
-    ASSERT_TRUE(0 == kfiber_client_test(server, 0));
-    assert(server->refs == 2);
+     assert(server->refs == 2);
+    // printf("open 8888 port success.\n");
+    kfiber_msleep(100);
+   // printf("shutdown server now...\n");
     kserver_shutdown(server);
     //printf("server->refs = [%d]\n",server->refs);
-    kfiber_msleep(200);
+    kfiber_msleep(100);
+    assert(server->refs == 1);
+    kserver_release(server);
+}
+TEST(socket, server_open) {
+    //GTEST_SKIP();
+    kserver* server = kserver_init();  
+    ASSERT_TRUE(kserver_bind(server, "127.0.0.1", 0, NULL));//ipv4
+    ASSERT_TRUE(kserver_open(server, 0, accept_callback));
+    //printf("server refs=[%d]\n",server->refs);
+    ASSERT_TRUE(0 == kfiber_client_test(server, 0));
+    //printf("server refs=[%d] now shutdown..\n",server->refs);
+    assert(server->refs == 2);
+ 
+    kserver_shutdown(server);
+    //printf("server->refs = [%d]\n",server->refs);
+    kfiber_msleep(100);
     //printf("server->refs = [%d]\n", server->refs);
     assert(server->refs == 1);
     kserver_release(server);

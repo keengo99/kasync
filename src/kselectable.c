@@ -213,11 +213,10 @@ void selectable_recvfrom_event(kselectable *st)
 }
 void selectable_read_event(kselectable *st)
 {
-	//printf("handle_read_event st=[%p]\n",st);
 #ifdef STF_ET
-	if (KBIT_TEST(st->st_flags, STF_ET))
+      if (KBIT_TEST(st->st_flags, STF_ET))
 #endif
-		KBIT_CLR(st->st_flags, STF_READ);
+        KBIT_CLR(st->st_flags, STF_READ);	
 #ifdef ENABLE_KSSL_BIO
 	if (!KBIT_TEST(st->st_flags, STF_RREADY2)) {
 		selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);

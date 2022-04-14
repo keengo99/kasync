@@ -25,8 +25,23 @@ static int kgl_failed_tries = 0;
 kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 {
 	kserver_selectable *ss = (kserver_selectable *)arg;
+	//printf("ksocket_accept called...\n");
 	SOCKET sockfd = ksocket_accept(ss->st.fd,&ss->accept_addr, true);
-	return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);
+	
+	if (sockfd>=0) {
+		//printf("ksocket_accept=[%d]\n",sockfd);
+		return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);
+	}
+	if (errno==EAGAIN) {
+		//printf("try again\n");
+		assert(!KBIT_TEST(ss->st.st_flags, STF_RREADY2));
+		KBIT_CLR(ss->st.st_flags,STF_RREADY);
+		if (kgl_selector_module.accept(ss->st.selector, ss, ss->st.e[OP_WRITE].arg)) {
+			return kev_ok;
+		}
+	}
+	//printf("accept failed.\n");
+	return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);	
 }
 #endif
 
@@ -75,12 +90,25 @@ kconnection* accept_result_new_connection(KOPAQUE data,int got)
 #endif
 	return c;
 };
+bool is_server_multi_selectable(kserver *server) {
+	bool result;
+	kmutex_lock(&server->ss_lock);
+	kgl_list *ss_list =  klist_head(&server->ss);
+	if (ss_list == &server->ss) {
+		result = false;
+	} else {
+		result = (ss_list->next != &server->ss);
+	}
+	kmutex_unlock(&server->ss_lock);
+	return result;
+}
 kserver *kserver_init()
 {
 	kserver *server = xmemory_new(kserver);
 	memset(server, 0, sizeof(kserver));
 	server->refs = 1;
 	klist_init(&server->ss);
+	kmutex_init(&server->ss_lock,NULL);
 	return server;
 }
 void kserver_selectable_free(kserver_selectable *ss) {
@@ -132,7 +160,9 @@ kserver_selectable *kserver_selectable_init(kserver *server, SOCKET sockfd)
 kserver_selectable *add_server_socket(kserver *server,SOCKET sockfd)
 {
 	kserver_selectable *ss = kserver_selectable_init(server, sockfd);
+	kmutex_lock(&server->ss_lock);
 	klist_append(&server->ss, &ss->queue);
+	kmutex_unlock(&server->ss_lock);
 	return ss;
 }
 static kserver_selectable* kserver_listen_on_selector(kselector *selector, kserver* server, int flag, result_callback accept_callback)
@@ -263,6 +293,7 @@ static void kserver_free(kserver *server) {
 	if (server->ssl_ctx) {
 		kgl_release_ssl_ctx(server->ssl_ctx);
 	}
+	kmutex_destroy(&server->ss_lock);
 	xfree(server);
 }
 void kserver_release(kserver *server)
@@ -280,41 +311,23 @@ void kserver_selectable_destroy(kserver_selectable *ss)
 		ksocket_init(ss->st.fd);
 	}
 	assert(ss->server);
+	kmutex_lock(&ss->server->ss_lock);
 	assert(!klist_empty(&ss->server->ss));
 	klist_remove(&ss->queue);
+	kmutex_unlock(&ss->server->ss_lock);
 	kserver_release(ss->server);
 	kserver_selectable_free(ss);
 }
-void kserver_shutdown(kserver_selectable *ss)
-{
-	if (ksocket_opened(ss->st.fd)) {
-		ksocket_shutdown(ss->st.fd, SHUT_RDWR);
-	}
-}
-void kserver_shutdown(kserver* server)
+void kserver_close(kserver* server)
 {
 	server->closed = true;
 	kgl_list* pos;
+	kmutex_lock(&server->ss_lock);
 	klist_foreach(pos, &server->ss) {
 		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
-		selectable_shutdown(&ss->st);
+		selectable_shutdown(&ss->st);	
 	}
-}
-void kserver_close(kserver *server)
-{
-	server->closed = true;
-	kgl_list* pos;
-	klist_foreach(pos, &server->ss) {
-		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
-		if (ksocket_opened(ss->st.fd)) {
-#ifdef _WIN32
-			ksocket_cancel(ss->st.fd);
-#endif
-			ksocket_shutdown(ss->st.fd, SHUT_RDWR);
-			ksocket_close(ss->st.fd);
-			ksocket_init(ss->st.fd);
-		}
-	}
+	kmutex_unlock(&server->ss_lock);
 }
 #ifdef KSOCKET_SSL
 static void kserver_selectable_update_ssl_ctx(kserver_selectable *ss, kgl_ssl_ctx *ssl_ctx)
@@ -341,6 +354,7 @@ void kserver_set_ssl_ctx(kserver *server, kgl_ssl_ctx *ssl_ctx)
 		kgl_release_ssl_ctx(server->ssl_ctx);
 	}
 	server->ssl_ctx = ssl_ctx;
+	kmutex_lock(&server->ss_lock);
 	kgl_list* pos;
 	klist_foreach(pos, &server->ss) {
 		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);	
@@ -356,5 +370,6 @@ void kserver_set_ssl_ctx(kserver *server, kgl_ssl_ctx *ssl_ctx)
 			selectable_next(&ss->st, kserver_ssl_ctx_next_update, param, 0);
 		}
 	}
+	kmutex_unlock(&server->ss_lock);
 }
 #endif

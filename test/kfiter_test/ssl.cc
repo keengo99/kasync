@@ -45,7 +45,6 @@ TEST(ssl, https_client) {
 	kfiber_net_close(cn);
 }
 TEST(ssl, server_ssl) {
-
 	SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_server_from_memory(
 		"-----BEGIN CERTIFICATE-----\n\
 MIIDETCCAfkCFGqw5HR92Ds5slo2Pfq8z3Bxdo1iMA0GCSqGSIb3DQEBCwUAMEUx\n\
