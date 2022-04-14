@@ -68,6 +68,26 @@ void kselector_exit(kselector* selector)
 	klog(KLOG_ERR, "selector thread = [%d] now close.\n", selector->thread_id);
 	selector->thread_id = 0;
 }
+void kselector_step_init(int index)
+{
+	kselector* selector = kgl_selectors[index];
+	assert(selector != NULL);
+	kselector_init(selector);
+}
+int kselector_step(int index)
+{
+	kselector* selector = kgl_selectors[index];
+	assert(selector == kgl_get_tls_selector());
+	assert(selector != NULL);
+	kselector_check_timeout(selector, 1);
+	return kgl_selector_module.select(selector);
+}
+void kselector_step_exit(int index)
+{
+	kselector* selector = kgl_selectors[index];
+	assert(selector == kgl_get_tls_selector());
+	kselector_exit(selector);
+}
 KTHREAD_FUNCTION kselector_thread(void *param)
 {
 	kselector *selector = (kselector*)param;
@@ -83,7 +103,6 @@ KTHREAD_FUNCTION kselector_thread(void *param)
 		ret = kgl_selector_module.select(selector);
 	}
 	kselector_exit(selector);
-
 	KTHREAD_RETURN;
 }
 void kselector_add_block_queue(kselector *selector, kgl_block_queue *bq);
