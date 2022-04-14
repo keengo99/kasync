@@ -229,7 +229,6 @@ int kfiber_cond_notice_ar(kfiber_cond* fc,int got)
 }
 int kfiber_cond_notice_ts(kfiber_cond* fc,int got)
 {
-	printf("kfiber_cond_notice_ts got=[%d]\n",got);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
 	fc->ev = 1;
@@ -237,7 +236,6 @@ int kfiber_cond_notice_ts(kfiber_cond* fc,int got)
 	fc->waiter = NULL;
 	kmutex_unlock(&fcs->lock);
 	while (waiter) {
-		printf("waiter=[%p] notice=[%p]\n",waiter,waiter->notice);
 		kfiber_waiter* next = waiter->next;
 		kfiber_wakeup_waiter(waiter,got);
 		xfree(waiter);

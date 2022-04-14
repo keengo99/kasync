@@ -249,7 +249,6 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
 	fiber->retval = got;
 	kfiber_delete_context(fiber);
 	if (fiber->close_cond) {
-		printf("notice fiber got=[%d]\n",got);
 		fiber->close_cond->f->notice(fiber->close_cond, got);
 	}
 	kfiber_release(fiber);
