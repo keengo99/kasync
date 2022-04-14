@@ -1,8 +1,7 @@
+#include "ksocket.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include "ksocket.h"
-#include "kfeature.h"
 #include "kfile.h"
 #include "kmalloc.h"
 #ifdef _WIN32

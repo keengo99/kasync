@@ -81,7 +81,6 @@ if (KSOCKET_SSL)
 else()
     unset(KSOCKET_SSL_BIO)
 endif()
-check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
 if (CMAKE_SYSTEM_NAME MATCHES "Linux") 
     list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE) 
     set(LINUX ON)
@@ -94,6 +93,7 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 	add_definitions(-DFREEBSD)
 endif()
 
+check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../include/kasync_config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/../include/kasync_config.h)
 

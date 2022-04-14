@@ -3,15 +3,6 @@
 #include "kfeature.h"
 #include "kforwin32.h"
 KBEGIN_DECLS
-#if     !defined(HAVE_SOCKLEN_T)
-#if 0
-#if     defined(_AIX41)
-typedef size_t socklen_t;
-#else
-typedef int socklen_t;
-#endif
-#endif
-#endif
 #ifdef _WIN32 //for win32
 //#define FD_SETSIZE	8192
 //#include <Winsock2.h>
