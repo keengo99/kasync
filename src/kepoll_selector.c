@@ -413,11 +413,9 @@ static int epoll_selector_select(kselector *selector) {
 		if (KBIT_TEST(ev,EPOLLIN|EPOLLPRI|EPOLLHUP)) {
 			KBIT_SET(st->st_flags,STF_RREADY);
 			if (KBIT_TEST(st->st_flags,STF_READ|STF_RECVFROM) && !in_ready_list) {
-				in_ready_list = true;
 				kselector_add_list(selector,st,KGL_LIST_READY);
 			}
 		}
-		assert(in_ready_list);
 	}
 	return ret;
 }
