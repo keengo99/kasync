@@ -41,6 +41,12 @@ static kconnection* kconnection_internal_new()
 	ksocket_init(c->st.fd);
 	return c;
 }
+kconnection* kconnection_new3(const struct sockaddr* addr, socklen_t addr_len)
+{
+	kconnection* c = kconnection_internal_new();
+	kgl_memcpy(&c->addr, addr, MIN(addr_len,sizeof(sockaddr_i)));
+	return c;
+}
 kconnection* kconnection_new2(struct addrinfo* ai, uint16_t port)
 {
 	kconnection* c = kconnection_internal_new();

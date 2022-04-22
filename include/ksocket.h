@@ -37,8 +37,6 @@ INLINE BOOL ksocket_cancel(SOCKET sockfd) {
 #include <string.h>
 #define BSD_COMP
 #include <sys/ioctl.h>
-#define SOCKET  	int
-#define INVALID_SOCKET  -1
 #define closesocket close
 #endif
 #define KSOCKET_ONLY_IPV4         0

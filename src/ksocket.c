@@ -287,7 +287,7 @@ bool wait_socket_event(SOCKET sockfd, bool is_write, int tmo) {
 	FD_SET(sockfd, &fds);
 	tm.tv_sec = tmo;
 	tm.tv_usec = 0;
-	if (select(sockfd + 1, ((!is_write) ? &fds : NULL),
+	if (select((int)sockfd + 1, ((!is_write) ? &fds : NULL),
 		(is_write ? &fds : NULL), NULL, &tm) <= 0) {
 		return false;
 	}

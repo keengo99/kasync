@@ -52,7 +52,8 @@ INLINE void kconnection_no_delay(kconnection *c,bool forever)
 kev_result kconnection_destroy(kconnection *c);
 void kconnection_real_destroy(kconnection *c);
 kconnection *kconnection_new(sockaddr_i *addr);
-kconnection* kconnection_new2(struct addrinfo* ai, uint16_t port);
+kconnection *kconnection_new2(struct addrinfo* ai, uint16_t port);
+kconnection* kconnection_new3(const struct sockaddr* addr, socklen_t addr_len);
 bool kconnection_half_connect(kconnection *c, sockaddr_i *bind_addr, int tproxy_mask);
 kev_result kconnection_connect(kconnection *c, result_callback cb, void *arg);
 INLINE int kconnection_self_addr(kconnection *c,sockaddr_i *addr)

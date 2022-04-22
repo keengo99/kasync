@@ -5,6 +5,8 @@
 //#include "config.h"
 #define INT64  int64_t
 #define KSOCKET_UNIX
+#define SOCKET  	int
+#define INVALID_SOCKET  -1
 #else
 #define WIN32_LEAN_AND_MEAN 1
 #define HAVE_SOCKLEN_T 1
