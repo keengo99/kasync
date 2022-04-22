@@ -33,12 +33,23 @@ static int kconnection_buffer_addr(KOPAQUE data, void *arg, LPWSABUF buffer, int
 	return 1;
 }
 #endif
-kconnection *kconnection_new(sockaddr_i *addr)
+static kconnection* kconnection_internal_new()
 {
-	kconnection *c = (kconnection *)xmalloc(sizeof(kconnection));	
+	kconnection* c = (kconnection*)xmalloc(sizeof(kconnection));
 	memset(c, 0, sizeof(kconnection));
 	c->pool = kgl_create_pool(8192);
 	ksocket_init(c->st.fd);
+	return c;
+}
+kconnection* kconnection_new2(struct addrinfo* ai, uint16_t port)
+{
+	kconnection* c = kconnection_internal_new();
+	ksocket_addrinfo_sockaddr(ai, port, &c->addr);
+	return c;
+}
+kconnection *kconnection_new(sockaddr_i *addr)
+{
+	kconnection* c = kconnection_internal_new();
 	if (addr) {
 #ifdef KSOCKET_UNIX
 		if (addr->v4.sin_family==PF_UNIX) {

@@ -470,14 +470,15 @@ int kfiber_msleep(int msec)
 	return 0;
 }
 
-static kev_result kfiber_getaddr_callback(void* arg, struct addrinfo* ai)
+static kev_result kfiber_getaddr_callback(void* arg, kgl_addr* addr)
 {
 	kfiber* fiber = (kfiber*)arg;
-	if (ai) {
-		int copy_len = MIN((socklen_t)ai->ai_addrlen, sizeof(sockaddr_i));
-		kgl_memcpy(fiber->arg, ai->ai_addr, copy_len);
+	if (addr) {
+		kgl_addr_refs(addr);
+		kgl_addr** ret = (kgl_addr**)fiber->arg;
+		*ret = addr;
 	}
-	kfiber_wakeup(fiber, (void*)kfiber_getaddr_callback, ai ? 0 : -1);
+	kfiber_wakeup(fiber, (void*)kfiber_getaddr_callback, addr ? 0 : -1);
 	return kev_fiber_ok;
 }
 static int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF* buf, int bc)
@@ -512,9 +513,19 @@ int kfiber_net_accept(kserver_selectable* ss, kconnection** c)
 	}
 	return 0;
 }
-int kfiber_net_getaddr(const char* hostname, uint16_t port, sockaddr_i* addr)
+int kfiber_net_getaddr(const char* hostname, kgl_addr** addr)
 {
-	if (ksocket_getaddr(hostname, port, AF_UNSPEC, AI_NUMERICHOST, addr)) {
+	struct addrinfo* res = NULL;
+	struct addrinfo f;
+	memset(&f, 0, sizeof(f));
+	f.ai_family = PF_UNSPEC;
+	f.ai_flags = AI_NUMERICHOST;
+#ifndef KSOCKET_IPV6
+	f.ai_family = PF_INET;
+#endif
+	getaddrinfo(hostname, NULL, &f, &res);
+	if (res != NULL) {
+		*addr = kgl_addr_new(res);
 		return 0;
 	}
 	kfiber* fiber = kfiber_self();
@@ -523,14 +534,6 @@ int kfiber_net_getaddr(const char* hostname, uint16_t port, sockaddr_i* addr)
 	fiber->arg = addr;
 	if (kev_fiber_ok != kgl_find_addr(hostname, kgl_addr_ip, kfiber_getaddr_callback, fiber, kgl_get_tls_selector())) {
 		__kfiber_wait(fiber, (void*)kfiber_getaddr_callback);
-	}
-	if (fiber->retval == 0) {
-		if (addr->v4.sin_family == PF_INET6) {
-			addr->v6.sin6_port = htons(port);
-		}
-		else {
-			addr->v4.sin_port = htons(port);
-		}
 	}
 	return fiber->retval;
 }

@@ -112,9 +112,15 @@ typedef struct iovec * LPWSABUF;
 #endif
 #define ST_ERR_TIME_OUT    -2
 #define ST_ERR_RESOLV      -3
+typedef volatile int32_t kcountable_t;
+typedef struct {
+	struct addrinfo* addr;
+	kcountable_t refs;
+} kgl_addr;
+
+typedef kev_result(*kgl_addr_call_back)(void* arg, kgl_addr* addr);
 
 typedef void * KOPAQUE;
-typedef kev_result(*kgl_addr_call_back)(void *arg, struct addrinfo *addr);
 typedef kev_result(*result_callback)(KOPAQUE data, void *arg, int got);
 typedef int (*buffer_callback)(KOPAQUE data, void *arg, WSABUF *buf, int bc);
 typedef void(*kgl_cleanup_f) (void *data);

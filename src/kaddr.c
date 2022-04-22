@@ -68,7 +68,7 @@ bool kgl_addr_build(struct addrinfo  *addr, uint16_t port, sockaddr_i *sockaddr)
 	return true;
 }
 #endif
-static kgl_addr *kgl_addr_new(struct addrinfo *ai)
+kgl_addr *kgl_addr_new(struct addrinfo *ai)
 {
 	kgl_addr *addr = (kgl_addr *)xmalloc(sizeof(kgl_addr));
 	memset(addr, 0, sizeof(kgl_addr));
@@ -76,7 +76,7 @@ static kgl_addr *kgl_addr_new(struct addrinfo *ai)
 	addr->addr = ai;
 	return addr;
 }
-static void kgl_addr_refs(kgl_addr *addr)
+void kgl_addr_refs(kgl_addr *addr)
 {
 	katom_inc((void *)&addr->refs);
 }
@@ -100,7 +100,7 @@ static int addr_key_cmp(void *k1, void *k2) {
 	}
 	return strcasecmp(node1->hostname, node2->hostname);
 }
-static bool get_addr(const char *hostname, kgl_addr_type addr_type, struct addrinfo **res)
+bool get_addr(const char *hostname, kgl_addr_type addr_type, struct addrinfo **res)
 {
 	struct addrinfo f;
 	memset(&f, 0, sizeof(f));
@@ -179,7 +179,7 @@ static kev_result addr_next_call(KOPAQUE data, void *arg, int len)
 {
 	kgl_addr_queue *queue = (kgl_addr_queue *)arg;
 	if (queue->addr) {
-		queue->cb(queue->arg, queue->addr->addr);
+		queue->cb(queue->arg, queue->addr);
 		kgl_addr_release(queue->addr);
 	} else {
 		queue->cb(queue->arg, NULL);
@@ -327,7 +327,7 @@ kev_result kgl_find_addr(const char *hostname, kgl_addr_type addr_type, kgl_addr
 		}
 		kmutex_unlock(&addr_lock);
 		if (addr) {
-			ret = cb(arg, addr->addr);
+			ret = cb(arg, addr);
 			kgl_addr_release(addr);
 		} else {
 			ret = cb(arg, NULL);

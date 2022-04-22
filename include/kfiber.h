@@ -8,6 +8,8 @@
 #include "kconnection.h"
 #include "kserver.h"
 #include "kfiber_internal.h"
+#include "kaddr.h"
+
 KBEGIN_DECLS
 #define _ST_PAGE_SIZE 4096
 
@@ -58,9 +60,10 @@ int kfiber_chan_close(kfiber_chan *ch);
 
 //socket
 #define kfiber_net_open kconnection_new
+#define kfiber_net_open2 kconnection_new2
 int kfiber_net_listen(kserver* server, int flag, kserver_selectable **ss);
 int kfiber_net_accept(kserver_selectable* ss, kconnection **cn);
-int kfiber_net_getaddr(const char *hostname, uint16_t port, sockaddr_i *addr);
+int kfiber_net_getaddr(const char *hostname, kgl_addr **addr);
 int kfiber_net_connect(kconnection *cn, sockaddr_i *bind_addr, int tproxy_mask);
 int kfiber_net_write(kconnection *cn, const char *buf, int len);
 int kfiber_net_writev(kconnection *cn, WSABUF *buf, int vc);
@@ -148,6 +151,5 @@ int kfiber_thread_call(kfiber_start_func start, void* arg, int argc, int *ret);
 bool kfiber_check_result_callback(result_callback cb);
 bool kfiber_check_file_callback(aio_callback cb);
 bool kfiber_check_addr_callback(kgl_addr_call_back cb);
-
 KEND_DECLS
 #endif

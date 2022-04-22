@@ -56,6 +56,14 @@ int main_fiber_test(void* arg, int got)
 	assert(ret == 3);
 	return 3;
 }
+TEST(fiber, get_addr) {
+	kgl_addr* ai = NULL;
+	kfiber_net_getaddr("www.qq.com", &ai);
+	char ips[MAXIPLEN];
+	ksocket_sockaddr_ip((sockaddr_i*)ai->addr->ai_addr, ips, sizeof(ips));
+	kgl_addr_release(ai);
+	printf("resolv dns www.qq.com ips=[%s]\n", ips);
+}
 TEST(fiber, file_test) {
 	//GTEST_SKIP();
 	kfiber* fiber = NULL;
