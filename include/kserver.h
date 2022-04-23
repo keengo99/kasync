@@ -9,7 +9,9 @@
 #include "kgl_ssl.h"
 #include "kcountable.h"
 #include "ksync.h"
-
+#ifndef _WIN32
+#define MULTI_SERVER_SELECTABLE_SUPPORTED 1
+#endif
 #define IS_VALIDE_CONNECTION(got) (got>=0)
 
 #define KACCEPT_CALLBACK_DECLEAR(fn)\
@@ -88,10 +90,10 @@ bool is_server_multi_selectable(kserver *server);
 kserver *kserver_init();
 INLINE bool is_server_supported_multi_selectable()
 {
-#ifdef _WIN32
-	return false;
-#else
+#ifdef MULTI_SERVER_SELECTABLE_SUPPORTED
 	return true;
+#else
+	return false;
 #endif
 }
 //only bind address not open

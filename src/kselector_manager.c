@@ -7,6 +7,7 @@
 #include "ksync.h"
 #include "klog.h"
 #include "kfiber.h"
+#include "kaddr.h"
 #include "kfiber_sync.h"
 #ifdef _WIN32
 #include "kiocp_selector.h"
@@ -388,13 +389,17 @@ void kasync_init()
 	}
 #ifndef _WIN32
 	signal(SIGPIPE,SIG_IGN);
-#endif
+#endif	
 	ksocket_startup();
 	kselector_update_time();
 	pthread_key_create(&kgl_selector_key, NULL);
 	selector_module_create();
 	kthread_init();
 	kfiber_init();
+	kgl_addr_init();
+#ifdef KSOCKET_SSL
+	kssl_init2();
+#endif
 }
 int kasync_main(kfiber_start_func main, void* arg, int argc)
 {
