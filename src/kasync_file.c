@@ -13,6 +13,9 @@ void init_aio_align_size()
 {
 	kgl_aio_align_size = 512;
 #ifdef LINUX
+#ifdef ANDROID
+		//android
+#else
 	FILE *mntfile = setmntent("/proc/mounts", "r");
 	if (mntfile == NULL) {
 		kgl_aio_align_size = 4096;
@@ -34,6 +37,7 @@ void init_aio_align_size()
 		close(fd);
 	}
 	endmntent(mntfile);
+#endif
 #endif
 	klog(KLOG_ERR, "kgl_aio_align_size=[%d]\n", kgl_aio_align_size);
 }

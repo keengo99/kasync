@@ -151,10 +151,12 @@ kserver_selectable *kserver_selectable_init(kserver *server, SOCKET sockfd)
 	ksocket_init(ss->accept_sockfd);
 #endif
 	kserver_refs(server);
+#ifdef KSOCKET_SSL
 	ss->ssl_ctx = server->ssl_ctx;
 	if (ss->ssl_ctx) {
 		kgl_add_ref_ssl_ctx(ss->ssl_ctx);
 	}
+#endif
 	return ss;
 }
 kserver_selectable *add_server_socket(kserver *server,SOCKET sockfd)
@@ -290,9 +292,11 @@ static void kserver_free(kserver *server) {
 	if (server->free_opaque) {
 		server->free_opaque(server->data);
 	}
+#ifdef KSOCKET_SSL
 	if (server->ssl_ctx) {
 		kgl_release_ssl_ctx(server->ssl_ctx);
 	}
+#endif
 	kmutex_destroy(&server->ss_lock);
 	xfree(server);
 }

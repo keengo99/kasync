@@ -201,7 +201,7 @@ int ksocket_unix_addr(const char *path,struct sockaddr_un *addr)
 SOCKET ksocket_accept(SOCKET s, sockaddr_i *addr,bool no_block)
 {
 	socklen_t addr_size = sizeof(sockaddr_i);
-#ifdef HAVE_ACCEPT4
+#if defined(HAVE_ACCEPT4) && !defined(ANDROID)
 	int flag = SOCK_CLOEXEC;
 	if (no_block) {
 		flag |= SOCK_NONBLOCK;

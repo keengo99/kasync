@@ -142,7 +142,11 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to)
 	assert(GetCurrentFiber() == fiber_from->ctx);
 	SwitchToFiber(fiber_to->ctx);
 #else
+#ifndef DISABLE_KFIBER
 	swapcontext(&fiber_from->ctx, &fiber_to->ctx);
+#else
+	fprintf(stderr, "DISABLE_KFIBER is on. swapcontext failed.");
+#endif
 #endif
 	assert(kfiber_self() == fiber_from);
 }
@@ -323,6 +327,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 #ifdef _WIN32
 	fiber->ctx = CreateFiber(stk_size, fiber_start, fiber);
 #else
+#ifndef DISABLE_KFIBER
 	if (getcontext(&fiber->ctx) == -1) {
 		xfree(fiber);
 		return NULL;
@@ -343,6 +348,9 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 #endif
 	makecontext(&fiber->ctx, (void(*)(void))fiber_start, 1, fiber);
 	//printf("ss_sp=[%p]\n",fiber->ctx.uc_stack.ss_sp);
+#else
+	fprintf(stderr, "DISABLE_KFIBER is set ON.");
+#endif
 #endif
 	katom_inc((void*)&fiber_count);
 	return fiber;

@@ -1,7 +1,7 @@
 #ifndef KFILE_H_99
 #define KFILE_H_99
 #include <sys/types.h>
-#include <sys/stat.h> 
+#include <sys/stat.h>
 #include "kfeature.h"
 #include "kforwin32.h"
 KBEGIN_DECLS

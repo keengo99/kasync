@@ -44,6 +44,9 @@ int dump_memory_leak(int min_time, int max_time);
 #define kgl_align_free		_aligned_free
 #else
 #define kgl_align_free free
+#ifdef HAVE_MEMALIGN
+#define kgl_memalign memalign
+#else
 #if MALLOCDEBUG && !ENABLE_JEMALLOC
 extern void *kgl_memalign(size_t alignment, size_t size);
 #else
@@ -56,6 +59,7 @@ INLINE void *kgl_memalign(size_t alignment, size_t size) {
 	}
 	return p;
 }
+#endif
 #endif
 #endif
 
