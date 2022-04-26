@@ -7,6 +7,7 @@
 #cmakedefine HAVE_MEMALIGN
 #cmakedefine HAVE_SETMNTENT
 #cmakedefine DISABLE_KFIBER
+#cmakedefine FREEBSD
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
