@@ -87,7 +87,7 @@ struct kserver_s {
 	uint8_t global:1;
 };
 bool is_server_multi_selectable(kserver *server);
-kserver *kserver_init();
+DLL_PUBLIC kserver *kserver_init();
 INLINE bool is_server_supported_multi_selectable()
 {
 #ifdef MULTI_SERVER_SELECTABLE_SUPPORTED
@@ -105,21 +105,21 @@ INLINE void kserver_set_opaque(kserver* server, kserver_free_opaque free_opaque,
 INLINE KOPAQUE kserver_get_opaque(kserver* server) {
 	return server->data;
 }
-bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *ssl_ctx);
-bool kserver_open(kserver* server, int flag, result_callback accept_callback);
-kserver_selectable *kserver_listen(kserver *server, int flag, result_callback accept_callback);
-bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
-void kserver_selectable_destroy(kserver_selectable *ss);
-kconnection* accept_result_new_connection(KOPAQUE data, int got);
+DLL_PUBLIC bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *ssl_ctx);
+DLL_PUBLIC bool kserver_open(kserver* server, int flag, result_callback accept_callback);
+DLL_PUBLIC kserver_selectable *kserver_listen(kserver *server, int flag, result_callback accept_callback);
+DLL_PUBLIC bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
+DLL_PUBLIC void kserver_selectable_destroy(kserver_selectable *ss);
+DLL_PUBLIC kconnection* accept_result_new_connection(KOPAQUE data, int got);
 
 //kserver_close并不会释放server,释放server要调用kserver_release
-void kserver_close(kserver *server);
+DLL_PUBLIC void kserver_close(kserver *server);
 #define kserver_shutdown kserver_close
-void kserver_release(kserver *server);
+DLL_PUBLIC void kserver_release(kserver *server);
 
 #ifdef KSOCKET_SSL
 //bool kserver_open_ssl(kserver *server, const char *ip, uint16_t port, int flag, SSL_CTX *ssl_ctx);
-void kserver_set_ssl_ctx(kserver *server,kgl_ssl_ctx *ssl_ctx);
+DLL_PUBLIC void kserver_set_ssl_ctx(kserver *server,kgl_ssl_ctx *ssl_ctx);
 INLINE SSL_CTX *kserver_selectable_get_ssl_ctx(kserver_selectable *ss)
 {
 	if (ss->ssl_ctx == NULL) {
@@ -135,7 +135,7 @@ INLINE SSL_CTX *kserver_get_ssl_ctx(kserver *server)
 	return kgl_get_ssl_ctx(server->ssl_ctx);
 }
 #endif
-kselector* kserver_get_perfect_selector(kserver_selectable* ss);
+DLL_PUBLIC kselector* kserver_get_perfect_selector(kserver_selectable* ss);
 INLINE void kserver_refs(kserver *server)
 {
 	katom_inc((void *)&server->refs);

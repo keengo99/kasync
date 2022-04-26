@@ -112,6 +112,17 @@ typedef struct _WSABUF WSABUF;
 typedef struct iovec   WSABUF;
 typedef struct iovec * LPWSABUF;
 #endif
+
+#if defined _WIN32 || defined __CYGWIN__
+#define DLL_PUBLIC __declspec(dllexport)
+#else
+#if __GNUC__ >= 4
+#define DLL_PUBLIC __attribute__ ((visibility("default")))
+#else
+#define DLL_PUBLIC
+#endif
+#endif
+
 #define ST_ERR_TIME_OUT    -2
 #define ST_ERR_RESOLV      -3
 typedef volatile int32_t kcountable_t;
