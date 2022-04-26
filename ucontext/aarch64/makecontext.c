@@ -21,7 +21,13 @@
 #include <stdint.h>
 #include <ucontext.h>
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
+    extern void __startcontext();
+#ifdef __cplusplus
+}
+#endif
 /* makecontext sets up a stack and the registers for the
    user context.  The stack looks like this:
 
@@ -39,7 +45,7 @@
 
 void makecontext (ucontext_t *ucp, void (*func) (void), int argc, ...)
 {
-  extern void __startcontext (void);
+
   uint64_t *sp;
   va_list ap;
   int i;

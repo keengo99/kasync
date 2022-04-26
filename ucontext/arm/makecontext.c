@@ -5,11 +5,20 @@
 /* Number of arguments that go in registers.  */
 #define NREG_ARGS  4
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+    extern void __startcontext();
+#ifdef __cplusplus
+}
+#endif
+
 /* Take a context previously prepared via getcontext() and set to
    call func() with the given int only args.  */
 void makecontext(ucontext_t* ucp, void (*func) (void), int argc, ...)
-{
-    extern void __startcontext(void);
+{    
+   
+
     unsigned long* funcstack;
     va_list vl;
     unsigned long* regptr;
@@ -17,7 +26,7 @@ void makecontext(ucontext_t* ucp, void (*func) (void), int argc, ...)
     int misaligned;
 
     /* Start at the top of stack.  */
-    funcstack = (unsigned long*)(ucp->uc_stack.ss_sp + ucp->uc_stack.ss_size);
+    funcstack = (unsigned long*)((char *)(ucp->uc_stack.ss_sp) + ucp->uc_stack.ss_size);
 
     /* Ensure the stack stays eight byte aligned.  */
     misaligned = ((unsigned long)funcstack & 4) != 0;

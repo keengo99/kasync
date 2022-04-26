@@ -129,11 +129,11 @@ INLINE bool kfutime(FILE_HANDLE h, time_t time)
 	t.QuadPart = time * 10000000 + 116444736000000000;
 	return SetFileTime(h, NULL, NULL, (FILETIME *)&t);
 #else
-	struct timeval t[2];
+	struct timespec t[2];
 	memset(&t, 0, sizeof(t));
 	t[0].tv_sec = time;
 	t[1].tv_sec = time;
-	return futimes(h, t) == 0;
+	return futimens(h, t) == 0;
 #endif
 }
 INLINE time_t kfile_last_modified(const char *file)
