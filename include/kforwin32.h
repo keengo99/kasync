@@ -87,7 +87,9 @@ INLINE int pthread_mutex_destroy(pthread_mutex_t *mutex)
 typedef HANDLE Token_t;
 #define INT64_FORMAT     "%I64d"
 #define INT64_FORMAT_HEX "%I64x"
-#define PRId64 "I64d"
+//#ifndef PRId64
+//#define PRId64 "I64d"
+//#endif
 #else
 #define ntohll be64toh
 #define htonll htobe64
