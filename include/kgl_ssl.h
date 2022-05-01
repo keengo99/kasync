@@ -50,7 +50,8 @@ typedef struct {
 
 void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
 void kssl_init2();
-void kssl_set_callback(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
+void kssl_set_npn_callback(kgl_ssl_npn_f npn);
+void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
 void kgl_ssl_ctx_set_early_data(SSL_CTX *ssl_ctx, bool early_data);
 SSL_CTX *kgl_ssl_ctx_new_server_from_memory(const char *cert,const char *key, const char* ca_path, const char* ca_file, void* ssl_ctx_data);
 SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path,const char *ca_file,void *ssl_ctx_data);

@@ -13,7 +13,6 @@ void vklog(int level, const char *fmt, va_list ap);
 typedef void (*kgl_vklog_callback)(int level, const char *fmt, va_list ap);
 void klog(int level, const char *fmt, ...);
 void klog_init(kgl_vklog_callback kgl_vklog);
-void CTIME_R(time_t *a, char *b, size_t l);
 void debug(const char *fmt, ...);
 KEND_DECLS
 #endif

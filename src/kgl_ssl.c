@@ -106,9 +106,12 @@ static void __lock_thread(int mode, int n, const char *file, int line)
 		kmutex_unlock(&ssl_lock[n]);
 	}
 }
-void kssl_set_callback(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+void kssl_set_npn_callback(kgl_ssl_npn_f npn)
 {
 	ssl_npn = npn;
+}
+void kssl_set_sni_callback( kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+{
 	kgl_ssl_create_sni = create_sni;
 	kgl_ssl_free_sni = free_sni;
 }
@@ -140,7 +143,8 @@ void kssl_init2()
 }
 void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
 {
-	kssl_set_callback(npn, create_sni, free_sni);
+	kssl_set_sni_callback(create_sni, free_sni);
+	kssl_set_npn_callback(npn);
 	kssl_init2();
 }
 static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_length)
