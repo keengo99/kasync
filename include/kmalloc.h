@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 
 KBEGIN_DECLS
 #ifndef NDEBUG
