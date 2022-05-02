@@ -99,6 +99,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "Android")
 	endif()
 elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 	set(FREEBSD ON)
+    list(APPEND KASYNC_LIBS pthread)
 endif()
 
 check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
