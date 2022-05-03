@@ -327,7 +327,7 @@ bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf
 
 	file->iocb.aio_sigevent.sigev_notify_kqueue = es->kdpfd;
 	file->iocb.aio_sigevent.sigev_notify = SIGEV_KEVENT;
-	file->iocb.aio_sigevent.sigev_value.sigval_ptr = file;
+	file->iocb.aio_sigevent.sigev_value.sigval_ptr = &file->st;
 
 	int n = aio_write(&file->iocb);
 	if (n!=-1) {
@@ -360,7 +360,7 @@ bool kqueue_selector_aio_read(kselector *selector, kasync_file *file, char *buf,
 
 	file->iocb.aio_sigevent.sigev_notify_kqueue = es->kdpfd;
 	file->iocb.aio_sigevent.sigev_notify = SIGEV_KEVENT;
-	file->iocb.aio_sigevent.sigev_value.sigval_ptr = file;
+	file->iocb.aio_sigevent.sigev_value.sigval_ptr = &file->st;
 
 	int n = aio_read(&file->iocb);
 	if (n!=-1) {
