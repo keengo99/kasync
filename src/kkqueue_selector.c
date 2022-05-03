@@ -265,8 +265,13 @@ static int kqueue_selector_select(kselector *selector)
 }
 void kqueue_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
+#ifdef KF_ASYNC_WORKER
 	aio_file->fd = fd;
 	aio_file->selector = selector;
+#else
+	aio_file->st.fd = fd;
+	aio_file->st.selector = selector;
+#endif
 }
 bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
 {
@@ -299,7 +304,6 @@ bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf
 	}
 	katom_dec((void *)&kgl_aio_count);
 #endif
-	printf("aio write not support.........\n");
 	return false;
 }
 bool kqueue_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
