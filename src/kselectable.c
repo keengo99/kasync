@@ -200,6 +200,7 @@ void selectable_shutdown(kselectable *st)
 #endif
 	ksocket_shutdown(st->fd, SHUT_RDWR);
 }
+#if 0
 void selectable_udp_write_event(kselectable* st)
 {
 	assert(KBIT_TEST(st->st_flags, STF_UDP));
@@ -227,6 +228,7 @@ void selectable_udp_write_event(kselectable* st)
 #endif
 	st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, got);
 }
+#endif
 #ifndef _WIN32
 int selectable_recvmsg(kselectable *st)
 {

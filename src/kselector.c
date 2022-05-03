@@ -305,11 +305,14 @@ void kselector_check_timeout(kselector *selector,int event_number)
 		}
 		uint16_t st_flags = ready_ev->st.st_flags;
 		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
+			assert(!KBIT_TEST(st_flags,STF_UDP));
+#if 0
+			//current udp do not support send event.
 			if (unlikely(KBIT_TEST(st_flags, STF_UDP))) {
 				selectable_udp_write_event(&ready_ev->st);
-			} else {
-				selectable_write_event(&ready_ev->st);
 			}
+#endif
+			selectable_write_event(&ready_ev->st);
 			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
 		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2)) {

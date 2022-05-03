@@ -24,16 +24,30 @@ bool kudp_add_multicast(kconnection* uc, const char* group)
 	}
 	return true;
 }
-struct in_pktinfo *kudp_pktinfo(kconnection* uc)
+int kudp_get_recvaddr(kconnection *uc, struct sockaddr *addr)
 {
 	if (!KBIT_TEST(uc->st.st_flags,STF_UDP) || uc->udp == NULL) {
-		return NULL;
+		return -1;
 	}
 	struct cmsghdr *msg = (struct cmsghdr *)(uc->udp->pktinfo);
-	if (msg->cmsg_level==IPPROTO_IP && msg->cmsg_type==IP_PKTINFO) {
-		return (struct in_pktinfo *)CMSG_DATA(msg);
+	if (addr->sa_family==PF_INET) {
+		struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
+#ifdef IP_SENDSRCADDR
+		if (msg->cmsg_level==IPPROTO_IP && msg->cmsg_type==IP_SENDSRCADDR) {
+#else
+		if (msg->cmsg_level==IPPROTO_IP && msg->cmsg_type==IP_PKTINFO) {
+#endif
+			memcpy(&addr4->sin_addr,CMSG_DATA(msg),sizeof(addr4->sin_addr));
+			return 0;
+		}
+	} else {
+		if (msg->cmsg_level==IPPROTO_IPV6 && msg->cmsg_type==IPV6_PKTINFO) {
+			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+			memcpy(&addr6->sin6_addr,CMSG_DATA(msg),sizeof(addr6->sin6_addr));
+			return 0;
+		}
 	}
-	return NULL;
+	return -1;
 }
 bool kudp_bind(kconnection*uc, const sockaddr_i* addr)
 {
@@ -56,7 +70,11 @@ kconnection* kudp_new2(int flags, kselector* st)
 		return NULL;
 	}
 	if (KBIT_TEST(flags, KSOCKET_IP_PKTINFO)) {
+#ifdef IP_SENDSRCADDR
+		setsockopt(uc->st.fd, IPPROTO_IP, IP_SENDSRCADDR, (const char*)&n, sizeof(int));
+#else
 		setsockopt(uc->st.fd, IPPROTO_IP, IP_PKTINFO, (const char*)&n, sizeof(int));
+#endif
 		uc->udp = xmemory_new(kudp_extend);
 	}
 #ifndef KGL_IOCP

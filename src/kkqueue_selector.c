@@ -9,6 +9,7 @@
 #ifdef BSD_OS
 #include <sys/types.h>
 #include <sys/event.h>
+#include <errno.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include "kfiber.h"
@@ -217,7 +218,7 @@ static bool kqueue_selector_write(kselector *selector, kselectable *st, result_c
 }
 static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
-	kqueue_selector* es = (kepoll_selector*)selector->ctx;
+	kqueue_selector* es = (kqueue_selector*)selector->ctx;
 	assert(KBIT_TEST(st->st_flags, STF_READ) == 0);
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;

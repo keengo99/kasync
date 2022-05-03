@@ -148,7 +148,6 @@ INLINE bool selectable_is_ssl_handshake(kselectable *st)
 	return false;
 #endif
 }
-void selectable_udp_write_event(kselectable* st);
 void selectable_udp_read_event(kselectable *st);
 void selectable_read_event(kselectable *st);
 void selectable_write_event(kselectable *st);
