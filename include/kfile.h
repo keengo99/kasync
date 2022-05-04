@@ -36,7 +36,7 @@ INLINE int kfread(FILE_HANDLE h, char *buf, int len)
 }
 #define kfinit(h)              (h=INVALID_HANDLE_VALUE)
 #define kflike(h)              (h!=INVALID_HANDLE_VALUE)
-#define kfclose(h)             CloseHandle(h)
+#define kfclose             CloseHandle
 INLINE FILE_HANDLE kfopen_w(const wchar_t *path, fileModel model, int flag)
 {
 	int share_flag = FILE_SHARE_READ | FILE_SHARE_WRITE;
@@ -95,9 +95,9 @@ INLINE FILE_HANDLE kfopen_w(const wchar_t *path, fileModel model, int flag)
 #include <sys/time.h>
 #include <string.h>
 #include <unistd.h>
-#define kfclose(h)             close(h)
-#define kfwrite(h,buf,len)     write(h,buf,len)
-#define kfread(h,buf,len)      read(h,buf,len)
+#define kfclose                close
+#define kfwrite                write
+#define kfread                 read
 #define kflike(h)              (h>=0)
 #define kfinit(h)              (h=-1)
 #endif

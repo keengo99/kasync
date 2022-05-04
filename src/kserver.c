@@ -252,6 +252,28 @@ static void kserver_selectable_start(kserver_selectable* ss) {
 		selectable_next(&ss->st, kserver_next_accept, ss, 0);
 	}
 }
+bool kserver_open_exsit(kserver* server, SOCKET sockfd, result_callback accept_callback)
+{
+	socklen_t addr_len = (socklen_t)sizeof(server->addr);
+	if (0 != getsockname(sockfd, (struct sockaddr*)&server->addr, &addr_len)) {
+		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
+		return false;
+	}
+	kserver_selectable* ss = add_server_socket(server, sockfd);
+	if (ss == NULL) {
+		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
+		return false;
+	}
+	ss->st.data = ss;
+	ss->st.selector = kgl_get_tls_selector();
+	assert(ss->st.selector);
+	if (!kgl_selector_module.listen(ss->st.selector, ss, accept_callback)) {
+		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
+		return false;
+	}
+	kserver_selectable_start(ss);
+	return true;
+}
 bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 {
 	KBIT_SET(flag, KSOCKET_REUSEPORT);

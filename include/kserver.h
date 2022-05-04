@@ -107,6 +107,7 @@ INLINE KOPAQUE kserver_get_opaque(kserver* server) {
 }
 DLL_PUBLIC bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *ssl_ctx);
 DLL_PUBLIC bool kserver_open(kserver* server, int flag, result_callback accept_callback);
+DLL_PUBLIC bool kserver_open_exsit(kserver* server, SOCKET sockfd, result_callback accept_callback);
 DLL_PUBLIC kserver_selectable *kserver_listen(kserver *server, int flag, result_callback accept_callback);
 DLL_PUBLIC bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
 DLL_PUBLIC void kserver_selectable_destroy(kserver_selectable *ss);
