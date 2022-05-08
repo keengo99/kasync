@@ -1,6 +1,7 @@
 #ifndef KATOM_H_99
 #define KATOM_H_99
 #include "kforwin32.h"
+#define ENABLE_KATOM_16
 KBEGIN_DECLS
 //×ÔÔö
 INLINE uint64_t katom_inc64(void * var)

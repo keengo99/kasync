@@ -130,25 +130,29 @@ SOCKET ksocket_listen(const sockaddr_i *addr,int flag)
 		}
 	}
 #endif
-	SOCKET sockfd;
+	
 #ifdef SOCK_CLOEXEC
-	sockfd = socket(addr->v4.sin_family, 
+	SOCKET sockfd = socket(addr->v4.sin_family,
 #ifdef KGL_IOCP
 		SOCK_STREAM | SOCK_CLOEXEC
 #else
-		SOCK_STREAM | SOCK_CLOEXEC| SOCK_NONBLOCK
+		KBIT_TEST(flag, KSOCKET_BLOCK)?		
+		SOCK_STREAM | SOCK_CLOEXEC:
+		SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK
 #endif
 			, 0);
 	if (!ksocket_opened(sockfd)) {
 		return sockfd;
 	}
 #else
-	sockfd = socket(addr->v4.sin_family, SOCK_STREAM, 0);
+	SOCKET sockfd = socket(addr->v4.sin_family, SOCK_STREAM, 0);
 	if (!ksocket_opened(sockfd)) {
 		return sockfd;
 	}
 	kfile_close_on_exec((FILE_HANDLE)sockfd,true);
-	ksocket_no_block(sockfd);
+	if (!KBIT_TEST(flag, KSOCKET_BLOCK)) {
+		ksocket_no_block(sockfd);
+	}
 #endif
 	int n = 1;
 #ifndef _WIN32

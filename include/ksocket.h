@@ -262,6 +262,8 @@ INLINE void ksocket_block(SOCKET sockfd) {
 #define KSOCKET_TPROXY            8
 #endif
 #define KSOCKET_FASTOPEN          16
+#define KSOCKET_BLOCK             32
+
 #define KSOCKET_PROTO_IPV4        KSOCKET_ONLY_IPV4
 #define KSOCKET_PROTO_IPV6        KSOCKET_ONLY_IPV6   
 void ksocket_startup();

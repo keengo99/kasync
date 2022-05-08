@@ -304,7 +304,7 @@ void selector_manager_init(unsigned  size, bool register_thread_timer)
 		}
 		kgl_selectors[i]->sid = i;
 	}
-	selector_manager_set_timeout(10, 30);
+	selector_manager_set_timeout(60, 60);
 	//call onReadyList
 	while (on_ready_list) {
 		kgl_selector_module.next(get_perfect_selector(), NULL, on_ready_list->call_back, on_ready_list->arg, 0);
@@ -371,7 +371,7 @@ const char *selector_manager_event_name()
 {
 	return kgl_selector_module.name;
 }
-int kasync_fiber_main(void* arg, int argc)
+static int kasync_fiber_main(void* arg, int argc)
 {
 	void** args = (void**)arg;
 	kfiber_start_func main_func = (kfiber_start_func)args[0];
@@ -404,7 +404,8 @@ void kasync_init()
 int kasync_main(kfiber_start_func main, void* arg, int argc)
 {
 	kasync_init();
-	kselector* selector = kselector_new();
+	selector_manager_init(1, true);
+	kselector* selector = kgl_selectors[0];
 	selector->aysnc_main = 1;
 	void* args[2];
 	args[0] = (void*)main;
@@ -415,7 +416,6 @@ int kasync_main(kfiber_start_func main, void* arg, int argc)
 	for (;;) {
 		kselector_check_timeout(selector, kgl_selector_module.select(selector));
 		if (selector->closed) {
-			assert(kselector_can_close(selector));
 			assert(klist_empty(&selector->list[KGL_LIST_READY]));
 			break;
 		}
