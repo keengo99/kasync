@@ -120,7 +120,7 @@ int kfiber_ssl_handshake(kconnection *cn);
 
 //file
 kfiber_file *kfiber_file_open(const char *filename, fileModel model, int kf_flags);
-kfiber_file* kfiber_file_bind(FILE_HANDLE fp);
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp, int kf_flags);
 
 int64_t kfiber_file_size(kfiber_file *fp);
 int kfiber_file_read(kfiber_file *fp, char *buf, int length);

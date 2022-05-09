@@ -131,7 +131,7 @@ endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/kasync_config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/kasync_config.h)
 if (USE_CXX)
-	message(STATUS "use c++ to build")
+	message(STATUS "use c++ to build kasync libs")
 	set_source_files_properties(${KASYNC_SOURCE_FILES} PROPERTIES LANGUAGE CXX)
 endif()
 

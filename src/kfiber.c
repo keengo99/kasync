@@ -657,7 +657,7 @@ int kfiber_net_close(kconnection* c)
 	kconnection_real_destroy(c);
 	return 0;
 }
-kfiber_file* kfiber_file_bind(FILE_HANDLE fp)
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp,int kf_flags)
 {
 	kselector* selector = kgl_get_tls_selector();
 	if (selector == NULL) {
@@ -682,7 +682,7 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 	if (!kflike(fp)) {
 		return NULL;
 	}
-	kfiber_file* af = kfiber_file_bind(fp);
+	kfiber_file* af = kfiber_file_bind(fp, kf_flags);
 	if (af == NULL) {
 		kfclose(fp);
 		return NULL;
