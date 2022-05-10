@@ -657,17 +657,10 @@ int kfiber_net_close(kconnection* c)
 	kconnection_real_destroy(c);
 	return 0;
 }
-kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags)
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp)
 {
 	kselector* selector = kgl_get_tls_selector();
 	if (selector == NULL) {
-		return NULL;
-	}
-#ifndef KF_ASYNC_WORKER
-	kf_flags |= KFILE_ASYNC;
-#endif
-	FILE_HANDLE fp = kfopen(filename, model, kf_flags);
-	if (!kflike(fp)) {
 		return NULL;
 	}
 	kfiber_file* af = (kfiber_file*)xmemory_newz(sizeof(kfiber_file));
@@ -677,6 +670,23 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 		KBIT_SET(af->fp.flags, KF_ASYNC_WORKER);
 	}
 #endif
+	return af;
+}
+kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags)
+{
+
+#ifndef KF_ASYNC_WORKER
+	kf_flags |= KFILE_ASYNC;
+#endif
+	FILE_HANDLE fp = kfopen(filename, model, kf_flags);
+	if (!kflike(fp)) {
+		return NULL;
+	}
+	kfiber_file* af = kfiber_file_bind(fp);
+	if (af == NULL) {
+		kfclose(fp);
+		return NULL;
+	}
 	return af;
 }
 #ifdef KF_ASYNC_WORKER

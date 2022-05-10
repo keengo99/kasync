@@ -404,8 +404,9 @@ void kasync_init()
 int kasync_main(kfiber_start_func main, void* arg, int argc)
 {
 	kasync_init();
-	selector_manager_init(1, true);
-	kselector* selector = kgl_selectors[0];
+	//kelector_manager_init(1, true);
+	//kselector* selector = kgl_selectors[0];
+	kselector* selector = kselector_new();
 	selector->aysnc_main = 1;
 	void* args[2];
 	args[0] = (void*)main;
