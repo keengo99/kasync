@@ -34,7 +34,7 @@ void ksocket_library_startup()
 	}
 	closesocket(sock);
 	//windows vista开始才有CancelIoEx,所以要用动态
-	pCancelIoEx = (fCancelIoEx)GetProcAddress(GetModuleHandle("kernel32.dll"), "CancelIoEx");
+	pCancelIoEx = (fCancelIoEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "CancelIoEx");
 #endif
 
 }

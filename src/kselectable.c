@@ -491,7 +491,7 @@ kev_result selectable_event_read(kselectable *st, result_callback result, buffer
 			kassert(st->ssl);
 			kssl_bio* ssl_bio = &st->ssl->bio[OP_READ];
 			int ssl_pending = SSL_pending(st->ssl->ssl);
-			int bio_pending = BIO_pending(ssl_bio->bio);
+			int bio_pending = (int)BIO_pending(ssl_bio->bio);
 			kassert(st->ssl->in_early || ssl_pending > 0 || bio_pending > 0 || BIO_get_shutdown(ssl_bio->bio));
 		}
 #endif

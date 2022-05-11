@@ -25,6 +25,7 @@
 extern "C" {
 #endif
     extern void __startcontext();
+    void makecontext (ucontext_t *ucp, void (*func) (void), int argc, ...);
 #ifdef __cplusplus
 }
 #endif

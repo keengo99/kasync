@@ -15,6 +15,7 @@ KBEGIN_DECLS
 #ifndef NDEBUG
 #define CHECK_FIBER(fiber) do { \
 	if (fiber==NULL || is_main_fiber(fiber)) { \
+		assert(false);\
 		return -1;\
 	}\
 	fiber->wait_notice_flag = 0;\
@@ -56,7 +57,7 @@ struct _kfiber {
 	kgl_list queue;
 	kselector* selector;
 	uint16_t st_flags;//always set STF_FIBER
-	/////////ÒÔÉÏÈý¸ö±ØÐëºÍkselectableÏàÍ¬
+	/////////ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½kselectableï¿½ï¿½Í¬
 	uint16_t stk_page;
 	union {
 		volatile int start_arg;
@@ -74,7 +75,7 @@ struct _kfiber {
 	};
 #endif
 	uint16_t reserve;
-	void *wait_code;//Ê¹wait/wakeup²ÎÊýÆ¥Åä
+	void *wait_code;//Ê¹wait/wakeupï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½
 	kfiber * switch_from;
 	kfiber_cond * close_cond;
 	union {

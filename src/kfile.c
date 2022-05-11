@@ -49,7 +49,7 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 		flag2 = CREATE_ALWAYS;
 		break;
 	}
-	return CreateFile(path,
+	return CreateFileA(path,
 		flag1,
 		share_flag,
 		&sa,

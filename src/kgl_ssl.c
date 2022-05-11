@@ -4,6 +4,7 @@
 #include "klog.h"
 #include "kstring.h"
 #ifdef KSOCKET_SSL
+#include <errno.h>
 #ifdef _WIN32
 //#pragma comment(lib,"ssleay32.lib")
 //#pragma comment(lib,"libeay32.lib")

@@ -32,7 +32,13 @@
   other than the PRESERVED state.  */
 
 	.text
-
+ENTRY (__startcontext)
+	mov	x0, x19
+	cbnz	x0, jump	
+1:	b       HIDDEN_JUMPTARGET (exit)
+END (__startcontext)
+jump:
+	b setcontext
 ENTRY (setcontext)
 	PTR_ARG (0)
 	/* Save a copy of UCP.  */
@@ -123,8 +129,4 @@ ENTRY (setcontext)
 PSEUDO_END (setcontext)
 
 
-ENTRY (__startcontext)
-	mov	x0, x19
-	cbnz	x0, setcontext
-1:	b       HIDDEN_JUMPTARGET (exit)
-END (__startcontext)
+

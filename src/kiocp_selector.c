@@ -434,7 +434,7 @@ static kselector_module iocp_selector_module = {
 void kiocp_module_init()
 {
 	kgl_selector_module = iocp_selector_module;
-	pGetQueuedCompletionStatusEx = (GetQueuedCompletionStatusEx_fn)GetProcAddress(GetModuleHandle("kernel32.dll"), "GetQueuedCompletionStatusEx");
+	pGetQueuedCompletionStatusEx = (GetQueuedCompletionStatusEx_fn)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
 	if (pGetQueuedCompletionStatusEx) {
 		kgl_selector_module.select = iocp_selector_selectx;
 	}

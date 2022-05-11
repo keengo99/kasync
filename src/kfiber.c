@@ -14,6 +14,14 @@
 
 #ifndef _WIN32
 #include <sys/mman.h>
+#ifdef ANDROID
+KBEGIN_DECLS
+int getcontext(ucontext_t *ucp);
+int setcontext(const ucontext_t *ucp);
+void makecontext(ucontext_t *ucp, void (*func)(), int argc, ...);
+int swapcontext(ucontext_t *oucp, const ucontext_t *ucp);
+KEND_DECLS
+#endif
 #endif
 #define ST_DEFAULT_STACK_SIZE (64*1024)
 #ifdef  NDEBUG
@@ -56,7 +64,6 @@ static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool sa
 {
 	if (same_thread) {
 		assert(fiber->selector == kgl_get_tls_selector());
-		//cb和start是union关系，只能二选一。
 		//assert(fiber->start_called == 1);
 		fiber->cb = cb;
 		fiber->arg = fiber;
@@ -261,7 +268,6 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
 
 static void kfiber_exit(kfiber* fiber, int retval)
 {
-	//fiber退出，必须要切换到主协程
 #ifndef NDEBUG
 	fiber->wait_notice_flag = 0;
 #endif
