@@ -41,25 +41,26 @@ static void inter_free(void *ptr)
 {
 	_free_dbg(ptr, _CRT_BLOCK);
 }
+
 #ifdef _WIN64
 
 typedef struct
 {
 	long lRequest;
 	unsigned char gap[nNoMansLandSize];
-} _CrtMemBlockHeader;
+} KGL_CrtMemBlockHeader;
 #ifndef ADDRESS
 #define ADDRESS    DWORD64
 #endif
 
 #elif _WIN32
 #define ADDRESS    DWORD
-typedef struct _CrtMemBlockHeader
+typedef struct _KGL_CrtMemBlockHeader
 {
 	// Pointer to the block allocated just before this one:
-	struct _CrtMemBlockHeader *pBlockHeaderNext;
+	struct _KGL_CrtMemBlockHeader*pBlockHeaderNext;
 	// Pointer to the block allocated just after this one:
-	struct _CrtMemBlockHeader *pBlockHeaderPrev;
+	struct _KGL_CrtMemBlockHeader*pBlockHeaderPrev;
 	char *szFileName;    // File name
 	int nLine;           // Line number
 	size_t nDataSize;    // Size of user block
@@ -67,7 +68,7 @@ typedef struct _CrtMemBlockHeader
 	long lRequest;       // Allocation number
  // Buffer just before (lower than) the user's memory:
 	unsigned char gap[nNoMansLandSize];
-} _CrtMemBlockHeader;
+} KGL_CrtMemBlockHeader;
 #endif
 
 typedef struct {
@@ -293,7 +294,7 @@ static void ptr_list_insert(struct krb_root *root, void *key)
 }
 void win32_free_hook(void *pvData)
 {
-	_CrtMemBlockHeader *bh = (_CrtMemBlockHeader *)((char *)pvData - sizeof(_CrtMemBlockHeader));
+	KGL_CrtMemBlockHeader *bh = (KGL_CrtMemBlockHeader *)((char *)pvData - sizeof(KGL_CrtMemBlockHeader));
 	size_t hash_index = DEBUG_NEW_HASH(bh->lRequest);
 	kassert(hash_index >= 0 && hash_index < DEBUG_NEW_HASHTABLESIZE);
 	kmutex_lock(&malloc_mutex[hash_index]);

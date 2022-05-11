@@ -8,6 +8,7 @@
 #cmakedefine HAVE_SETMNTENT
 #cmakedefine DISABLE_KFIBER
 #cmakedefine FREEBSD
+#cmakedefine MALLOCDEBUG
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
