@@ -361,7 +361,21 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 	katom_inc((void*)&fiber_count);
 	return fiber;
 }
-
+int kfiber_create_sync(kfiber_start_func start, void* arg, int len, int stk_size, kfiber** ret_fiber)
+{
+	kfiber* fiber = kfiber_new(start, arg, stk_size);
+	if (fiber == NULL) {
+		return -1;
+	}
+	fiber->selector = get_perfect_selector();
+	if (ret_fiber) {
+		fiber->ref++;
+		*ret_fiber = fiber;
+		fiber->close_cond = kfiber_cond_init_sync(false);
+	}
+	kfiber_wakeup2(fiber->selector, fiber, NULL, len);
+	return 0;
+}
 int kfiber_create2(kselector* selector, kfiber_start_func start, void* arg, int len, int stk_size, kfiber** ret_fiber)
 {
 	kfiber* fiber = kfiber_new(start, arg, stk_size);
@@ -423,6 +437,7 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg)
 	}
 	return fiber->close_cond->f->wait_callback(fiber->close_cond, data, notice, arg);
 }
+
 
 bool kfiber_has_next()
 {

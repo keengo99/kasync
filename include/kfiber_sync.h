@@ -26,5 +26,6 @@ void kfiber_rwlock_destroy(kfiber_rwlock* mutex);
 //kfiber cond wait
 kfiber_cond* kfiber_cond_init(bool auto_reset);
 kfiber_cond* kfiber_cond_init_ts(bool auto_reset);
+kfiber_cond* kfiber_cond_init_sync(bool auto_reset);
 KEND_DECLS
 #endif

@@ -57,7 +57,7 @@ struct _kfiber {
 	kgl_list queue;
 	kselector* selector;
 	uint16_t st_flags;//always set STF_FIBER
-	/////////�������������kselectable��ͬ
+	/////////以上三个必须和kselectable相同
 	uint16_t stk_page;
 	union {
 		volatile int start_arg;

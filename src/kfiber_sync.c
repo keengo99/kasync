@@ -4,6 +4,8 @@
 #include "kfiber.h"
 
 typedef struct _kfiber_cond_ts kfiber_cond_ts;
+typedef struct _kfiber_cond_sync kfiber_cond_sync;
+
 struct _kfiber_cond_ts {
 	kfiber_cond base;
 	kmutex lock;
@@ -24,7 +26,12 @@ struct _kfiber_rwlock {
 	volatile int32_t cnt;
 };
 
-
+struct _kfiber_cond_sync
+{
+	kfiber_cond base;
+	kcond* sync_cond;
+	int got;
+};
 //mutext
 kev_result kfiber_mutex_lock2(kfiber_mutex* mutex, KOPAQUE data, result_callback notice, void* arg)
 {
@@ -243,6 +250,7 @@ int kfiber_cond_notice_ts(kfiber_cond* fc,int got)
 	}
 	return 0;
 }
+
 int kfiber_cond_notice(kfiber_cond* fc,int got)
 {
 	fc->ev = 1;
@@ -295,6 +303,20 @@ int kfiber_cond_wait_ts(kfiber_cond* fc)
 	__kfiber_wait(fiber, &fiber);
 	return 0;
 }
+int kfiber_cond_notice_sync(kfiber_cond* fc, int got)
+{
+	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
+	sync->got = got;
+	kcond_notice(sync->sync_cond);
+	return 0;
+}
+int kfiber_cond_wait_sync(kfiber_cond* fc)
+{
+	assert(kfiber_self() == NULL);
+	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
+	kcond_wait(sync->sync_cond);
+	return 0;
+}
 int kfiber_cond_wait(kfiber_cond* fc)
 {
 	kfiber* fiber = kfiber_self();
@@ -318,6 +340,12 @@ void kfiber_cond_destroy_ts(kfiber_cond* fc)
 	kmutex_destroy(&((kfiber_cond_ts *)fc)->lock);
 	xfree(fc);
 }
+void kfiber_cond_destroy_sync(kfiber_cond* fc)
+{
+	assert(fc->waiter == NULL);
+	kcond_destroy(((kfiber_cond_sync*)fc)->sync_cond);
+	xfree(fc);
+}
 static kfiber_cond_function kfiber_cond_single_thread_auto_reset = {
 	kfiber_cond_notice_ar,
 	kfiber_cond_wait_ar,
@@ -336,11 +364,17 @@ static kfiber_cond_function kfiber_cond_thread_auto_reset = {
 	kfiber_cond_wait_callback_ts_ar,
 	kfiber_cond_destroy_ts
 };
-static kfiber_cond_function kfiber_cond_thread = {
+static kfiber_cond_function kfiber_cond_thread_safe = {
 	kfiber_cond_notice_ts,
 	kfiber_cond_wait_ts,
 	kfiber_cond_wait_callback_ts,
 	kfiber_cond_destroy_ts
+};
+static kfiber_cond_function kfiber_cond_thread_sync = {
+	kfiber_cond_notice_sync,
+	kfiber_cond_wait_sync,
+	NULL,
+	kfiber_cond_destroy_sync
 };
 kfiber_cond* kfiber_cond_init(bool auto_reset)
 {
@@ -352,6 +386,7 @@ kfiber_cond* kfiber_cond_init(bool auto_reset)
 	}
 	return fc;
 }
+//thread safe
 kfiber_cond* kfiber_cond_init_ts(bool auto_reset)
 {
 	kfiber_cond_ts *fc = (kfiber_cond_ts *)xmemory_newz(sizeof(kfiber_cond_ts));
@@ -359,12 +394,18 @@ kfiber_cond* kfiber_cond_init_ts(bool auto_reset)
 	if (auto_reset) {
 		fc->base.f = &kfiber_cond_thread_auto_reset;
 	} else {
-		fc->base.f = &kfiber_cond_thread;
+		fc->base.f = &kfiber_cond_thread_safe;
 	}
 	return (kfiber_cond *)fc;
 }
-
-
+//support worker thread wait fiber
+kfiber_cond* kfiber_cond_init_sync(bool auto_reset)
+{
+	kfiber_cond_sync* fc = (kfiber_cond_sync*)xmemory_newz(sizeof(kfiber_cond_sync));
+	fc->sync_cond = kcond_init(auto_reset);
+	fc->base.f = &kfiber_cond_thread_sync;
+	return (kfiber_cond*)fc;
+}
 kfiber_rwlock* kfiber_rwlock_init()
 {
 	kfiber_rwlock* mutex = (kfiber_rwlock *)xmemory_newz(sizeof(kfiber_rwlock));

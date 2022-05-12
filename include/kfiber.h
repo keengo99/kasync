@@ -31,6 +31,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size);
 int kfiber_start(kfiber* fiber,int len);
 int kfiber_create(kfiber_start_func start, void *arg, int len, int stk_size, kfiber **fiber);
 int kfiber_create2(kselector *selector, kfiber_start_func start, void *start_arg, int len, int stk_size, kfiber** fiber);
+int kfiber_create_sync(kfiber_start_func start, void* start_arg, int len, int stk_size, kfiber** fiber);
 //void kfiber_yield();
 //kfiber next deprecated
 bool kfiber_has_next();
