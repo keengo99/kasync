@@ -214,7 +214,7 @@ static bool kqueue_selector_write(kselector *selector, kselectable *st, result_c
 	}
 	return true;
 }
-static bool kqueue_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg)
+static bool kqueue_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	return false;
 }

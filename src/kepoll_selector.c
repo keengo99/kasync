@@ -297,14 +297,13 @@ static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 	return false;
 #endif
 }
-static bool epoll_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg)
+static bool epoll_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
-	st->e[OP_WRITE].buffer = addr_buffer;
 	KBIT_SET(st->st_flags,STF_RECVFROM);
 	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);

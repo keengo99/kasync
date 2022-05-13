@@ -41,7 +41,7 @@ typedef bool (*selector_remove_readhup)(kselector *selector, kselectable *st);
 
 typedef bool (*selector_write)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef bool (*selector_connect)(kselector *selector, kselectable *st, result_callback result, void *arg);
-typedef bool (*selector_recvfrom)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg);
+typedef bool (*selector_recvfrom)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got);
 
 typedef void (*selector_aio_open)(kselector *selector, kasync_file *file, FILE_HANDLE fd);
@@ -136,6 +136,7 @@ bool kselector_default_readhup(kselector *selector, kselectable *st, result_call
 bool kselector_default_remove_readhup(kselector *selector, kselectable *st);
 void kselector_default_remove(kselector *selector, kselectable *st);
 kev_result kselector_event_accept(KOPAQUE data, void *arg,int got);
+int kconnection_buffer_addr(KOPAQUE data, void* arg, WSABUF* buffer, int bc);
 INLINE bool kselector_can_close(kselector *selector)
 {
 	return (selector->closed && selector->count == 0 && selector->block.rb_node == NULL);

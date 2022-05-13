@@ -101,7 +101,7 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 	printf("ntsetinfomationfile ret=[%x]\n", ret);
 #endif
 }
-static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg)
+static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->st_flags, STF_READ|STF_WRITE| STF_RECVFROM) == 0);
 	KBIT_SET(st->st_flags, STF_RECVFROM);
@@ -113,7 +113,7 @@ static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_
 	st->e[OP_READ].result = result;
 
 	int bc = buffer(st->data,arg, buf, 16);
-	addr_buffer(st->data,arg, &addr, 1);
+	kconnection_buffer_addr(st->data, st, &addr, 1);
 	int rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr *)addr.buf,(INT *)&addr.len, &st->e[OP_READ].lp, NULL);
 	if (rc == SOCKET_ERROR) {
 		int err = WSAGetLastError();

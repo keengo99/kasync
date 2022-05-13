@@ -11,6 +11,7 @@
 #include "katom.h"
 #include "klog.h"
 #include "kthread.h"
+#include "kudp.h"
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -598,6 +599,24 @@ int kfiber_net_writev(kconnection* cn, WSABUF* buf, int vc)
 		__kfiber_wait(fiber, cn->st.data);
 	}
 	return fiber->retval;
+}
+int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc)
+{
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	fiber->retval = vc;
+	fiber->arg = buf;
+	if (kev_fiber_ok != kudp_recv_from(cn, result_switch_fiber, kfiber_buffer_callback, fiber)) {
+		__kfiber_wait(fiber, cn->st.data);
+	}
+	return fiber->retval;
+}
+int kfiber_udp_read(kconnection* cn, char* buf, int len)
+{
+	WSABUF v;
+	v.iov_base = buf;
+	v.iov_len = len;
+	return kfiber_udp_readv(cn, &v, 1);
 }
 int kfiber_net_readv(kconnection* cn, WSABUF* buf, int vc)
 {

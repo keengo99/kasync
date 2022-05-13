@@ -39,13 +39,21 @@ INLINE BOOL ksocket_cancel(SOCKET sockfd) {
 #include <sys/ioctl.h>
 #define closesocket close
 #endif
-#define KSOCKET_ONLY_IPV4         0
-#define KSOCKET_PROTO_AUTO        1
-#define KSOCKET_ONLY_IPV6         2
-#define KSOCKET_REUSEPORT         4
+
+#define KSOCKET_PROTO_AUTO        0
+#define KSOCKET_ONLY_IPV4         (1<<1)
+#define KSOCKET_ONLY_IPV6         (1<<2)
+#define KSOCKET_REUSEPORT         (1<<3)
 #ifdef ENABLE_TPROXY
-#define KSOCKET_TPROXY            8
+#define KSOCKET_TPROXY            (1<<4)
 #endif
+#define KSOCKET_FASTOPEN          (1<<5)
+#define KSOCKET_BLOCK             (1<<6)
+#define KSOCKET_MULTICAST         (1<<7)
+
+#define KSOCKET_PROTO_IPV4        KSOCKET_ONLY_IPV4
+#define KSOCKET_PROTO_IPV6        KSOCKET_ONLY_IPV6
+
 #ifndef INET6_ADDRSTRLEN
 #define INET6_ADDRSTRLEN	46
 #endif
@@ -254,18 +262,7 @@ INLINE void ksocket_block(SOCKET sockfd) {
 	ioctl(sockfd, FIONBIO, &iMode);
 #endif
 }
-#define KSOCKET_ONLY_IPV4         0
-#define KSOCKET_PROTO_AUTO        1
-#define KSOCKET_ONLY_IPV6         2
-#define KSOCKET_REUSEPORT         4
-#ifdef ENABLE_TPROXY
-#define KSOCKET_TPROXY            8
-#endif
-#define KSOCKET_FASTOPEN          16
-#define KSOCKET_BLOCK             32
 
-#define KSOCKET_PROTO_IPV4        KSOCKET_ONLY_IPV4
-#define KSOCKET_PROTO_IPV6        KSOCKET_ONLY_IPV6   
 void ksocket_startup();
 void ksocket_library_startup();
 void ksocket_clean();

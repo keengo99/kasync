@@ -119,6 +119,9 @@ int kfiber_net_close(kconnection *cn);
 int kfiber_ssl_handshake(kconnection *cn);
 #endif
 
+//udp
+int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc);
+int kfiber_udp_read(kconnection* cn, char *buf,int len);
 //file
 kfiber_file *kfiber_file_open(const char *filename, fileModel model, int kf_flags);
 kfiber_file* kfiber_file_bind(FILE_HANDLE fp, int kf_flags);

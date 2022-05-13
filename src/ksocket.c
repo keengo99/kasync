@@ -92,32 +92,6 @@ void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *to) {
 	*to = addr->v4.sin_addr.s_addr;
 #endif
 }
-SOCKET ksocket_listen_udp(const sockaddr_i *addr)
-{
-	SOCKET sockfd;
-	if ((sockfd = socket(addr->v4.sin_family, SOCK_DGRAM, 0)) == INVALID_SOCKET) {
-		//printf("errno=%d\n",WSAGetLastError());
-		return INVALID_SOCKET;
-	}
-	kfile_close_on_exec((FILE_HANDLE)sockfd, true);
-	int n = 1;
-#ifndef _WIN32
-	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&n, sizeof(int));
-#endif
-	socklen_t addr_len = ksocket_addr_len(addr);
-#if defined(KSOCKET_IPV6) 
-	if (addr->v4.sin_family == PF_INET6) {	
-#ifdef IPV6_V6ONLY
-		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&n, sizeof(int));
-#endif
-	}
-#endif
-	if (bind(sockfd, (struct sockaddr *)addr, addr_len) < 0) {
-		ksocket_close(sockfd);
-		return INVALID_SOCKET;
-	}
-	return sockfd;
-}
 SOCKET ksocket_listen(const sockaddr_i *addr,int flag)
 {
 #ifdef KSOCKET_UNIX	

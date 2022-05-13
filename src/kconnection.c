@@ -24,16 +24,16 @@ static kev_result ssl_handshake_result(kconnection_ssl_param *sh, bool result)
 	return ret;
 }
 #endif
-#ifdef KGL_IOCP
-static int kconnection_buffer_addr(KOPAQUE data, void *arg, LPWSABUF buffer, int bc)
+
+int kconnection_buffer_addr(KOPAQUE data, void *arg, WSABUF *buffer, int bc)
 {
-	kconnection *c = (kconnection *)arg;
+	kconnection* c = kgl_list_data(arg, kconnection, st);
 	buffer[0].iov_base = (char *)&c->addr;
 	buffer[0].iov_len = ksocket_addr_len(&c->addr);
 	return 1;
 }
-#endif
-static kconnection* kconnection_internal_new()
+
+kconnection* kconnection_internal_new()
 {
 	kconnection* c = (kconnection*)xmalloc(sizeof(kconnection));
 	memset(c, 0, sizeof(kconnection));
@@ -123,7 +123,7 @@ kev_result kconnection_connect(kconnection *c,result_callback cb, void *arg)
 	assert(kselector_is_same_thread(c->st.selector));
 #ifdef KGL_IOCP
 	c->st.e[OP_READ].buffer = kconnection_buffer_addr;
-	c->st.e[OP_READ].arg = c;
+	c->st.e[OP_READ].arg = &c->st;
 #endif
 	if (!kgl_selector_module.connect(c->st.selector, &c->st, cb, arg)) {
 		return cb(c->st.data, arg, -1);

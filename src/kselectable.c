@@ -205,7 +205,7 @@ void selectable_recvfrom_event(kselectable *st)
 	WSABUF addr;
 	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &buf, 1);
 	kassert(bc == 1);
-	bc = st->e[OP_WRITE].buffer(st->data, st->e[OP_READ].arg, &addr, 1);
+	bc = kconnection_buffer_addr(st->data, st, &addr, 1);
 	kassert(bc == 1);
 	socklen_t addr_len = (socklen_t)addr.iov_len;
 	int got = recvfrom(st->fd, (char *)buf.iov_base, buf.iov_len, 0, (struct sockaddr *)addr.iov_base, &addr_len);

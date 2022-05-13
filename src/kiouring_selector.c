@@ -324,7 +324,7 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
 }
-static bool iouring_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, buffer_callback addr_buffer, void *arg)
+static bool iouring_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 #if 0
 	kiouring_selector *es = (kiouring_selector *)selector->ctx;
@@ -332,7 +332,6 @@ static bool iouring_selector_recvfrom(kselector *selector, kselectable *st, resu
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
-	st->e[OP_WRITE].buffer = addr_buffer;
 	KBIT_SET(st->st_flags,STF_RECVFROM);
 	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
