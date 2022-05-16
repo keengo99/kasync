@@ -5,8 +5,9 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef DARWIN
 #include <malloc.h>
-
+#endif
 KBEGIN_DECLS
 #ifndef NDEBUG
 #define MAX_TRACEBACK_LEVELS	16

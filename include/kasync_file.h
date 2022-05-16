@@ -9,8 +9,13 @@
 #include <aio.h>
 #endif
 KBEGIN_DECLS
+#ifdef DARWIN
+#define KF_ASYNC_WORKER 1
+#endif
 #ifdef LINUX_EPOLL
 #define KF_ASYNC_WORKER 1
+#endif
+#ifdef KF_ASYNC_WORKER
 typedef struct _kf_aiocb kf_aiocb;
 typedef enum _kf_aio_cmd {
         kf_aio_read,
@@ -27,11 +32,18 @@ void *aio_alloc_buffer(size_t size);
 void aio_free_buffer(void *buf);
 kev_result result_async_file_event(KOPAQUE data, void *arg, int got);
 struct kasync_file_s {
-#ifdef LINUX_EPOLL
 	union {
+#ifdef LINUX_EPOLL
 		struct iocb iocb;
+#endif
+#ifdef BSD_OS
+		struct aiocb iocb;
+#endif
+#ifdef KF_ASYNC_WORKER
 		kf_aiocb kiocb;
+#endif
 	};
+#ifdef KF_ASYNC_WORKER
 	int offset_adjust;
 	int length;
 	FILE_HANDLE fd;
@@ -41,17 +53,13 @@ struct kasync_file_s {
 #else
 	kselectable st;
 #endif
-
-#ifdef BSD_OS
-	struct aiocb iocb;
-#endif
 	char *buf; //deprecated
 	void *arg;
 	aio_callback cb;
 };
 INLINE FILE_HANDLE kasync_file_get_handle(kasync_file *fp)
 {
-#ifdef  LINUX_EPOLL
+#ifdef  KF_ASYNC_WORKER
 	return fp->fd;
 #else
 	return (FILE_HANDLE)fp->st.fd;
@@ -64,7 +72,7 @@ INLINE void kasync_file_close(kasync_file *fp)
 }
 INLINE kselector *kasync_file_get_selector(kasync_file *fp)
 {
-#ifdef LINUX_EPOLL
+#ifdef KF_ASYNC_WORKER
 	return fp->selector;
 #else
 	return fp->st.selector;
@@ -72,7 +80,7 @@ INLINE kselector *kasync_file_get_selector(kasync_file *fp)
 }
 INLINE void kasync_file_bind_opaque(kasync_file *fp, KOPAQUE data)
 {
-#ifdef LINUX_EPOLL
+#ifdef KF_ASYNC_WORKER
 	fp->data = data;
 #else
 	fp->st.data = data;
@@ -80,7 +88,7 @@ INLINE void kasync_file_bind_opaque(kasync_file *fp, KOPAQUE data)
 }
 INLINE KOPAQUE kasync_file_get_opaque(kasync_file *fp)
 {
-#ifdef LINUX_EPOLL
+#ifdef KF_ASYNC_WORKER
 	return fp->data;
 #else
 	return fp->st.data;

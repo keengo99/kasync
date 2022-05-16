@@ -91,8 +91,10 @@ typedef HANDLE Token_t;
 //#define PRId64 "I64d"
 //#endif
 #else
+#ifndef ntohll
 #define ntohll be64toh
 #define htonll htobe64
+#endif
 #define FILE_HANDLE     int
 #define PID_LIKE(x)  (x>0)
 #define PTHREAD_CREATE_SUCCESSED(x) (x==0)

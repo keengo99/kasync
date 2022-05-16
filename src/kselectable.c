@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 #include "kfeature.h"
 #include "kselectable.h"
 #include "ksocket.h"

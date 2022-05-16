@@ -1,3 +1,5 @@
+#ifndef KASYNC_CONFIG_INCLUDED_H
+#define KASYNC_CONFIG_INCLUDED_H
 #cmakedefine KSOCKET_SSL
 #cmakedefine KSOCKET_SSL_BIO
 #cmakedefine LINUX
@@ -8,8 +10,13 @@
 #cmakedefine HAVE_SETMNTENT
 #cmakedefine DISABLE_KFIBER
 #cmakedefine FREEBSD
+#cmakedefine DARWIN
 #cmakedefine MALLOCDEBUG
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
+#ifdef DARWIN
+#define _XOPEN_SOURCE
+#endif
 #endif

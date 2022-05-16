@@ -2,7 +2,7 @@
 #include "kselector_manager.h"
 #include "ktest.h"
 #include "kfiber.h"
-
+#ifdef KSOCKET_SSL
 void kfiber_client_connect_ssl(kserver* server)
 {
 	kconnection* cn = kconnection_new(&server->addr);
@@ -106,3 +106,5 @@ mBktbUKiCi0n5NrLYQFnSLMAmGtn8stH+rSmB9pvk/YlSXbtRhmoeltO+WOx8i+4\n\
 	kserver_release(server);
 	//ASSERT_TRUE(kserver_bind(kserver_init(), "::1", 0, ctx2)); //ipv6
 }
+#endif
+

@@ -1,3 +1,6 @@
+#ifndef _WIN32
+#include <arpa/inet.h>
+#endif
 #include "kudp.h"
 #include "kmalloc.h"
 #include "kfile.h"

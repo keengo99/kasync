@@ -9,9 +9,11 @@ static const char request_msg[] = "GET / HTTP/1.1\r\nHost: localhost\r\nConnecti
 KFIBER_FUNCTION(kfiber_server_test)
 {
 	kconnection *cn = (kconnection *)arg;
+#ifdef KSOCKET_SSL
     if (cn->server->ssl) {
         assert(0 == kfiber_ssl_handshake(cn));
     }
+#endif
 	char buf[512];
     memset(buf,0,sizeof(buf));
     int len = sizeof(request_msg) - 1;
@@ -58,13 +60,14 @@ int kfiber_client_test(void *arg, int got)
     return 0;
 }
 TEST(socket, server_open_close) {
+   //   GTEST_SKIP();
     kserver* server = kserver_init();  
     ASSERT_TRUE(kserver_bind(server, "127.0.0.1", 0, NULL));//ipv4
     ASSERT_TRUE(kserver_open(server, 0, accept_callback));
      assert(server->refs == 2);
     // printf("open 8888 port success.\n");
     kfiber_msleep(100);
-   // printf("shutdown server now...\n");
+//    printf("shutdown server now...\n");
     kserver_shutdown(server);
     //printf("server->refs = [%d]\n",server->refs);
     kfiber_msleep(100);
@@ -77,6 +80,7 @@ TEST(socket, server_open) {
     ASSERT_TRUE(kserver_bind(server, "127.0.0.1", 0, NULL));//ipv4
     ASSERT_TRUE(kserver_open(server, 0, accept_callback));
     //printf("server refs=[%d]\n",server->refs);
+    kfiber_msleep(100);
     ASSERT_TRUE(0 == kfiber_client_test(server, 0));
     //printf("server refs=[%d] now shutdown..\n",server->refs);
     assert(server->refs == 2);

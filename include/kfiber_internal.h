@@ -76,6 +76,8 @@ struct _kfiber {
 #endif
 	uint16_t reserve;
 	void *wait_code;//ʹwait/wakeup����ƥ��
+	//when a fiber exit/wait/yield will switch back to switch_from
+	//when a fiber wakeup will set self to target fiber->switch_from
 	kfiber * switch_from;
 	kfiber_cond * close_cond;
 	union {

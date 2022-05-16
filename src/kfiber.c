@@ -25,10 +25,15 @@ KEND_DECLS
 #endif
 #endif
 #define ST_DEFAULT_STACK_SIZE (64*1024)
-#ifdef  NDEBUG
-#define REDZONE 0
+#ifdef LINUX
+#ifndef NDEBUG
+//#define KFIBER_PROTECTED
+#endif 
+#endif
+#ifdef KFIBER_PROTECTED
+#define KFIBER_REDZONE    4096
 #else
-#define REDZONE    4096
+#define KFIBER_REDZONE    0
 #endif
 #define KFIBER_WAIT_CODE(obj) obj
 
@@ -55,7 +60,7 @@ struct _kfiber_chan {
 
 
 
-#ifdef LINUX_EPOLL
+#ifdef KF_ASYNC_WORKER
 #define KFIBER_AIO_DEFAULT_WORKER 16
 static kgl_list kfiber_aio_list;
 static kasync_worker* kfiber_aio_worker = NULL;
@@ -106,13 +111,13 @@ static void kfiber_delete_context(kfiber* fiber) {
 #ifdef _WIN32
 	DeleteFiber(fiber->ctx);
 #else
-#ifndef NDEBUG
-	if (mprotect(fiber->stack, REDZONE, PROT_READ | PROT_WRITE) != 0) {
+#ifdef KFIBER_PROTECTED
+	if (mprotect(fiber->stack, KFIBER_REDZONE, PROT_READ | PROT_WRITE) != 0) {
 		printf("begin mprotect stack=[%p]\n", fiber->stack);
 		perror("mprotect");
 	}
 	int stk_size = (int)fiber->stk_page * _ST_PAGE_SIZE;
-	if (mprotect((char*)(fiber->ctx.uc_stack.ss_sp) + stk_size, REDZONE, PROT_READ | PROT_WRITE) != 0) {
+	if (mprotect((char*)(fiber->ctx.uc_stack.ss_sp) + stk_size, KFIBER_REDZONE, PROT_READ | PROT_WRITE) != 0) {
 		printf("end address=[%p]\n", (char*)(fiber->ctx.uc_stack.ss_sp) + stk_size);
 		perror("mprotect");
 	}
@@ -232,6 +237,8 @@ kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got)
 #ifdef _WIN32
 	fiber->ctx = ConvertThreadToFiber(NULL);
 	//printf("main ctx=[%p]\n", fiber->ctx);
+#else
+
 #endif
 	fiber->selector = kgl_get_tls_selector();
 	pthread_setspecific(kgl_main_fiber_key, fiber);
@@ -243,7 +250,7 @@ void kfiber_init()
 {
 	pthread_key_create(&kgl_main_fiber_key, NULL);
 	pthread_key_create(&kgl_current_fiber_key, NULL);
-#ifdef LINUX_EPOLL
+#ifdef KF_ASYNC_WORKER
 	klist_init(&kfiber_aio_list);
 	kfiber_aio_worker = kasync_worker_init(KFIBER_AIO_DEFAULT_WORKER, 0);
 #endif
@@ -339,16 +346,16 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 		xfree(fiber);
 		return NULL;
 	}
-	fiber->stack = kgl_memalign(4096, stk_size + 2 * REDZONE);
+	fiber->stack = kgl_memalign(4096, stk_size + 2 * KFIBER_REDZONE);
 	//printf("stack=[%p]\n",fiber->stack);
-	fiber->ctx.uc_stack.ss_sp = (char*)fiber->stack + REDZONE;
+	fiber->ctx.uc_stack.ss_sp = (char*)fiber->stack + KFIBER_REDZONE;
 	fiber->ctx.uc_stack.ss_size = stk_size;
-#ifndef NDEBUG
-	if (mprotect(fiber->stack, REDZONE, PROT_NONE) != 0) {
+#ifdef KFIBER_PROTECTED
+	if (mprotect(fiber->stack, KFIBER_REDZONE, PROT_NONE) != 0) {
 		printf("begin mprotect stack=[%p]\n", fiber->stack);
 		perror("mprotect");
 	}
-	if (mprotect((char*)(fiber->ctx.uc_stack.ss_sp) + stk_size, REDZONE, PROT_NONE) != 0) {
+	if (mprotect((char*)(fiber->ctx.uc_stack.ss_sp) + stk_size, KFIBER_REDZONE, PROT_NONE) != 0) {
 		printf("end address=[%p]\n", (char*)(fiber->ctx.uc_stack.ss_sp) + stk_size);
 		perror("mprotect");
 	}
@@ -717,6 +724,9 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 
 #ifndef KF_ASYNC_WORKER
 	kf_flags |= KFILE_ASYNC;
+#endif
+#ifdef DARWIN
+	kf_flags &= ~KFILE_ASYNC;
 #endif
 	FILE_HANDLE fp = kfopen(filename, model, kf_flags);
 	if (!kflike(fp)) {

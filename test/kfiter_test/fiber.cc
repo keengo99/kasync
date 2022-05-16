@@ -41,7 +41,6 @@ int kfiber_sleep_test(void* arg, int got)
 }
 int main_fiber_test(void* arg, int got)
 {
-	return 3;
 	assert(got == 2);
 	printf("main_fiber_test\n");
 	kfiber* f = NULL;
@@ -57,6 +56,7 @@ int main_fiber_test(void* arg, int got)
 	return 3;
 }
 TEST(fiber, get_addr) {
+	//GTEST_SKIP();
 	kgl_addr* ai = NULL;
 	kfiber_net_getaddr("www.qq.com", &ai);
 	char ips[MAXIPLEN];

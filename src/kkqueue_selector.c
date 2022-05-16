@@ -124,13 +124,14 @@ static bool kqueue_selector_accept(kselector *selector, kserver_selectable *ss, 
 	if (KBIT_TEST(st->st_flags,STF_REV)) {
 		return true;
 	}
+	//printf("add accept fd to kqueue, st=[%p] fd=[%d]\n",st,st->fd);
+	EV_SET(&changes[ev_count++], st->fd, EVFILT_READ, EV_ADD|EV_CLEAR|EV_ERROR|EV_EOF, 0, 0, (kqueue_udata_t)st);
 	KBIT_SET(st->st_flags,STF_REV|STF_ET);
-	EV_SET(&changes[ev_count++], st->fd, EVFILT_READ, EV_ADD|EV_CLEAR, 0, 0, (kqueue_udata_t)st);
-	    KBIT_SET(st->st_flags,STF_READ|STF_REV|STF_ET);
-	    if(kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL)==-1){
-		    klog(KLOG_ERR,"cann't addSocket sockfd=%d for read\n",st->fd);
-		    return false;
-	    }
+	if(kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL)==-1){
+		KBIT_CLR(st->st_flags,STF_READ|STF_REV|STF_ET);
+		klog(KLOG_ERR,"cann't addSocket sockfd=%d for read\n",st->fd);
+		return false;
+	}
 	return true;
 }
 static bool kqueue_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
@@ -264,8 +265,8 @@ static int kqueue_selector_select(kselector *selector)
 }
 void kqueue_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
-	aio_file->st.fd = fd;
-	aio_file->st.selector = selector;
+	aio_file->fd = fd;
+	aio_file->selector = selector;
 }
 bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
 {
@@ -298,6 +299,7 @@ bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf
 	}
 	katom_dec((void *)&kgl_aio_count);
 #endif
+	printf("aio write not support.........\n");
 	return false;
 }
 bool kqueue_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)

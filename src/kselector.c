@@ -1,6 +1,7 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 #ifndef _WIN32
 #include <sys/time.h>
 #endif
@@ -289,6 +290,7 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			break;
 		}
 		kgl_ready_event* ready_ev = kgl_list_data(l, kgl_ready_event, queue);
+		//printf("ready ev st=[%p] fd=[%d]\n",ready_ev, ready_ev->st.fd);
 		kassert(ready_ev->selector == selector);
 		klist_remove(l);
 		memset(l, 0, sizeof(kgl_list));

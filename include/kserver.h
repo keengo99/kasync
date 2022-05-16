@@ -14,6 +14,12 @@
 #endif
 #define IS_VALIDE_CONNECTION(got) (got>=0)
 
+#ifdef DARWIN
+//accept socket call shutdown no event return from kernel.
+#define ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
+#endif
+
+
 #define KACCEPT_CALLBACK_DECLEAR(fn)\
 kev_result fn(KOPAQUE data, void *arg, int got)
 
@@ -53,6 +59,9 @@ struct kserver_selectable_s{
 	kgl_ssl_ctx *ssl_ctx;
 #endif
 	kgl_list queue;
+#ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
+	volatile int32_t hold_by_next_shutdown_refs;
+#endif
 	sockaddr_i accept_addr;
 	socklen_t addr_len;
 #ifdef _WIN32

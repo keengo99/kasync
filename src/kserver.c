@@ -1,6 +1,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 #include "kfeature.h"
 #include "kmalloc.h"
 #include "kserver.h"
@@ -32,7 +33,7 @@ kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 		//printf("ksocket_accept=[%d]\n",sockfd);
 		return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);
 	}
-	if (errno==EAGAIN) {
+	if (errno==EAGAIN && !KBIT_TEST(ss->st.st_flags,STF_ERR)) {
 		//printf("try again\n");
 		assert(!KBIT_TEST(ss->st.st_flags, STF_RREADY2));
 		KBIT_CLR(ss->st.st_flags,STF_RREADY);
@@ -338,21 +339,58 @@ void kserver_selectable_destroy(kserver_selectable *ss)
 	}
 	assert(ss->server);
 	kmutex_lock(&ss->server->ss_lock);
-	assert(!klist_empty(&ss->server->ss));
-	klist_remove(&ss->queue);
+	if (ss->queue.next) {
+		assert(!klist_empty(&ss->server->ss));
+		klist_remove(&ss->queue);
+	}
 	kmutex_unlock(&ss->server->ss_lock);
+#ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
+	if(katom_get((void *)&ss->hold_by_next_shutdown_refs)>0) {
+		//hold by next_shutdown
+		printf("hold by next_shutdown st=[%p]\n",ss);
+		return;
+	}
+#endif
 	kserver_release(ss->server);
 	kserver_selectable_free(ss);
+}
+kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
+{
+	kserver_selectable *ss = (kserver_selectable *)arg;
+	//printf("next_shutdown arg=[%p] st=[%p] fd=[%d]\n",arg, &ss->st,ss->st.fd);
+	int32_t refs = katom_dec((void *)&ss->hold_by_next_shutdown_refs);
+	assert(refs==0);
+	KBIT_SET(ss->st.st_flags,STF_RREADY|STF_ERR);
+	if (!ksocket_opened(ss->st.fd)) {
+		//already close
+		kserver_selectable_destroy(ss);
+		return kev_ok;
+	}
+	selectable_shutdown(&ss->st);
+	kselector_add_list(ss->st.selector,&ss->st,KGL_LIST_READY);
 }
 void kserver_close(kserver* server)
 {
 	server->closed = true;
 	kgl_list* pos;
 	kmutex_lock(&server->ss_lock);
+#ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
+	while (!klist_empty(&server->ss)) {
+		pos = klist_head(&server->ss);
+		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
+		katom_inc((void *)&ss->hold_by_next_shutdown_refs);
+		assert(ss->hold_by_next_shutdown_refs == 1);
+		klist_remove(pos);
+		pos->next = NULL;
+		//printf("try next shutdown socket arg=[%p] st=[%p] fd=[%d]\n",ss, &ss->st, ss->st.fd);
+		selectable_next(&ss->st, kserver_selectable_next_shutdown, ss, 0);
+	}
+#else
 	klist_foreach(pos, &server->ss) {
 		kserver_selectable* ss = kgl_list_data(pos, kserver_selectable, queue);
-		selectable_shutdown(&ss->st);	
+		selectable_shutdown(&ss->st);
 	}
+#endif
 	kmutex_unlock(&server->ss_lock);
 }
 #ifdef KSOCKET_SSL
