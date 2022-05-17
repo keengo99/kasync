@@ -354,6 +354,7 @@ void kserver_selectable_destroy(kserver_selectable *ss)
 	kserver_release(ss->server);
 	kserver_selectable_free(ss);
 }
+#ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
 kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
 {
 	kserver_selectable *ss = (kserver_selectable *)arg;
@@ -370,6 +371,7 @@ kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
 	kselector_add_list(ss->st.selector,&ss->st,KGL_LIST_READY);
 	return kev_ok;
 }
+#endif
 void kserver_close(kserver* server)
 {
 	server->closed = true;
