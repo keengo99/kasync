@@ -221,7 +221,7 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			}
 			memset(l, 0, sizeof(kgl_list));
 #ifndef NDEBUG
-			klog(KLOG_DEBUG, "request timeout st=%p\n", (kselectable *)rq);
+			//klog(KLOG_DEBUG, "request timeout st=%p\n", (kselectable *)rq);
 #endif
 			kassert(selector->count > 0);
 			if (KBIT_TEST(rq->st_flags, STF_RTIME_OUT) && KBIT_TEST(rq->st_flags,STF_READ|STF_RECVFROM)>0) {

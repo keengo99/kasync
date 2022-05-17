@@ -88,14 +88,14 @@ struct _kfiber {
 	};
 #endif
 	uint16_t reserve;
-	void *wait_code;//ʹwait/wakeup����ƥ��
+	void *wait_code;//wait/wakeup be same.
 	//when a fiber exit/wait/yield will switch back to switch_from
 	//when a fiber wakeup will set self to target fiber->switch_from
 	kfiber * switch_from;
 	kfiber_cond * close_cond;
 	union {
-		volatile kfiber_start_func start;         /* The start function of the thread */
-		volatile result_callback cb;
+		kfiber_start_func start;         /* The start function of the thread */
+		result_callback cb;
 	};
 	union {
 		int int_arg;

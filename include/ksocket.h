@@ -218,16 +218,13 @@ INLINE uint16_t ksocket_addr_port(const sockaddr_i *addr)
 	return 0;
 }
 INLINE int ksocket_no_delay(SOCKET sockfd,bool forever) {
-#ifdef LINUX
-	int flag = 0;
 	if (forever) {
 		int n = 1;
-		setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char *)&n, sizeof(int));
+		return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char *)&n, sizeof(int));
 	}
-	return setsockopt(sockfd, IPPROTO_TCP, TCP_CORK, (const void *)&flag, sizeof(int));
-#elif BSD_OS
+#ifdef LINUX
 	int flag = 0;
-	return setsockopt(sockfd, IPPROTO_TCP, TCP_NOPUSH, (const void *)&flag, sizeof(int));
+	return setsockopt(sockfd, IPPROTO_TCP, TCP_CORK, (const void *)&flag, sizeof(int));
 #else
 	int flag = 1;
 	return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char *)&flag, sizeof(int));
@@ -238,9 +235,6 @@ INLINE int ksocket_delay(SOCKET sockfd)
 #ifdef LINUX
 	int flag = 1;
 	return setsockopt(sockfd, IPPROTO_TCP, TCP_CORK, (const void *)&flag, sizeof(int));
-#elif BSD_OS
-	int flag = 1;
-	return setsockopt(sockfd, IPPROTO_TCP, TCP_NOPUSH, (const void *)&flag, sizeof(int));
 #else
 	int flag = 0;
 	return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char *)&flag, sizeof(int));
