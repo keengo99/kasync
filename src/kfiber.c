@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <errno.h>
 #include "kfiber.h"
 #include "kmalloc.h"
 #include "kasync_worker.h"
@@ -16,11 +17,13 @@
 #ifndef _WIN32
 #include <sys/mman.h>
 #ifdef ANDROID
+#ifndef ENABLE_LIBUCONTEXT
 KBEGIN_DECLS
 int getcontext(ucontext_t *ucp);
 int setcontext(const ucontext_t *ucp);
 void makecontext(ucontext_t *ucp, void (*func)(), int argc, ...);
 int swapcontext(ucontext_t *oucp, const ucontext_t *ucp);
+#endif
 KEND_DECLS
 #endif
 #endif
@@ -155,8 +158,13 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to)
 	assert(GetCurrentFiber() == fiber_from->ctx);
 	SwitchToFiber(fiber_to->ctx);
 #else
+	//printf("swapcontext from=[%p %p] to=[%p %p]\n", fiber_from, fiber_from->start, fiber_to, fiber_to->start);
+
 #ifndef DISABLE_KFIBER
-	swapcontext(&fiber_from->ctx, &fiber_to->ctx);
+	int swap_result = kfiber_swapcontext(&fiber_from->ctx, &fiber_to->ctx);
+	if (swap_result!=0) {
+		//printf("swapcontext error = [%d]\n",errno);
+	}
 #else
 	fprintf(stderr, "DISABLE_KFIBER is on. swapcontext failed.");
 #endif
@@ -213,7 +221,6 @@ void kfiber_wakeup(kfiber* fiber, void* obj, int ret)
 	fiber->notice_flag = 1;
 #endif
 	fiber->retval = ret;
-	//printf("wakeup fiber=[%p] retval=[%d] self=[%p]\n", fiber, fiber->retval, fiber_from);
 	if (fiber_from == fiber) {
 		return;
 	}
@@ -283,12 +290,13 @@ static void kfiber_exit(kfiber* fiber, int retval)
 	__kfiber_wait(fiber, fiber->close_cond);
 }
 #ifdef _WIN32
-void WINAPI fiber_start(void* arg)
-#else
-void fiber_start(void* arg)
-#endif
-{
+void WINAPI fiber_start(void* arg) {
 	kfiber* fiber = (kfiber*)arg;
+	assert(kfiber_self()==fiber);
+#else
+void fiber_start() {
+	kfiber *fiber = kfiber_self();
+#endif
 	int result = -1;
 	while (!fiber->start_called) {
 		fiber->start_called = 1;
@@ -332,6 +340,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 	stk_size = stk_page * _ST_PAGE_SIZE;
 
 	fiber = (kfiber*)malloc(sizeof(kfiber));
+
 	memset(fiber, 0, sizeof(kfiber));
 	fiber->st_flags = STF_FIBER;
 	fiber->ref = 1;
@@ -342,14 +351,14 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 	fiber->ctx = CreateFiber(stk_size, fiber_start, fiber);
 #else
 #ifndef DISABLE_KFIBER
-	if (getcontext(&fiber->ctx) == -1) {
+	if (kfiber_getcontext(&fiber->ctx) == -1) {
 		xfree(fiber);
 		return NULL;
 	}
 	fiber->stack = kgl_memalign(4096, stk_size + 2 * KFIBER_REDZONE);
-	//printf("stack=[%p]\n",fiber->stack);
 	fiber->ctx.uc_stack.ss_sp = (char*)fiber->stack + KFIBER_REDZONE;
 	fiber->ctx.uc_stack.ss_size = stk_size;
+	fiber->ctx.uc_link = NULL;
 #ifdef KFIBER_PROTECTED
 	if (mprotect(fiber->stack, KFIBER_REDZONE, PROT_NONE) != 0) {
 		printf("begin mprotect stack=[%p]\n", fiber->stack);
@@ -360,8 +369,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 		perror("mprotect");
 	}
 #endif
-	makecontext(&fiber->ctx, (void(*)(void))fiber_start, 1, fiber);
-	//printf("ss_sp=[%p]\n",fiber->ctx.uc_stack.ss_sp);
+	kfiber_makecontext(&fiber->ctx, (void(*)(void))fiber_start, 0);
 #else
 	fprintf(stderr, "DISABLE_KFIBER is set ON.");
 #endif

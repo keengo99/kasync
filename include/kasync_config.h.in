@@ -12,11 +12,9 @@
 #cmakedefine FREEBSD
 #cmakedefine DARWIN
 #cmakedefine MALLOCDEBUG
+#cmakedefine ENABLE_LIBUCONTEXT
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
-#endif
-#ifdef DARWIN
-#define _XOPEN_SOURCE
 #endif
 #endif

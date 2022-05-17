@@ -4,8 +4,21 @@
 #ifdef _WIN32
 #define kfiber_context void*
 #else
+#ifdef ENABLE_LIBUCONTEXT
+#include "libucontext/libucontext.h"
+#define kfiber_context libucontext_ucontext_t
+#define kfiber_swapcontext libucontext_swapcontext
+#define kfiber_getcontext  libucontext_getcontext
+#define kfiber_setcontext libucontext_setcontext
+#define kfiber_makecontext libucontext_makecontext
+#else
 #include <ucontext.h>
 #define kfiber_context ucontext_t
+#define kfiber_swapcontext swapcontext
+#define kfiber_getcontext  getcontext
+#define kfiber_setcontext  setcontext
+#define kfiber_makecontext makecontext
+#endif
 #endif
 
 #define KFIBER_WAITED
@@ -81,8 +94,8 @@ struct _kfiber {
 	kfiber * switch_from;
 	kfiber_cond * close_cond;
 	union {
-		kfiber_start_func start;         /* The start function of the thread */
-		result_callback cb;
+		volatile kfiber_start_func start;         /* The start function of the thread */
+		volatile result_callback cb;
 	};
 	union {
 		int int_arg;

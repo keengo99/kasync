@@ -368,6 +368,7 @@ kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
 	}
 	selectable_shutdown(&ss->st);
 	kselector_add_list(ss->st.selector,&ss->st,KGL_LIST_READY);
+	return kev_ok;
 }
 void kserver_close(kserver* server)
 {
