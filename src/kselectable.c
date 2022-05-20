@@ -6,6 +6,8 @@
 #include "ksocket.h"
 #include "kmalloc.h"
 #include "kfiber.h"
+#include "klist.h"
+#include "kudp.h"
 
 #define MAXSENDBUF 16
 #ifdef KSOCKET_SSL
@@ -186,22 +188,45 @@ bool selectable_remove(kselectable *st)
 }
 void selectable_shutdown(kselectable *st)
 {
+#if 0
 	if (KBIT_TEST(st->st_flags, STF_RECVFROM)) {
 		ksocket_close(st->fd);
 		ksocket_init(st->fd);
 		return;
 	}
+#endif
 #ifdef _WIN32
 	ksocket_cancel(st->fd);
 #endif
 	ksocket_shutdown(st->fd, SHUT_RDWR);
 }
+
 void selectable_recvfrom_event(kselectable *st)
 {
+	assert(KBIT_TEST(st->st_flags,STF_UDP));
 #ifdef STF_ET
 	if (KBIT_TEST(st->st_flags, STF_ET))
 #endif
-		KBIT_CLR(st->st_flags,STF_RECVFROM);
+		KBIT_CLR(st->st_flags,STF_READ);
+
+	kconnection* c = kgl_list_data(st, kconnection, st);
+	WSABUF bufs[16];
+	WSABUF addr;
+	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, bufs, 16);
+	kconnection_buffer_addr(st->data, st, &addr, 1);
+
+	msghdr msg;
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = (struct sockaddr*)addr.iov_base;
+	msg.msg_namelen = addr.iov_len;
+	msg.msg_iov = bufs;
+	msg.msg_iovlen = bc;
+	msg.msg_control = c->udp->pktinfo;
+	if (c->udp) {
+		msg.msg_controllen = sizeof(c->udp->pktinfo);
+	}
+	int got = recvmsg(st->fd,&msg,0);
+#if 0
 	WSABUF buf;
 	WSABUF addr;
 	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &buf, 1);
@@ -210,6 +235,13 @@ void selectable_recvfrom_event(kselectable *st)
 	kassert(bc == 1);
 	socklen_t addr_len = (socklen_t)addr.iov_len;
 	int got = recvfrom(st->fd, (char *)buf.iov_base, buf.iov_len, 0, (struct sockaddr *)addr.iov_base, &addr_len);
+#endif
+	if (got==-1 && errno==EAGAIN) {
+		KBIT_CLR(st->st_flags,STF_RREADY);
+		if (kgl_selector_module.recvfrom(st->selector, st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg)) {
+			return;
+		}
+	}
 	st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
 }
 void selectable_read_event(kselectable *st)
@@ -484,6 +516,7 @@ kev_result selectable_event_write(kselectable *st,result_callback result, buffer
 }
 kev_result selectable_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
+	assert(!KBIT_TEST(st->st_flags,STF_UDP));
 	if (KBIT_TEST(st->st_flags, STF_RREADY2)) {
 		KBIT_CLR(st->st_flags, STF_RREADY2);
 #ifndef NDEBUG

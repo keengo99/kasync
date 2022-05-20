@@ -26,14 +26,14 @@
 #define STF_WREADY2     (1<<10)
 
 #define STF_RTIME_OUT   (1<<11)
-#define STF_RECVFROM    (1<<12)
+#define STF_UDP         (1<<12)
 
 #define STF_FIBER       (1<<13)
-#define STF_REVENT      (STF_READ|STF_RECVFROM)
+#define STF_REVENT      (STF_READ)
 #define STF_WEVENT      (STF_WRITE|STF_RDHUP)
 #define STF_EVENT       (STF_REVENT|STF_WEVENT)
 
-#define STF_RLOCK       (STF_READ|STF_RECVFROM)
+#define STF_RLOCK       STF_READ
 #define STF_WLOCK       STF_WRITE
 #define STF_LOCK        (STF_RLOCK|STF_WLOCK)
 #define STF_OPAQUE_SERVER  (1<<14)
@@ -83,7 +83,7 @@ struct kselectable_s {
 	kgl_list queue;
 	kselector* selector;
 	uint16_t st_flags;
-	////////////ÒÔÉÏÈý¸ö±ØÐëºÍkfiber¶¨ÒåÏàÍ¬
+	////////////ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½kfiberï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬
 	uint8_t tmo_left;
 	uint8_t tmo;
 	SOCKET fd;

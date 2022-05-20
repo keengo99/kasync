@@ -78,7 +78,11 @@ void kconnection_real_destroy(kconnection *c)
 	}
 #endif
 	if (c->server) {
-		kserver_release(c->server);
+		if (KBIT_TEST(c->st.st_flags,STF_UDP)) {
+			xfree(c->udp);
+		} else {
+			kserver_release(c->server);
+		}		
 	}
 	kgl_destroy_pool(c->pool);
 	xfree(c);

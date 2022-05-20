@@ -178,7 +178,7 @@ void kselector_update_time()
 	gettimeofday(&tv, NULL);
 	if (unlikely(kgl_current_sec != tv.tv_sec)) {
 		if (unlikely(tv.tv_sec < kgl_current_sec)) {
-			//printf("·¢ÉúÊ±¼äµ¹ÍË\n");
+			//printf("ï¿½ï¿½ï¿½ï¿½Ê±ï¿½äµ¹ï¿½ï¿½\n");
 			int64_t diff_msec = (int64_t)tv.tv_sec * 1000 + (tv.tv_usec / 1000) - kgl_current_msec;
 			selector_manager_adjust_time(diff_msec);
 		}		
@@ -224,7 +224,7 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			//klog(KLOG_DEBUG, "request timeout st=%p\n", (kselectable *)rq);
 #endif
 			kassert(selector->count > 0);
-			if (KBIT_TEST(rq->st_flags, STF_RTIME_OUT) && KBIT_TEST(rq->st_flags,STF_READ|STF_RECVFROM)>0) {
+			if (KBIT_TEST(rq->st_flags, STF_RTIME_OUT) && KBIT_TEST(rq->st_flags,STF_READ)>0) {
 				//set read time out
 				klist_append(&selector->list[i], l);
 				rq->active_msec = kgl_current_msec;
@@ -301,19 +301,21 @@ void kselector_check_timeout(kselector *selector,int event_number)
 		}
 		uint16_t st_flags = ready_ev->st.st_flags;
 		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
+			//TODO: udp sendto
 			selectable_write_event(&ready_ev->st);
 			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
 		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2)) {
 			if (KBIT_TEST(st_flags, STF_READ)) {
-				selectable_read_event(&ready_ev->st);
+				if (unlikely(KBIT_TEST(st_flags,STF_UDP))) {
+					selectable_recvfrom_event(&ready_ev->st);
+				} else {
+					selectable_read_event(&ready_ev->st);
+				}
 				KBIT_CLR(st_flags, STF_READ);
-			} else if (KBIT_TEST(st_flags, STF_RECVFROM)) {
-				selectable_recvfrom_event(&ready_ev->st);
-				KBIT_CLR(st_flags, STF_RECVFROM);
 			}
 		}
-		if (KBIT_TEST(st_flags, STF_READ | STF_WRITE | STF_RECVFROM) &&
+		if (KBIT_TEST(st_flags, STF_READ | STF_WRITE) &&
 #ifdef STF_ET
 			KBIT_TEST(st_flags, STF_ET) &&
 #endif

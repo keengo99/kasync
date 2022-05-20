@@ -4,6 +4,7 @@
 #include "kmalloc.h"
 KBEGIN_DECLS
 typedef struct kserver_s kserver;
+typedef struct kudp_extend_s kudp_extend;
 #ifdef ENABLE_PROXY_PROTOCOL
 typedef struct kgl_proxy_pp2_tlv_s kgl_proxy_pp2_tlv;
 typedef struct kgl_proxy_pp2_data_s kgl_proxy_pp2_data;
@@ -36,7 +37,10 @@ struct kconnection_s {
 	kgl_proxy_protocol *proxy;
 #endif
 	kgl_pool_t *pool;
-	kserver *server;
+	union {
+		kserver *server;
+		kudp_extend *udp;
+	};
 };
 struct kupstream_connection_s {
 	kconnection *c;

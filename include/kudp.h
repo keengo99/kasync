@@ -5,7 +5,11 @@
 #include "kconnection.h"
 
 KBEGIN_DECLS
+struct kudp_extend_s {
+    char pktinfo[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+};
 kconnection* kudp_new(int flags);
+struct in_pktinfo *kudp_pktinfo(kconnection *uc);
 bool kudp_bind(kconnection* uc, const sockaddr_i* addr);
 bool kudp_add_multicast(kconnection* uc, const char *group);
 bool kudp_send_to(kconnection* uc, const sockaddr_i* dst, const char* package, int package_len);
