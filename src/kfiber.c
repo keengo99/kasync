@@ -458,7 +458,7 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg)
 bool kfiber_has_next()
 {
 	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
+	//CHECK_FIBER(fiber);
 	return fiber->start_called == 0;
 }
 

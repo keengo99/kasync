@@ -12,9 +12,9 @@ int kconnection_buffer_addr(KOPAQUE data, void* arg, WSABUF *buffer, int bc);
 bool kudp_add_multicast(kconnection* uc, const char* group)
 {
 	struct ip_mreq mreq;
+	memset(&mreq, 0, sizeof(mreq));
 	mreq.imr_multiaddr.s_addr = inet_addr(group);
 	mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-
 	if (setsockopt(uc->st.fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq)) < 0) {
 		return false;
 	}
@@ -59,6 +59,9 @@ kconnection *kudp_new(int flags)
 		setsockopt(uc->st.fd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
 	}
 #endif
+	if (KBIT_TEST(flags, KSOCKET_IP_PKTINFO)) {
+		setsockopt(uc->st.fd, IPPROTO_IP, IP_PKTINFO, (const char*)&n, sizeof(int));
+	}
 	selectable_bind(&uc->st, kgl_get_tls_selector());
 	return uc;
 }

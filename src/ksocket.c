@@ -8,6 +8,7 @@
 LPFN_ACCEPTEX lpfnAcceptEx = NULL;
 LPFN_CONNECTEX lpfnConnectEx = NULL;
 fCancelIoEx pCancelIoEx = NULL;
+LPFN_WSARECVMSG lpfnWsaRecvMsg = NULL;
 #else
 #include <poll.h>
 #endif
@@ -31,6 +32,11 @@ void ksocket_library_startup()
 	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid2, sizeof(m_guid2), &lpfnAcceptEx, sizeof(lpfnAcceptEx), &dwBytes, NULL, NULL);
 	if (lpfnAcceptEx == NULL) {
 		//klog(KLOG_ERR,"Cann't find AcceptEx function\n");
+	}
+	GUID m_guid3 = WSAID_WSARECVMSG;
+	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid3, sizeof(m_guid3), &lpfnWsaRecvMsg, sizeof(lpfnWsaRecvMsg), &dwBytes, NULL, NULL);
+	if (lpfnWsaRecvMsg == NULL) {
+		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
 	}
 	closesocket(sock);
 	//windows vista开始才有CancelIoEx,所以要用动态

@@ -11,6 +11,7 @@ KBEGIN_DECLS
 #define SHUT_RD     0
 #define SHUT_WR     1
 #define SHUT_RDWR   2
+extern LPFN_WSARECVMSG lpfnWsaRecvMsg;
 extern LPFN_ACCEPTEX lpfnAcceptEx;
 extern LPFN_CONNECTEX lpfnConnectEx;
 typedef BOOL(WINAPI *fCancelIoEx)(
@@ -50,6 +51,7 @@ INLINE BOOL ksocket_cancel(SOCKET sockfd) {
 #define KSOCKET_FASTOPEN          (1<<5)
 #define KSOCKET_BLOCK             (1<<6)
 #define KSOCKET_MULTICAST         (1<<7)
+#define KSOCKET_IP_PKTINFO        (1<<8)
 
 #define KSOCKET_PROTO_IPV4        KSOCKET_ONLY_IPV4
 #define KSOCKET_PROTO_IPV6        KSOCKET_ONLY_IPV6

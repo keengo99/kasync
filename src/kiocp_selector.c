@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #include <assert.h>
+
 #include "kselector.h"
 #include "ksocket.h"
 #include "kserver.h"
@@ -114,6 +115,16 @@ static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_
 
 	int bc = buffer(st->data,arg, buf, 16);
 	kconnection_buffer_addr(st->data, st, &addr, 1);
+#if 0
+	WSAMSG msg;
+	memset(&msg, 0, sizeof(msg));
+	msg.name = (struct sockaddr*)addr.buf;
+	msg.namelen = addr.len;
+	msg.lpBuffers = buf;
+	msg.dwBufferCount = bc;
+#endif
+	//int rc = lpfnWsaRecvMsg(st->fd,)
+//#if 0
 	int rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr *)addr.buf,(INT *)&addr.len, &st->e[OP_READ].lp, NULL);
 	if (rc == SOCKET_ERROR) {
 		int err = WSAGetLastError();
@@ -122,6 +133,7 @@ static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_
 			return false;
 		}
 	}
+//#endif
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -433,8 +445,9 @@ static kselector_module iocp_selector_module = {
 };
 void kiocp_module_init()
 {
+	auto module_handle = GetModuleHandleA("kernel32.dll");
 	kgl_selector_module = iocp_selector_module;
-	pGetQueuedCompletionStatusEx = (GetQueuedCompletionStatusEx_fn)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
+	pGetQueuedCompletionStatusEx = (GetQueuedCompletionStatusEx_fn)GetProcAddress(module_handle, "GetQueuedCompletionStatusEx");
 	if (pGetQueuedCompletionStatusEx) {
 		kgl_selector_module.select = iocp_selector_selectx;
 	}
