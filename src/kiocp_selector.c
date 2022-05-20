@@ -8,6 +8,7 @@
 #include "kmalloc.h"
 #include "klog.h"
 #include "kfiber.h"
+#include "kudp.h"
 
 #define MAXSENDBUF  32
 #define MAXEVENT	256	
@@ -104,36 +105,40 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 }
 static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
-	kassert(KBIT_TEST(st->st_flags, STF_READ|STF_WRITE| STF_RECVFROM) == 0);
-	KBIT_SET(st->st_flags, STF_RECVFROM);
+	kassert(KBIT_TEST(st->st_flags, STF_READ|STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_UDP));
+	KBIT_SET(st->st_flags, STF_READ);
 	DWORD BytesRecv = 0;
 	DWORD Flags = 0;
 	WSABUF buf[16];
 	WSABUF addr;
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
-
+	kconnection* c = kgl_list_data(st, kconnection, st);
 	int bc = buffer(st->data,arg, buf, 16);
 	kconnection_buffer_addr(st->data, st, &addr, 1);
-#if 0
-	WSAMSG msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.name = (struct sockaddr*)addr.buf;
-	msg.namelen = addr.len;
-	msg.lpBuffers = buf;
-	msg.dwBufferCount = bc;
-#endif
-	//int rc = lpfnWsaRecvMsg(st->fd,)
-//#if 0
-	int rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr *)addr.buf,(INT *)&addr.len, &st->e[OP_READ].lp, NULL);
+	int rc;
+	if (c->udp) {
+		memset(c->udp, 0, sizeof(kudp_extend));		
+		c->udp->msg.name = (struct sockaddr*)addr.buf;
+		c->udp->msg.namelen = (INT)addr.len;
+		c->udp->msg.lpBuffers = buf;
+		c->udp->msg.dwBufferCount = bc;
+
+		c->udp->msg.Control.iov_base = c->udp->pktinfo;
+		c->udp->msg.Control.iov_len = sizeof(c->udp->pktinfo);
+		rc = lpfnWsaRecvMsg(st->fd, &c->udp->msg, &BytesRecv, &st->e[OP_READ].lp, NULL);
+	} else {
+		rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr*)addr.buf, (INT*)&addr.len, &st->e[OP_READ].lp, NULL);
+	}
+
 	if (rc == SOCKET_ERROR) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
-			KBIT_CLR(st->st_flags, STF_RECVFROM);
+			KBIT_CLR(st->st_flags, STF_READ);
 			return false;
 		}
 	}
-//#endif
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -369,8 +374,8 @@ static void handle_complete_event(kselector *selector,kselectable *st, BOOL resu
 	}
 	if (evlp == &st->e[OP_READ].lp) {
 		//printf("handle read event st=[%p]\n", st);
-		kassert(KBIT_TEST(st->st_flags, STF_READ|STF_RECVFROM));
-		KBIT_CLR(st->st_flags, STF_READ|STF_RECVFROM);
+		kassert(KBIT_TEST(st->st_flags, STF_READ));
+		KBIT_CLR(st->st_flags, STF_READ);
 		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));
 		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, (result ? recvBytes : -1));
 		return;

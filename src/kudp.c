@@ -5,6 +5,9 @@
 #include "kudp.h"
 #include "kmalloc.h"
 #include "kfile.h"
+#ifdef _WIN32
+#define CMSG_DATA(msg) (msg+1)
+#endif
 
 kconnection* kconnection_internal_new();
 int kconnection_buffer_addr(KOPAQUE data, void* arg, WSABUF *buffer, int bc);
@@ -76,7 +79,6 @@ kconnection *kudp_new(int flags)
 	if (KBIT_TEST(flags, KSOCKET_IP_PKTINFO)) {
 		setsockopt(uc->st.fd, IPPROTO_IP, IP_PKTINFO, (const char*)&n, sizeof(int));
 		uc->udp = xmemory_new(kudp_extend);
-		memset(uc->udp,0,sizeof(kudp_extend));
 	}
 #ifndef KGL_IOCP
 	//KBIT_SET(uc->st.st_flags,STF_RREADY|STF_WREADY);

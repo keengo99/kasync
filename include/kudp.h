@@ -6,7 +6,14 @@
 
 KBEGIN_DECLS
 struct kudp_extend_s {
-    char pktinfo[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+    union
+    {
+        char pktinfo[CMSG_SPACE(sizeof(struct in_pktinfo))];
+        char pkt6info[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+    };
+#ifdef _WIN32
+    WSAMSG msg;
+#endif
 };
 kconnection* kudp_new(int flags);
 struct in_pktinfo *kudp_pktinfo(kconnection *uc);
