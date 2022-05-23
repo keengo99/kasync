@@ -11,7 +11,9 @@
 #cmakedefine DISABLE_KFIBER
 #cmakedefine FREEBSD
 #cmakedefine DARWIN
+#ifndef NDEBUG
 #cmakedefine MALLOCDEBUG
+#endif
 #cmakedefine ENABLE_LIBUCONTEXT
 #ifdef HAVE_ACCEPT4
 #undef _GNU_SOURCE
