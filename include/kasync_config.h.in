@@ -15,7 +15,7 @@
 #cmakedefine MALLOCDEBUG
 #endif
 #cmakedefine ENABLE_LIBUCONTEXT
-#ifdef HAVE_ACCEPT4
+#ifdef LINUX
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
