@@ -101,7 +101,7 @@ static kev_result result_ssl_shutdown(KOPAQUE data, void *arg, int got)
 kev_result kconnection_destroy(kconnection *c)
 {
 #ifdef KSOCKET_SSL
-	if (kconnection_is_ssl_handshake(c)) {
+	if (kconnection_is_ssl_handshake(c) && !c->st.ssl->shutdown) {
 		c->st.data = NULL;
 		if (!KBIT_TEST(c->st.st_flags, STF_ERR)) {
 			return kselectable_ssl_shutdown(&c->st, result_ssl_shutdown, c);

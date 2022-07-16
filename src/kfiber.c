@@ -693,11 +693,9 @@ int kfiber_ssl_handshake(kconnection* cn)
 	}
 	return fiber->retval;
 }
-#endif
-int kfiber_net_close(kconnection* c)
+int kfiber_ssl_shutdown(kconnection *c)
 {
-#ifdef KSOCKET_SSL
-	if (kconnection_is_ssl_handshake(c)) {
+	if (kconnection_is_ssl_handshake(c) && !c->st.ssl->shutdown) {
 		kfiber* fiber = kfiber_self();
 		CHECK_FIBER(fiber);
 		c->st.data = NULL;
@@ -707,7 +705,22 @@ int kfiber_net_close(kconnection* c)
 				__kfiber_wait(fiber, NULL);
 			}
 		}
+		c->st.ssl->shutdown = 1;
 	}
+	return 0;
+}
+#endif
+int kfiber_net_shutdown(kconnection *c)
+{
+#ifdef KSOCKET_SSL
+	kfiber_ssl_shutdown(c);
+#endif
+	return ksocket_shutdown(c->st.fd, SHUT_RDWR);
+}
+int kfiber_net_close(kconnection* c)
+{
+#ifdef KSOCKET_SSL
+	kfiber_ssl_shutdown(c);
 #endif
 	kconnection_real_destroy(c);
 	return 0;

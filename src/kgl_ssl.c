@@ -340,14 +340,9 @@ failed:
 	return false;
 }
 
-SSL_CTX * kgl_ssl_ctx_new(bool server,void *ssl_ctx_data)
+SSL_CTX * kgl_ssl_ctx_new(void *ssl_ctx_data)
 {
-	SSL_CTX *ctx;
-	if (server) {
-		ctx = SSL_CTX_new(SSLv23_method());
-	} else {
-		ctx = SSL_CTX_new(SSLv23_method());
-	}
+	SSL_CTX *ctx = SSL_CTX_new(SSLv23_method());	
 	if (ctx == NULL) {
 		fprintf(stderr, "ssl_ctx_new function error\n");
 		return NULL;
@@ -397,14 +392,14 @@ SSL_CTX * kgl_ssl_ctx_new(bool server,void *ssl_ctx_data)
 }
 SSL_CTX *kgl_ssl_ctx_new_client(const char *ca_path, const char *ca_file,void *ssl_ctx_data)
 {
-	SSL_CTX *ctx = kgl_ssl_ctx_new(false,ssl_ctx_data);
+	SSL_CTX *ctx = kgl_ssl_ctx_new(ssl_ctx_data);
 	if (ctx == NULL) {
 		fprintf(stderr, "cann't init_ctx\n");
 		return NULL;
 	}
 	if (ca_path != NULL || ca_file!=NULL) {
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
-		SSL_CTX_set_verify_depth(ctx, 1);
+		//SSL_CTX_set_verify_depth(ctx, 1);
 		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
 			fprintf(stderr, "SSL_CTX_load_verify_locations error Error allocating handle: %s\n",
 				ERR_error_string(ERR_get_error(), NULL));
@@ -508,7 +503,7 @@ SSL_CTX* kgl_ssl_ctx_new_server_from_memory(const char* cert_buffer, const char*
 	if (rsa == NULL) {
 		goto failed;
 	}
-	ctx = kgl_ssl_ctx_new(true, ssl_ctx_data);
+	ctx = kgl_ssl_ctx_new(ssl_ctx_data);
 	if (ctx == NULL) {
 		fprintf(stderr, "cann't init_ctx\n");
 		goto failed;
@@ -534,13 +529,8 @@ failed:
 	}
 	return NULL;
 }
-SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
+bool kgl_ssl_ctx_load_cert_key(SSL_CTX *ctx,const char *cert_file, const char *key_file)
 {
-	SSL_CTX * ctx = kgl_ssl_ctx_new(true,ssl_ctx_data);
-	if (ctx == NULL) {
-		fprintf(stderr, "cann't init_ctx\n");
-		return NULL;
-	}
 	if (cert_file == NULL || *cert_file=='\0') {
 		cert_file = key_file;
 	}
@@ -549,18 +539,28 @@ SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, con
 			"SSL use certificate file [%s]: Error: %s\n",
 			cert_file,
 			ERR_error_string(ERR_get_error(), NULL));
-		SSL_CTX_free(ctx);
-		return NULL;
+		return false;
 	}
 	if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0) {
 		klog(KLOG_ERR,
 			"SSL use privatekey file [%s]: Error: %s\n",
 			key_file,
 			ERR_error_string(ERR_get_error(), NULL));
-		SSL_CTX_free(ctx);
+		return false;
+	}
+	return kgl_ssl_session_id_context(ctx, cert_file);
+}
+SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
+{
+	SSL_CTX * ctx = kgl_ssl_ctx_new(ssl_ctx_data);
+	if (ctx == NULL) {
+		fprintf(stderr, "cann't init_ctx\n");
 		return NULL;
 	}
-	kgl_ssl_session_id_context(ctx, cert_file);
+	if (!kgl_ssl_ctx_load_cert_key(ctx,cert_file,key_file)) {
+		SSL_CTX_free(ctx);
+		return NULL;
+	}	
 	return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
 }
 kssl_status kgl_ssl_handshake_status(SSL *ssl, int re)
