@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "kbuf.h"
 #include "kmalloc.h"
 #include "kforwin32.h"
@@ -218,7 +219,7 @@ void krw_write_int64(krw_buffer *rw_buffer, int64_t val)
 {
 	char buf[32];
 	memset(buf, 0, sizeof(buf));
-	int len = snprintf(buf, sizeof(buf), "%lld", (INT64)val);
+	int len = snprintf(buf, sizeof(buf), "%" PRId64, (INT64)val);
 	krw_write_str(rw_buffer, buf, len);
 }
 int krw_read(krw_buffer *rw_buffer, char *buf, int len)
@@ -273,7 +274,7 @@ void ks_write_int64(ks_buffer *buf, int64_t val)
 {
 	char tbuf[32];
 	memset(tbuf, 0, sizeof(tbuf));
-	int len = snprintf(tbuf, sizeof(tbuf), "%lld", (INT64)val);
+	int len = snprintf(tbuf, sizeof(tbuf), "%" PRId64, (INT64)val);
 	ks_write_str(buf, tbuf, len);
 }
 char *ks_get_write_buffer(ks_buffer *buf, int *len)

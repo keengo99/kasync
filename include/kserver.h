@@ -122,7 +122,7 @@ DLL_PUBLIC bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
 DLL_PUBLIC void kserver_selectable_destroy(kserver_selectable *ss);
 DLL_PUBLIC kconnection* accept_result_new_connection(KOPAQUE data, int got);
 
-//kserver_close并不会释放server,释放server要调用kserver_release
+//NOTICE: kserver_close will not release server,release server must call kserver_release
 DLL_PUBLIC void kserver_close(kserver *server);
 #define kserver_shutdown kserver_close
 DLL_PUBLIC void kserver_release(kserver *server);
