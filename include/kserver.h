@@ -85,15 +85,15 @@ struct kserver_s {
 #endif
 #ifdef KSOCKET_SSL
 	kgl_ssl_ctx* ssl_ctx;
-	bool http2;
-	bool early_data;
+	uint8_t http2:1;
+	uint8_t early_data:1;
 #endif
-	uint8_t flags;
 	uint8_t ssl : 1;
 	uint8_t closed:1;
 	uint8_t started:1;
 	uint8_t dynamic:1;
 	uint8_t global:1;
+	uint8_t flags;
 };
 bool is_server_multi_selectable(kserver *server);
 DLL_PUBLIC kserver *kserver_init();
