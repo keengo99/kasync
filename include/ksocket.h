@@ -276,7 +276,7 @@ INLINE const char *ksocket_unix_path(struct sockaddr_un *addr)
 
 void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *ia);
 SOCKET ksocket_listen(const sockaddr_i *addr,int flag);
-SOCKET ksocket_listen_udp(const sockaddr_i *addr);
+SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag);
 SOCKET ksocket_accept(SOCKET s,sockaddr_i *addr,bool no_block);
 SOCKET ksocket_connect(const sockaddr_i *addr, const sockaddr_i *bind_addr, int tmo);
 SOCKET ksocket_half_connect(const sockaddr_i *addr,const sockaddr_i *bind_addr, int tproxy_mask);

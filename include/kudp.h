@@ -16,13 +16,17 @@ struct kudp_extend_s {
     WSAMSG msg;
 #endif
 };
-kconnection* kudp_new(int flags);
+kconnection* kudp_new2(int flags,kselector *st);
+INLINE kconnection* kudp_new(int flags)
+{
+    return kudp_new2(flags, kgl_get_tls_selector());
+}
 struct in_pktinfo *kudp_pktinfo(kconnection *uc);
 bool kudp_bind(kconnection* uc, const sockaddr_i* addr);
 bool kudp_add_multicast(kconnection* uc, const char *group);
 bool kudp_send_to(kconnection* uc, const sockaddr_i* dst, const char* package, int package_len);
 kev_result kudp_recv_from(kconnection* uc, result_callback result, buffer_callback buffer, void* arg);
-inline bool kudp_try_recv(kconnection* uc, result_callback result, buffer_callback buffer, void* arg)
+INLINE bool kudp_try_recv(kconnection* uc, result_callback result, buffer_callback buffer, void* arg)
 {
     return kgl_selector_module.recvfrom(uc->st.selector, &uc->st, result, buffer, arg);
 }

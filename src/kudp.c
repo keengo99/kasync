@@ -42,7 +42,7 @@ bool kudp_bind(kconnection*uc, const sockaddr_i* addr)
 	}
 	return true;
 }
-kconnection *kudp_new(int flags)
+kconnection* kudp_new2(int flags,kselector *st)
 {
 	int n = 1;
 	int type = SOCK_DGRAM;
@@ -83,7 +83,7 @@ kconnection *kudp_new(int flags)
 #ifndef KGL_IOCP
 	//KBIT_SET(uc->st.st_flags,STF_RREADY|STF_WREADY);
 #endif
-	selectable_bind(&uc->st, kgl_get_tls_selector());
+	selectable_bind(&uc->st, st);
 	return uc;
 }
 bool kudp_send_to(kconnection*uc,const sockaddr_i *dst,const char *package, int package_len)
