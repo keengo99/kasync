@@ -85,15 +85,15 @@ struct kserver_s {
 #endif
 #ifdef KSOCKET_SSL
 	kgl_ssl_ctx* ssl_ctx;
-	u_char http2;
-	bool early_data;
+	u_char  alpn;
+	uint8_t early_data:1;
 #endif
-	uint8_t flags;
 	uint8_t ssl : 1;
 	uint8_t closed:1;
 	uint8_t started:1;
 	uint8_t dynamic:1;
 	uint8_t global:1;
+	uint8_t flags;
 };
 bool is_server_multi_selectable(kserver *server);
 DLL_PUBLIC kserver *kserver_init();
@@ -122,7 +122,7 @@ DLL_PUBLIC bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
 DLL_PUBLIC void kserver_selectable_destroy(kserver_selectable *ss);
 DLL_PUBLIC kconnection* accept_result_new_connection(KOPAQUE data, int got);
 
-//kserver_close并不会释放server,释放server要调用kserver_release
+//NOTICE: kserver_close will not release server,release server must call kserver_release
 DLL_PUBLIC void kserver_close(kserver *server);
 #define kserver_shutdown kserver_close
 DLL_PUBLIC void kserver_release(kserver *server);

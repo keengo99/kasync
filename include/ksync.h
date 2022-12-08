@@ -39,6 +39,16 @@ INLINE kcond *kcond_init(bool auto_reset) {
 	return h;
 #endif
 }
+INLINE void kcond_reset(kcond* cond)
+{
+#ifdef _WIN32
+	ResetEvent(cond);
+#else
+	kmutex_lock(&cond->mutex);
+	cond->ev = false;
+	kmutex_unlock(&cond->mutex);
+#endif
+}
 INLINE void kcond_wait(kcond *cond)
 {
 #ifdef _WIN32

@@ -98,6 +98,44 @@ void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *to) {
 	*to = addr->v4.sin_addr.s_addr;
 #endif
 }
+SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)
+{
+#ifdef SOCK_CLOEXEC
+	SOCKET sockfd = socket(addr->v4.sin_family,
+		KBIT_TEST(flag, KSOCKET_BLOCK)?
+		SOCK_DGRAM | SOCK_CLOEXEC:
+		SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK
+		, 0);
+	if (!ksocket_opened(sockfd)) {
+		return sockfd;
+	}
+#else
+	SOCKET sockfd = socket(addr->v4.sin_family, SOCK_DGRAM, 0);
+	if (!ksocket_opened(sockfd)) {
+		return sockfd;
+	}
+	kfile_close_on_exec((FILE_HANDLE)sockfd,true);
+	if (!KBIT_TEST(flag, KSOCKET_BLOCK)) {
+		ksocket_no_block(sockfd);
+	}
+#endif
+	int n = 1;
+#ifdef SO_REUSEPORT
+	if (KBIT_TEST(flag, KSOCKET_REUSEPORT)) {
+		setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&n, sizeof(int));
+	}
+#endif
+#ifdef IPV6_V6ONLY
+	if (KBIT_TEST(flag, KSOCKET_ONLY_IPV6)) {
+		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
+	}
+#endif
+	if (bind(sockfd, (struct sockaddr *)addr, ksocket_addr_len(addr)) < 0) {
+		ksocket_close(sockfd);
+		return INVALID_SOCKET;
+	}
+	return sockfd;
+}
 SOCKET ksocket_listen(const sockaddr_i *addr,int flag)
 {
 #ifdef KSOCKET_UNIX	

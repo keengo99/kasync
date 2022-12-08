@@ -174,7 +174,7 @@ INLINE bool kfread_all(FILE_HANDLE fp, char *buf, int length)
 			return false;
 		}
 		buf += step_length;
-		length -= length;
+		length -= step_length;
 	}
 	return true;
 }

@@ -37,10 +37,10 @@ int kfiber_create_sync(kfiber_start_func start, void* start_arg, int len, int st
 bool kfiber_has_next();
 int kfiber_next(kfiber_start_func start, void* start_arg, int len);
 kfiber *kfiber_self();
-//增加fiber引用
+
 kfiber *kfiber_ref_self(bool thread_safe);
 
-//join后,fiber将自动释放
+
 int kfiber_join(kfiber *fiber,int *retval);
 kev_result kfiber_join2(kfiber *fiber, KOPAQUE data, result_callback notice, void *arg);
 
@@ -115,6 +115,7 @@ INLINE bool kfiber_net_read_full(kconnection *cn, char *buf, int *len)
 }
 int kfiber_net_readv(kconnection *cn, WSABUF *buf, int vc);
 int kfiber_net_close(kconnection *cn);
+int kfiber_net_shutdown(kconnection *cn);
 #ifdef KSOCKET_SSL
 int kfiber_ssl_handshake(kconnection *cn);
 #endif
