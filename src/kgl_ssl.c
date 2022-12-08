@@ -111,7 +111,7 @@ void kssl_set_npn_callback(kgl_ssl_npn_f npn)
 {
 	ssl_npn = npn;
 }
-void kssl_set_sni_callback( kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
+void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
 {
 	kgl_ssl_create_sni = create_sni;
 	kgl_ssl_free_sni = free_sni;

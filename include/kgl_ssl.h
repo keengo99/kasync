@@ -23,7 +23,7 @@
 KBEGIN_DECLS
 
 typedef void (*kgl_ssl_npn_f)(void *ssl_ctx_data, const unsigned char **out, unsigned int *outlen);
-typedef void *(*kgl_ssl_create_sni_f)(SSL *ssl, kconnection *c, const char *hostname);
+typedef void *(*kgl_ssl_create_sni_f)(SSL *ssl, KOPAQUE server_ctx, const char *hostname);
 typedef void (*kgl_ssl_free_sni_f)(void *sni);
 typedef enum
 {
