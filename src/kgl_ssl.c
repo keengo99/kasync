@@ -10,6 +10,7 @@
 //#pragma comment(lib,"libeay32.lib")
 #endif
 #include "kconnection.h"
+#include "kserver.h"
 
 static kmutex *ssl_lock = NULL;
 int kangle_ssl_conntion_index;
@@ -55,7 +56,7 @@ int kgl_ssl_sni(SSL *ssl, int *ad, void *arg)
 	if (c->sni) {
 		return SSL_TLSEXT_ERR_OK;
 	}
-	c->sni = kgl_ssl_create_sni(ssl, c, servername);
+	c->sni = kgl_ssl_create_sni(ssl, kserver_get_opaque(c->server), servername);
 	return SSL_TLSEXT_ERR_OK;
 }
 #endif
