@@ -67,7 +67,12 @@ void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols);
 bool kgl_ssl_ctx_set_cipher_list(SSL_CTX *ctx, const char *cipher);
 extern int kangle_ssl_conntion_index;
 extern int kangle_ssl_ctx_index;
-
+#define kgl_ssl_ctx         SSL_CTX
+#define kgl_add_ref_ssl_ctx SSL_CTX_up_ref
+#define kgl_release_ssl_ctx SSL_CTX_free
+#define kgl_get_ssl_ctx(x)  (x)
+#define kgl_new_ssl_ctx(x)  (x)
+#if 0
 typedef struct {
 	kcountable_t refs;
 	SSL_CTX *ctx;
@@ -98,6 +103,8 @@ INLINE kgl_ssl_ctx *kgl_new_ssl_ctx(SSL_CTX *ctx)
 	ssl_ctx->ctx = ctx;
 	return ssl_ctx;
 }
+#endif
+
 KEND_DECLS
 #else
 typedef void * kgl_ssl_ctx;

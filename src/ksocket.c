@@ -140,6 +140,11 @@ SOCKET ksocket_new_udp(uint16_t sin_family, int flag)
 		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
 	}
 #endif
+#ifdef _WIN32
+	BOOL bEnalbeConnRestError = FALSE;
+	DWORD dwBytesReturned = 0;
+	WSAIoctl(sockfd, SIO_UDP_CONNRESET, &bEnalbeConnRestError, sizeof(bEnalbeConnRestError), NULL, 0, &dwBytesReturned, NULL, NULL);
+#endif
 	return sockfd;
 }
 SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)

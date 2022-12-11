@@ -269,9 +269,13 @@ static void selector_manager_add_callback(kgl_selector_manager_callback **list, 
 	item->next = *list;
 	*list = item;
 }
-void selector_manager_thread_init(result_callback call_back, void *arg)
+int selector_manager_thread_init(result_callback call_back, void *arg)
 {
+	if (is_selector_manager_init()) {
+		return -1;
+	}
 	selector_manager_add_callback(&thread_init, call_back, arg);
+	return 0;
 }
 void selector_manager_init(unsigned  size, bool register_thread_timer)
 {
