@@ -238,9 +238,9 @@ void selector_manager_adjust_time(int64_t diff_msec)
 }
 static kev_result kthread_flush_timer(KOPAQUE data, void *arg, int got)
 {
-	kselector *selector = (kselector *)arg;
+	kselector *selector = kgl_get_tls_selector();
 	kthread_flush(0);
-	kselector_add_timer(selector, kthread_flush_timer, selector, KTHREAD_FLUSH_TIMER, NULL);
+	kselector_add_timer(selector, kthread_flush_timer, NULL, KTHREAD_FLUSH_TIMER, NULL);
 	return kev_ok;
 }
 void selector_module_create()
@@ -313,8 +313,7 @@ void selector_manager_init(unsigned  size, bool register_thread_timer)
 		on_ready_list = next;
 	}
 	if (register_thread_timer) {
-		kselector *selector = get_perfect_selector();
-		selector_manager_add_timer(kthread_flush_timer, selector, KTHREAD_FLUSH_TIMER, NULL);
+		selector_manager_add_timer(kthread_flush_timer, NULL, KTHREAD_FLUSH_TIMER, NULL);
 	}
 }
 static void selector_set_time_out(int time_out_index, int msec)

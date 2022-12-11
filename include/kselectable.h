@@ -70,7 +70,11 @@ typedef struct
 {
 	void *arg;
 	result_callback result;
-	buffer_callback buffer;
+	union
+	{
+		buffer_callback buffer;
+		void* buffer_ctx;
+	};
 #ifdef _WIN32
 	WSAOVERLAPPED lp;
 #endif
@@ -83,7 +87,7 @@ struct kselectable_s {
 	kgl_list queue;
 	kselector* selector;
 	uint16_t st_flags;
-	////////////�������������kfiber������ͬ
+	/* same as kfiber */
 	uint8_t tmo_left;
 	uint8_t tmo;
 	SOCKET fd;
@@ -144,7 +148,8 @@ INLINE bool selectable_is_ssl_handshake(kselectable *st)
 	return false;
 #endif
 }
-void selectable_recvfrom_event(kselectable *st);
+void selectable_udp_write_event(kselectable* st);
+void selectable_udp_read_event(kselectable *st);
 void selectable_read_event(kselectable *st);
 void selectable_write_event(kselectable *st);
 kev_result selectable_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);

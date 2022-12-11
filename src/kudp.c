@@ -42,46 +42,25 @@ bool kudp_bind(kconnection*uc, const sockaddr_i* addr)
 	}
 	return true;
 }
-kconnection* kudp_new2(int flags,kselector *st)
+kconnection* kudp_new2(int flags, kselector* st)
 {
 	int n = 1;
-	int type = SOCK_DGRAM;
 	int domain = PF_INET;
 	if (KBIT_TEST(flags, KSOCKET_ONLY_IPV6)) {
 		domain = PF_INET6;
 	}
-#ifdef SOCK_CLOEXEC
-	KBIT_SET(type, SOCK_CLOEXEC);
-#ifndef KGL_IOCP
-	KBIT_SET(type, SOCK_NONBLOCK);
-#endif
-#endif
 	kconnection* uc = kconnection_internal_new();
-	KBIT_SET(uc->st.st_flags,STF_UDP);
-	if ((uc->st.fd = socket(domain, type, 0)) == INVALID_SOCKET) {
-		//printf("socket failed errno=[%d],type=[%d]\n",errno,type);
+	KBIT_SET(uc->st.st_flags, STF_UDP);
+	if ((uc->st.fd = ksocket_new_udp(domain,flags)) == INVALID_SOCKET) {
 		kconnection_destroy(uc);
 		return NULL;
 	}
-#ifndef SOCK_CLOEXEC
-	kfile_close_on_exec((FILE_HANDLE)uc->st.fd, true);
-#endif
-#ifdef SO_REUSEPORT
-	if (KBIT_TEST(flags, KSOCKET_REUSEPORT)) {
-		setsockopt(uc->st.fd, SOL_SOCKET, SO_REUSEPORT, (const char*)&n, sizeof(int));
-	}
-#endif
-#ifdef IPV6_V6ONLY
-	if (KBIT_TEST(flags, KSOCKET_ONLY_IPV6)) {
-		setsockopt(uc->st.fd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
-	}
-#endif
 	if (KBIT_TEST(flags, KSOCKET_IP_PKTINFO)) {
 		setsockopt(uc->st.fd, IPPROTO_IP, IP_PKTINFO, (const char*)&n, sizeof(int));
 		uc->udp = xmemory_new(kudp_extend);
 	}
 #ifndef KGL_IOCP
-	//KBIT_SET(uc->st.st_flags,STF_RREADY|STF_WREADY);
+	KBIT_SET(uc->st.st_flags,STF_RREADY|STF_WREADY);
 #endif
 	selectable_bind(&uc->st, st);
 	return uc;

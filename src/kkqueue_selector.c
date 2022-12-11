@@ -374,6 +374,7 @@ static kselector_module kqueue_selector_module = {
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
 	kqueue_selector_recvfrom,
+	NULL,
 	kqueue_selector_select,
 	kqueue_selector_next,
 	kqueue_selector_aio_open,

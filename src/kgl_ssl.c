@@ -228,7 +228,7 @@ static bool kgl_ssl_ecdh_curve(SSL_CTX *ctx, const char *name)
 }
 static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md)
 {
-	int                   n, i;
+	size_t                   n, i;
 	STACK_OF(X509_NAME)* list;
 	unsigned int          len;
 	u_char                buf[EVP_MAX_MD_SIZE];

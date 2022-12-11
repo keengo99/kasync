@@ -4,11 +4,7 @@
 #include "kfile.h"
 #include "kfiber.h"
 void kgl_msleep(int msec) {
-	//不可以在fiber中使用此函数，而应该使用kfiber_msleep
-	if (kfiber_self() != NULL) {
-		abort();
-	}
-	kassert(kfiber_self() == NULL);
+	kassert(kfiber_is_main());
 #if	defined(OSF)
 	/* DU don't want to sleep in poll when number of descriptors is 0 */
 	usleep(msec * 1000);

@@ -437,6 +437,7 @@ static kselector_module iouring_selector_module = {
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
 	iouring_selector_recvfrom,
+	NULL,
 	iouring_selector_select,
 	iouring_selector_next,
 

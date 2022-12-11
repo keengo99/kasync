@@ -200,7 +200,33 @@ void selectable_shutdown(kselectable *st)
 #endif
 	ksocket_shutdown(st->fd, SHUT_RDWR);
 }
-void selectable_recvfrom_event(kselectable *st)
+void selectable_udp_write_event(kselectable* st)
+{
+	assert(KBIT_TEST(st->st_flags, STF_UDP));
+#ifdef STF_ET
+	if (KBIT_TEST(st->st_flags, STF_ET))
+#endif
+		KBIT_CLR(st->st_flags, STF_READ);
+#ifndef _WIN32
+	kconnection* c = kgl_list_data(st, kconnection, st);
+	if (unlikely(st->e[OP_WRITE].buffer == NULL)) {
+		return result(st->data, arg, 0);
+	}
+	int got = sendmsg(st->fd, (struct msghdr *)st->e[OP_WRITE].buffer_ctx, 0);
+	if (got == -1 && errno == EAGAIN) {
+		KBIT_CLR(st->st_flags, STF_WREADY);
+		if (kgl_selector_module.sendto(st->selector, st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer_ctx, st->e[OP_WRITE].arg)) {
+			return;
+		}
+	}
+#else
+	//windows never go here
+	assert(false);
+	int got = -1;
+#endif
+	st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, got);
+}
+void selectable_udp_read_event(kselectable *st)
 {
 	assert(KBIT_TEST(st->st_flags,STF_UDP));
 #ifdef STF_ET

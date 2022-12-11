@@ -512,6 +512,7 @@ static kselector_module epoll_selector_module = {
 	epoll_selector_readhup,
 	epoll_selector_remove_readhup,
 	epoll_selector_recvfrom,
+	NULL,
 	epoll_selector_select,
 	epoll_selector_next,
 	epoll_selector_aio_open,

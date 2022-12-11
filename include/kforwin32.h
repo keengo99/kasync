@@ -28,6 +28,20 @@ KBEGIN_DECLS
 #define pthread_mutex_t 			HANDLE 
 #define pthread_mutex_lock(x)	    WaitForSingleObject(*x,INFINITE)
 #define pthread_mutex_unlock(x)		ReleaseMutex(*x)
+INLINE char* kgl_strndup(const char* s, size_t n)
+{
+		size_t len;
+		char* copy;
+		len = strnlen(s, n);
+		copy = (char *)malloc(n + 1);
+		if (copy) {
+			memcpy(copy, s, len);
+			copy[len] = '\0';
+		}
+		return copy;
+	
+}
+
 INLINE int pthread_key_create(pthread_key_t *key, void *t)
 {
 	*key = TlsAlloc();
@@ -67,9 +81,15 @@ INLINE int pthread_mutex_destroy(pthread_mutex_t *mutex)
 #define bzero(x,y)	memset(x,0,y)
 #endif
 #define syslog		klog
+#ifndef strncasecmp
 #define		strncasecmp	_strnicmp
+#endif
+#ifndef strcasecmp
 #define		strcasecmp	_stricmp
+#endif
+#ifndef strdup
 #define		strdup		_strdup
+#endif
 #define		ERRNO			WSAGetLastError()
 #define		CLOSE(so)		closesocket(so)
 #define		strtok_r(a,b,c)		strtok(a,b)
@@ -109,7 +129,7 @@ typedef void * KTHREAD_FUNCTION;
 #define GetLastError()	errno
 #define _stati64 stat
 #define _stat64 stat
-
+#define kgl_strndup strndup
 typedef int * Token_t;
 #define PATH_SPLIT_CHAR		'/'
 #define INT64_FORMAT     "%lld"

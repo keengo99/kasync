@@ -14,8 +14,6 @@ option(OPENSSL_DIR "set openssl dir")
 include(CheckIncludeFile)
 include(CheckSymbolExists)
 
-
-
 if (KSOCKET_SSL)
     if (NOT OPENSSL_DIR) 
 	    include(FindOpenSSL)

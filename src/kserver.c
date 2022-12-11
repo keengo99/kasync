@@ -181,7 +181,7 @@ static kserver_selectable* kserver_listen_on_selector(kselector *selector, kserv
 			break;
 		}
 		kgl_failed_tries++;
-		if (kfiber_self() == NULL) {
+		if (kfiber_is_main()) {
 			kgl_msleep(500);
 		} else {
 			kfiber_msleep(500);

@@ -103,6 +103,20 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 	printf("ntsetinfomationfile ret=[%x]\n", ret);
 #endif
 }
+static bool iocp_selector_sendmsg(kselector* selector, kselectable* st, result_callback result, void *msg_ctx, void* arg)
+{
+	kassert(KBIT_TEST(st->st_flags, STF_READ | STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->st_flags, STF_UDP));
+	KBIT_SET(st->st_flags, STF_READ);
+	DWORD BytesRecv = 0;
+	DWORD Flags = 0;
+	//WSABUF buf[16];
+	//WSABUF addr;
+	st->e[OP_WRITE].arg = arg;
+	st->e[OP_WRITE].result = result;
+	kconnection* c = kgl_list_data(st, kconnection, st);
+	return false;
+}
 static bool iocp_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->st_flags, STF_READ|STF_WRITE) == 0);
@@ -441,6 +455,7 @@ static kselector_module iocp_selector_module = {
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
 	iocp_selector_recvfrom,
+	iocp_selector_sendmsg,
 
 	iocp_selector_select,
 	iocp_selector_next,

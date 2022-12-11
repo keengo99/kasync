@@ -9,6 +9,8 @@ LPFN_ACCEPTEX lpfnAcceptEx = NULL;
 LPFN_CONNECTEX lpfnConnectEx = NULL;
 fCancelIoEx pCancelIoEx = NULL;
 LPFN_WSARECVMSG lpfnWsaRecvMsg = NULL;
+LPFN_WSASENDMSG lpfnWsaSendMsg = NULL;
+RIO_EXTENSION_FUNCTION_TABLE kgl_rio = {};
 #else
 #include <poll.h>
 #endif
@@ -38,6 +40,14 @@ void ksocket_library_startup()
 	if (lpfnWsaRecvMsg == NULL) {
 		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
 	}
+	GUID m_guid4 = WSAID_WSASENDMSG;
+	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid4, sizeof(m_guid4), &lpfnWsaSendMsg, sizeof(lpfnWsaSendMsg), &dwBytes, NULL, NULL);
+	if (lpfnWsaSendMsg == NULL) {
+		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+	}
+	GUID m_guid5 = WSAID_MULTIPLE_RIO;
+	dwErr = WSAIoctl(sock, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &m_guid5, sizeof(m_guid5), &kgl_rio, sizeof(kgl_rio), &dwBytes, NULL, NULL);
+
 	closesocket(sock);
 	//windows vista开始才有CancelIoEx,所以要用动态
 	pCancelIoEx = (fCancelIoEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "CancelIoEx");
@@ -98,23 +108,23 @@ void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *to) {
 	*to = addr->v4.sin_addr.s_addr;
 #endif
 }
-SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)
+SOCKET ksocket_new_udp(uint16_t sin_family, int flag)
 {
 #ifdef SOCK_CLOEXEC
-	SOCKET sockfd = socket(addr->v4.sin_family,
-		KBIT_TEST(flag, KSOCKET_BLOCK)?
-		SOCK_DGRAM | SOCK_CLOEXEC:
+	SOCKET sockfd = socket(sin_family,
+		KBIT_TEST(flag, KSOCKET_BLOCK) ?
+		SOCK_DGRAM | SOCK_CLOEXEC :
 		SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK
 		, 0);
 	if (!ksocket_opened(sockfd)) {
 		return sockfd;
 	}
 #else
-	SOCKET sockfd = socket(addr->v4.sin_family, SOCK_DGRAM, 0);
+	SOCKET sockfd = socket(sin_family, SOCK_DGRAM, 0);
 	if (!ksocket_opened(sockfd)) {
 		return sockfd;
 	}
-	kfile_close_on_exec((FILE_HANDLE)sockfd,true);
+	kfile_close_on_exec((FILE_HANDLE)sockfd, true);
 	if (!KBIT_TEST(flag, KSOCKET_BLOCK)) {
 		ksocket_no_block(sockfd);
 	}
@@ -130,6 +140,14 @@ SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)
 		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
 	}
 #endif
+	return sockfd;
+}
+SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)
+{
+	SOCKET sockfd = ksocket_new_udp(addr->v4.sin_family, flag);
+	if (!ksocket_opened(sockfd)) {
+		return sockfd;
+	}
 	if (bind(sockfd, (struct sockaddr *)addr, ksocket_addr_len(addr)) < 0) {
 		ksocket_close(sockfd);
 		return INVALID_SOCKET;

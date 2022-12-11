@@ -110,8 +110,11 @@ typedef enum {
 #endif
 #else
 #include <netdb.h>
-typedef struct iovec   WSABUF;
-typedef struct iovec * LPWSABUF;
+#ifndef iovec
+	#define iovec          _WSABUF
+	#define iov_base       buf
+	#define iov_len        len
+#endif
 #endif
 
 #if defined _WIN32 || defined __CYGWIN__

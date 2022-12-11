@@ -42,6 +42,7 @@ typedef bool (*selector_remove_readhup)(kselector *selector, kselectable *st);
 typedef bool (*selector_write)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef bool (*selector_connect)(kselector *selector, kselectable *st, result_callback result, void *arg);
 typedef bool (*selector_recvfrom)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
+typedef bool (*selector_sendmsg)(kselector* selector, kselectable* st, result_callback result, void *msg_ctx, void* arg);
 typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got);
 
 typedef void (*selector_aio_open)(kselector *selector, kasync_file *file, FILE_HANDLE fd);
@@ -90,6 +91,7 @@ typedef struct {
 	selector_readhup readhup;
 	selector_remove_readhup remove_readhup;
 	selector_recvfrom recvfrom;
+	selector_sendmsg sendmsg;
 
 	selector_select select;
 	selector_next next;

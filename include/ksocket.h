@@ -12,6 +12,7 @@ KBEGIN_DECLS
 #define SHUT_WR     1
 #define SHUT_RDWR   2
 extern LPFN_WSARECVMSG lpfnWsaRecvMsg;
+extern LPFN_WSASENDMSG lpfnWsaSendMsg;
 extern LPFN_ACCEPTEX lpfnAcceptEx;
 extern LPFN_CONNECTEX lpfnConnectEx;
 typedef BOOL(WINAPI *fCancelIoEx)(
@@ -26,6 +27,7 @@ INLINE BOOL ksocket_cancel(SOCKET sockfd) {
 		return CancelIo((HANDLE)sockfd);
 	}
 }
+extern RIO_EXTENSION_FUNCTION_TABLE kgl_rio;
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -276,6 +278,7 @@ INLINE const char *ksocket_unix_path(struct sockaddr_un *addr)
 
 void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *ia);
 SOCKET ksocket_listen(const sockaddr_i *addr,int flag);
+SOCKET ksocket_new_udp(uint16_t sin_family,int flag);
 SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag);
 SOCKET ksocket_accept(SOCKET s,sockaddr_i *addr,bool no_block);
 SOCKET ksocket_connect(const sockaddr_i *addr, const sockaddr_i *bind_addr, int tmo);
