@@ -213,11 +213,11 @@ kserver_selectable* kserver_listen(kserver* server, int flag, result_callback ac
 bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *ssl_ctx)
 {
 #ifdef KSOCKET_SSL
-	if (server->ssl && ssl_ctx == NULL) {
+	if (KBIT_TEST(server->flags, KGL_SERVER_SSL) && ssl_ctx == NULL) {
 		return false;
 	}
 	if (ssl_ctx) {
-		server->ssl = 1;
+		KBIT_SET(server->flags, KGL_SERVER_SSL);
 	}
 #endif
 	if (*ip=='/') {
@@ -280,11 +280,14 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 	KBIT_SET(flag, KSOCKET_REUSEPORT);
 	int i;
 	bool result = false;
-	assert(!server->started);
+	assert(!KBIT_TEST(server->flags, KGL_SERVER_START));
+	if (KBIT_TEST(server->flags, KGL_SERVER_START)) {
+		return false;
+	}
 	if (!is_server_supported_multi_selectable()) {
 		kserver_selectable *ss = kserver_listen_on_selector(get_perfect_selector(), server, flag, accept_callback);
 		if (ss != NULL) {
-			server->started = true;
+			KBIT_SET(server->flags, KGL_SERVER_START);
 			result = true;
 			kserver_selectable_start(ss);
 		}
@@ -295,7 +298,7 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 		kserver_selectable* ss = kserver_listen_on_selector(get_selector_by_index(i), server, flag, accept_callback);
 		if (ss != NULL) {
 			result = true;
-			server->started = true;
+			KBIT_SET(server->flags, KGL_SERVER_START);
 			kserver_selectable_start(ss);
 		}
 	}
@@ -374,7 +377,7 @@ kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
 #endif
 void kserver_close(kserver* server)
 {
-	server->closed = true;
+	KBIT_CLR(server->flags, KGL_SERVER_START);
 	kgl_list* pos;
 	kmutex_lock(&server->ss_lock);
 #ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
@@ -428,7 +431,7 @@ void kserver_set_ssl_ctx(kserver *server, kgl_ssl_ctx *ssl_ctx)
 		if (ssl_ctx) {
 			kgl_add_ref_ssl_ctx(ssl_ctx);
 		}
-		if (!server->started) {
+		if (!KBIT_TEST(server->flags,KGL_SERVER_START)) {
 			kserver_selectable_update_ssl_ctx(ss, ssl_ctx);
 		} else {
 			kserver_update_ssl_ctx_param *param = xmemory_new(kserver_update_ssl_ctx_param);

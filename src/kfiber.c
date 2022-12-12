@@ -546,7 +546,7 @@ int kfiber_net_accept(kserver_selectable* ss, kconnection** c)
 	CHECK_FIBER(fiber);
 	assert(ss->st.selector == kgl_get_tls_selector());
 	fiber->retval = -1;
-	if (ss->server->closed || !kserver_selectable_accept(ss, fiber)) {
+	if (!KBIT_TEST(ss->server->flags,KGL_SERVER_START) || !kserver_selectable_accept(ss, fiber)) {
 		return -1;
 	}
 	assert(ss->st.data == ss);
