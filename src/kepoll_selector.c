@@ -297,7 +297,7 @@ static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 	return false;
 #endif
 }
-static bool epoll_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static KASYNC_IO_RESULT epoll_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	assert(KBIT_TEST(st->st_flags,STF_READ)==0);

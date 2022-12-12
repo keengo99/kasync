@@ -103,18 +103,15 @@ typedef enum {
 #define KEV_HANDLED(x) (x!=kev_err)
 #define KEV_AVAILABLE(x) (x!=kev_destroy)
 #ifdef _WIN32
-#ifndef iovec
-#define iovec          _WSABUF
-#define iov_base       buf
-#define iov_len        len
-#endif
+	#ifndef iovec
+		#define iovec          _WSABUF
+		#define iov_base       buf
+		#define iov_len        len
+	#endif
 #else
 #include <netdb.h>
-#ifndef iovec
-	#define iovec          _WSABUF
-	#define iov_base       buf
-	#define iov_len        len
-#endif
+typedef struct iovec WSABUF;
+typedef WSABUF * LPWSABUF;
 #endif
 
 #if defined _WIN32 || defined __CYGWIN__

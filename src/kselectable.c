@@ -210,12 +210,13 @@ void selectable_udp_write_event(kselectable* st)
 #ifndef _WIN32
 	kconnection* c = kgl_list_data(st, kconnection, st);
 	if (unlikely(st->e[OP_WRITE].buffer == NULL)) {
-		return result(st->data, arg, 0);
+		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, 0);
+		return;
 	}
 	int got = sendmsg(st->fd, (struct msghdr *)st->e[OP_WRITE].buffer_ctx, 0);
 	if (got == -1 && errno == EAGAIN) {
 		KBIT_CLR(st->st_flags, STF_WREADY);
-		if (kgl_selector_module.sendto(st->selector, st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer_ctx, st->e[OP_WRITE].arg)) {
+		if (kgl_selector_module.sendmsg(st->selector, st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer_ctx, st->e[OP_WRITE].arg)) {
 			return;
 		}
 	}
