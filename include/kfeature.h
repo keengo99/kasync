@@ -127,6 +127,7 @@ typedef enum {
 #endif
 #endif
 
+#define ST_ERR_RESULT      -1
 #define ST_ERR_TIME_OUT    -2
 #define ST_ERR_RESOLV      -3
 typedef volatile int32_t kcountable_t;

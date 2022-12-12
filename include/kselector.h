@@ -16,6 +16,12 @@
 #define OP_READ  0
 #define OP_WRITE 1
 #define SELECTOR_TMO_MSEC 100
+
+#define KASYNC_IO_RESULT     int
+#define KASYNC_IO_PENDING     -1
+#define KASYNC_IO_ERR_BUFFER  -2
+#define KASYNC_IO_ERR_SYS     -3
+
 KBEGIN_DECLS
 typedef int(*kfiber_start_func)(void* arg, int len);
 typedef struct _kfiber kfiber;
@@ -23,9 +29,9 @@ typedef struct kserver_selectable_s kserver_selectable;
 typedef struct kselector_s kselector;
 typedef struct kselectable_s kselectable;
 typedef struct kasync_file_s kasync_file;
+typedef struct kselector_tick_s kselector_tick;
 
-
-typedef void (*selector_check_timeout_callback)(kselector *selector, int event_count);
+typedef void (*kselector_tick_callback)(void *arg, int event_count);
 typedef kev_result (*aio_callback)(kasync_file *fp, void *arg, char *buf, int length);
 
 
@@ -41,7 +47,7 @@ typedef bool (*selector_remove_readhup)(kselector *selector, kselectable *st);
 
 typedef bool (*selector_write)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef bool (*selector_connect)(kselector *selector, kselectable *st, result_callback result, void *arg);
-typedef bool (*selector_recvfrom)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
+typedef KASYNC_IO_RESULT (*selector_recvfrom)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef bool (*selector_sendmsg)(kselector* selector, kselectable* st, result_callback result, void *msg_ctx, void* arg);
 typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got);
 
@@ -112,9 +118,10 @@ struct kselector_s {
 	volatile uint32_t shutdown : 1;
 	int timeout[KGL_LIST_BLOCK];
 	kgl_list list[KGL_LIST_BLOCK];
+	kgl_list tick;
 	struct krb_root block;
 	struct krb_node *block_first;
-	selector_check_timeout_callback check_timeout;
+	//selector_check_timeout_callback check_timeout;
 #ifdef MALLOCDEBUG
 	volatile
 #endif
@@ -137,6 +144,10 @@ void kselector_default_bind(kselector *selector, kselectable *st);
 bool kselector_default_readhup(kselector *selector, kselectable *st, result_callback result,  void *arg);
 bool kselector_default_remove_readhup(kselector *selector, kselectable *st);
 void kselector_default_remove(kselector *selector, kselectable *st);
+
+kselector_tick* kselector_register_tick(kselector_tick_callback cb, void* arg);
+bool kselector_unregister_tick(kselector_tick* tick);
+
 kev_result kselector_event_accept(KOPAQUE data, void *arg,int got);
 int kconnection_buffer_addr(KOPAQUE data, void* arg, WSABUF* buffer, int bc);
 INLINE bool kselector_can_close(kselector *selector)

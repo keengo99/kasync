@@ -20,6 +20,12 @@ volatile uint32_t kgl_aio_count = 0;
 time_t kgl_program_start_sec = 0;
 void (*kgl_second_change_hook)() = NULL;
 KTHREAD_FUNCTION kselector_thread(void *param);
+struct kselector_tick_s
+{
+	kgl_list queue;
+	void* arg;
+	kselector_tick_callback cb;
+};
 typedef union _kgl_ready_event {
 	kselectable st;
 	kfiber fiber;
@@ -109,6 +115,7 @@ kselector *kselector_new()
 		klist_init(&selector->list[i]);
 		selector->timeout[i] = 60 * 1000;
 	}
+	klist_init(&selector->tick);
 	kgl_selector_module.init(selector);
 	return selector;
 }
@@ -178,7 +185,6 @@ void kselector_update_time()
 	gettimeofday(&tv, NULL);
 	if (unlikely(kgl_current_sec != tv.tv_sec)) {
 		if (unlikely(tv.tv_sec < kgl_current_sec)) {
-			//printf("����ʱ�䵹��\n");
 			int64_t diff_msec = (int64_t)tv.tv_sec * 1000 + (tv.tv_usec / 1000) - kgl_current_msec;
 			selector_manager_adjust_time(diff_msec);
 		}		
@@ -192,6 +198,8 @@ void kselector_update_time()
 }
 void kselector_check_timeout(kselector *selector,int event_number)
 {
+	kgl_list* tick_list,*tick_next_list;
+	kselector_tick* tick;
 	struct krb_node *block = NULL;
 	struct krb_node *last = NULL;
 	//read write timeout
@@ -279,10 +287,6 @@ void kselector_check_timeout(kselector *selector,int event_number)
 		xfree(block);
 		block = last;
 	}
-	if (selector->check_timeout) {
-		selector->check_timeout(selector, event_number);
-	}
-
 	//handle ready list
 	for (;;) {
 		kgl_list *l = klist_head(&selector->list[KGL_LIST_READY]);
@@ -326,6 +330,13 @@ void kselector_check_timeout(kselector *selector,int event_number)
 			kselector_add_list(selector, &ready_ev->st, KGL_LIST_RW);
 		}
 	}
+	tick_list = klist_head(&selector->tick);
+	while (tick_list != &selector->tick) {
+		tick = kgl_list_data(tick_list, kselector_tick, queue);
+		tick_next_list = tick_list->next;
+		tick->cb(tick->arg, event_number);
+		tick_list = tick_next_list;
+	}
 }
 void kselector_add_block_queue(kselector *selector, kgl_block_queue *brq)
 {
@@ -361,4 +372,29 @@ bool kselector_default_remove_readhup(kselector *selector, kselectable *st)
 }
 void kselector_default_remove(kselector *selector, kselectable *st)
 {
+}
+kselector_tick* kselector_register_tick(kselector_tick_callback cb, void* arg)
+{
+	kselector* selector = kgl_get_tls_selector();
+	if (selector == NULL) {
+		return NULL;
+	}
+	kselector_tick* tick = (kselector_tick*)xmalloc(sizeof(kselector_tick));
+	if (tick == NULL) {
+		return NULL;
+	}
+	tick->arg = arg;
+	tick->cb = cb;
+	klist_append(&selector->tick, &tick->queue);
+	return tick;
+}
+bool kselector_unregister_tick(kselector_tick* tick)
+{
+	kselector* selector = kgl_get_tls_selector();
+	if (selector == NULL) {
+		return false;
+	}
+	klist_remove(&tick->queue);
+	xfree(tick);
+	return true;
 }
