@@ -324,31 +324,42 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
 }
-static bool iouring_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static KASYNC_IO_RESULT iouring_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
-#if 0
-	kiouring_selector *es = (kiouring_selector *)selector->ctx;
-	assert(KBIT_TEST(st->st_flags,STF_READ|STF_WRITE|STF_RECVFROM)==0);
-	st->e[OP_READ].arg = arg;
-	st->e[OP_READ].result = result;
-	st->e[OP_READ].buffer = buffer;
-	KBIT_SET(st->st_flags,STF_RECVFROM);
-	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
-		return true;
+	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
+	assert(KBIT_TEST(st->st_flags,STF_READ)==0);
+	struct io_uring_sqe *sqe;
+	kgl_event *e = &st->e[OP_READ];
+	e->arg = arg;
+	e->result = result;
+	e->st = st;
+	e->buffer = buffer;
+	assert(KBIT_TEST(st->st_flags,STF_UDP));
+	int got = selectable_recvmsg(st);
+	if (got>=0) {
+		return got;
 	}
-	if (!KBIT_TEST(st->st_flags,STF_REV)) {
-		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			KBIT_CLR(st->st_flags,STF_RECVFROM);
-			return false;
+	switch (errno) {
+	case EAGAIN:
+		KBIT_SET(st->st_flags,STF_READ);
+		e->buffer = null_buffer;
+		sqe = kiouring_get_seq(&cs->ring);
+		if (sqe==NULL) {
+			KBIT_CLR(st->st_flags,STF_READ);
+			return KASYNC_IO_ERR_SYS;
 		}
+		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
+		io_uring_sqe_set_data(sqe, e);
+		if (st->queue.next==NULL) {
+			kselector_add_list(selector,st,KGL_LIST_RW);
+		}
+		return KASYNC_IO_PENDING;
+	case EINTR:
+	case ENOMEM:
+		return KASYNC_IO_ERR_BUFFER;
+	default:
+		return KASYNC_IO_ERR_SYS;
 	}
-	if (st->queue.next==NULL) {
-		kselector_add_list(selector,st,KGL_LIST_RW);
-	}
-	return true;
-#endif
-	return false;
 }
 static void iouring_add_timeout(struct io_uring *ring,unsigned wait_nr,struct __kernel_timespec *ts)
 {
@@ -375,9 +386,9 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	}
 	if (e == &st->e[OP_READ]) {
 		//printf("handle read event st=[%p]\n", st);
-		kassert(KBIT_TEST(st->st_flags, STF_READ|STF_RECVFROM));
-		KBIT_CLR(st->st_flags, STF_READ|STF_RECVFROM);
-		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));		
+		kassert(KBIT_TEST(st->st_flags, STF_READ));
+		KBIT_CLR(st->st_flags, STF_READ);
+		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));
 	} else 	if (e == &st->e[OP_WRITE]) {
 		//printf("handle write event st=[%p]\n", st);
 		kassert(KBIT_TEST(st->st_flags, STF_WRITE));
