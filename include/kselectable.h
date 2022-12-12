@@ -159,5 +159,8 @@ kev_result selectable_event_write(kselectable *st, result_callback result, buffe
 void selectable_low_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 void selectable_low_event_write(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 #endif
+#ifndef _WIN32
+int selectable_recvmsg(kselectable *st);
+#endif
 KEND_DECLS
 #endif

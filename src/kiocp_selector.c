@@ -147,7 +147,7 @@ static int iocp_selector_recvfrom(kselector *selector, kselectable *st, result_c
 	}
 	if (rc == 0) {
 		//success
-		assert(BytesRecv > 0);
+		assert(BytesRecv >= 0);
 		if (BytesRecv < 0) {
 			return KASYNC_IO_ERR_BUFFER;
 		}

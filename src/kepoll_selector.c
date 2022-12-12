@@ -304,22 +304,37 @@ static KASYNC_IO_RESULT epoll_selector_recvfrom(kselector *selector, kselectable
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
-	assert(KBIT_TEST(st->st_flags,STF_UDP));
-	KBIT_SET(st->st_flags,STF_READ);
-	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
-		return true;
+	assert(KBIT_TEST(st->st_flags,STF_UDP));	
+	assert(KBIT_TEST(st->st_flags,STF_RREADY));
+	int err ;
+	int got;
+retry:
+	got = selectable_recvmsg(st);
+	if (got>=0) {
+		return got;
 	}
-	if (!KBIT_TEST(st->st_flags,STF_REV)) {
-		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			KBIT_CLR(st->st_flags,STF_READ);
-			return false;
+	err = errno;
+	if (err==EAGAIN || err==EWOULDBLOCK) {
+		KBIT_SET(st->st_flags,STF_READ);
+		KBIT_CLR(st->st_flags,STF_RREADY);
+		if (!KBIT_TEST(st->st_flags,STF_REV)) {
+			if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
+				KBIT_CLR(st->st_flags,STF_READ);
+				return KASYNC_IO_ERR_SYS;
+			}
 		}
+		if (st->queue.next==NULL) {
+			kselector_add_list(selector,st,KGL_LIST_RW);
+		}
+		return KASYNC_IO_PENDING;
 	}
-	if (st->queue.next==NULL) {
-		kselector_add_list(selector,st,KGL_LIST_RW);
+	if (err==EINTR) {
+		return KASYNC_IO_ERR_BUFFER;
 	}
-	return true;
+	if (err==ENOMEM) {
+		return KASYNC_IO_ERR_BUFFER;
+	}	
+	return KASYNC_IO_ERR_SYS;
 }
 static bool epoll_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {

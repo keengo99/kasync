@@ -227,14 +227,9 @@ void selectable_udp_write_event(kselectable* st)
 #endif
 	st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, got);
 }
-void selectable_udp_read_event(kselectable *st)
-{
-	assert(KBIT_TEST(st->st_flags,STF_UDP));
-#ifdef STF_ET
-	if (KBIT_TEST(st->st_flags, STF_ET))
-#endif
-		KBIT_CLR(st->st_flags,STF_READ);
 #ifndef _WIN32
+int selectable_recvmsg(kselectable *st)
+{
 	kconnection* c = kgl_list_data(st, kconnection, st);
 	WSABUF bufs[16];
 	WSABUF addr;
@@ -251,23 +246,30 @@ void selectable_udp_read_event(kselectable *st)
 		memset(c->udp, 0, sizeof(kudp_extend));
 		msg.msg_controllen = sizeof(c->udp->pktinfo);
 	}
-	int got = recvmsg(st->fd,&msg,0);
-#if 0
-	WSABUF buf;
-	WSABUF addr;
-	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &buf, 1);
-	kassert(bc == 1);
-	bc = kconnection_buffer_addr(st->data, st, &addr, 1);
-	kassert(bc == 1);
-	socklen_t addr_len = (socklen_t)addr.iov_len;
-	int got = recvfrom(st->fd, (char *)buf.iov_base, buf.iov_len, 0, (struct sockaddr *)addr.iov_base, &addr_len);
+	return recvmsg(st->fd,&msg,0);
+}
 #endif
-	if (got==-1 && errno==EAGAIN) {
-		KBIT_CLR(st->st_flags,STF_RREADY);
-		if (kgl_selector_module.recvfrom(st->selector, st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg)) {
-			return;
-		}
+void selectable_udp_read_event(kselectable *st)
+{
+	assert(KBIT_TEST(st->st_flags,STF_UDP));
+#ifdef STF_ET
+	if (KBIT_TEST(st->st_flags, STF_ET))
+#endif
+		KBIT_CLR(st->st_flags,STF_READ);
+#ifndef _WIN32
+	int got = selectable_recvmsg(st);
+	if (got>=0) {
+		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
+		return;
 	}
+	got = -1;
+	/*
+	int err = errno;
+	if (err==EAGAIN || err==EWOULDBLOCK) {
+		KBIT_CLR(st->st_flags,STF_RREADY);
+		assert(false);
+	}
+	*/
 #else
 	//windows never go here
 	assert(false);

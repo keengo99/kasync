@@ -19,8 +19,8 @@
 
 #define KASYNC_IO_RESULT     int
 #define KASYNC_IO_PENDING     -1
-#define KASYNC_IO_ERR_BUFFER  -2
-#define KASYNC_IO_ERR_SYS     -3
+#define KASYNC_IO_ERR_BUFFER  -2 //socket should retry with this error
+#define KASYNC_IO_ERR_SYS     -3 //socket must close with this error
 
 KBEGIN_DECLS
 typedef int(*kfiber_start_func)(void* arg, int len);
