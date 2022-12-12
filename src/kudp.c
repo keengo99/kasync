@@ -24,9 +24,9 @@ bool kudp_add_multicast(kconnection* uc, const char* group)
 	}
 	return true;
 }
-struct in_pktinfo *kudp_pktinfo(kconnection *uc)
+struct in_pktinfo *kudp_pktinfo(kconnection* uc)
 {
-	if (uc->udp==NULL) {
+	if (!KBIT_TEST(uc->st.st_flags,STF_UDP) || uc->udp == NULL) {
 		return NULL;
 	}
 	struct cmsghdr *msg = (struct cmsghdr *)(uc->udp->pktinfo);

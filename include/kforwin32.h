@@ -41,7 +41,13 @@ INLINE char* kgl_strndup(const char* s, size_t n)
 		return copy;
 	
 }
-
+INLINE int pthread_key_delete(pthread_key_t key)
+{
+	if (TlsFree(key)) {
+		return 0;
+	}
+	return -1;
+}
 INLINE int pthread_key_create(pthread_key_t *key, void *t)
 {
 	*key = TlsAlloc();

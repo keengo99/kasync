@@ -135,6 +135,11 @@ SOCKET ksocket_new_udp(uint16_t sin_family, int flag)
 		setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&n, sizeof(int));
 	}
 #endif
+#ifdef _WIN32
+	if (KBIT_TEST(flag, KSOCKET_REUSEPORT)) {
+		setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&n, sizeof(int));
+	}
+#endif
 #ifdef IPV6_V6ONLY
 	if (KBIT_TEST(flag, KSOCKET_ONLY_IPV6)) {
 		setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&n, sizeof(int));
@@ -153,6 +158,7 @@ SOCKET ksocket_listen_udp(const sockaddr_i *addr,int flag)
 	if (!ksocket_opened(sockfd)) {
 		return sockfd;
 	}
+
 	if (bind(sockfd, (struct sockaddr *)addr, ksocket_addr_len(addr)) < 0) {
 		ksocket_close(sockfd);
 		return INVALID_SOCKET;
