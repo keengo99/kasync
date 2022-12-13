@@ -78,7 +78,7 @@ int kudp_send(kconnection* uc, const struct sockaddr* peer_addr, socklen_t peer_
 }
 kev_result kudp_recv_from(kconnection*uc, result_callback result, buffer_callback buffer, void* arg)
 {
-	if (!kgl_selector_module.recvfrom(uc->st.selector, &uc->st, result, buffer, arg)) {
+	if (!kgl_selector_module.recvmsg(uc->st.selector, &uc->st, result, buffer, arg)) {
 		return result(uc->st.data, arg, -1);
 	}
 	return kev_ok;

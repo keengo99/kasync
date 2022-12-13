@@ -317,14 +317,12 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
-	io_uring_prep_connect(sqe, st->fd,
-(struct sockaddr *)addr_buf.iov_base,
-(socklen_t)addr_buf.iov_len);
+	io_uring_prep_connect(sqe, st->fd,(struct sockaddr *)addr_buf.iov_base,(socklen_t)addr_buf.iov_len);
 	io_uring_sqe_set_data(sqe, e);
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
 }
-static KASYNC_IO_RESULT iouring_selector_recvfrom(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static KASYNC_IO_RESULT iouring_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
 	assert(KBIT_TEST(st->st_flags,STF_READ)==0);
@@ -447,8 +445,7 @@ static kselector_module iouring_selector_module = {
 	iouring_selector_write,
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
-	iouring_selector_recvfrom,
-	NULL,
+	iouring_selector_recvmsg,
 	iouring_selector_select,
 	iouring_selector_next,
 
