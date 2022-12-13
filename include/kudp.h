@@ -1,6 +1,5 @@
 #ifndef KUDP_H_9fff9
 #define KUDP_H_9fff9
-#include <sys/socket.h>
 #include "kfeature.h"
 #include "ksocket.h"
 #include "kselectable.h"
