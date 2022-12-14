@@ -235,6 +235,11 @@ bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *s
 #ifdef KSOCKET_SSL
 	kserver_set_ssl_ctx(server, ssl_ctx);
 #endif
+	if (server->addr.v4.sin_family == AF_UNIX) {
+		KBIT_SET(server->flags, KGL_SERVER_UNIX);
+	} else {
+		KBIT_CLR(server->flags, KGL_SERVER_UNIX);
+	}
 	return true;
 }
 static kev_result kserver_next_accept(KOPAQUE data, void* arg, int got)
@@ -259,6 +264,11 @@ bool kserver_open_exsit(kserver* server, SOCKET sockfd, result_callback accept_c
 	if (0 != getsockname(sockfd, (struct sockaddr*)&server->addr, &addr_len)) {
 		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
 		return false;
+	}
+	if (server->addr.v4.sin_family == AF_UNIX) {
+		KBIT_SET(server->flags, KGL_SERVER_UNIX);
+	} else {
+		KBIT_CLR(server->flags, KGL_SERVER_UNIX);
 	}
 	kserver_selectable* ss = add_server_socket(server, sockfd);
 	if (ss == NULL) {

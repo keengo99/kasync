@@ -45,18 +45,19 @@ static kgl_string_bitmask_t  kgl_ssl_protocols[] = {
 int kgl_ssl_sni(SSL *ssl, int *ad, void *arg)
 {
 	kassert(kgl_ssl_create_sni);
-	const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	kconnection *c = (kconnection *)SSL_get_ex_data(ssl, kangle_ssl_conntion_index);
+	if (c == NULL || c->sni) {
+		return SSL_TLSEXT_ERR_OK;
+	}
+	const char* servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 	if (servername == NULL) {
 		return SSL_TLSEXT_ERR_NOACK;
 	}
-	kconnection *c = (kconnection *)SSL_get_ex_data(ssl, kangle_ssl_conntion_index);
-	if (c == NULL) {
-		return SSL_TLSEXT_ERR_NOACK;
+	SSL_CTX* ssl_ctx = NULL;
+	c->sni = kgl_ssl_create_sni(kserver_get_opaque(c->server), servername, &ssl_ctx);
+	if (ssl_ctx) {
+		SSL_set_SSL_CTX(ssl, ssl_ctx);
 	}
-	if (c->sni) {
-		return SSL_TLSEXT_ERR_OK;
-	}
-	c->sni = kgl_ssl_create_sni(ssl, kserver_get_opaque(c->server), servername);
 	return SSL_TLSEXT_ERR_OK;
 }
 #endif
@@ -70,7 +71,7 @@ int kgl_ssl_npn_selected(SSL *ssl, const unsigned char **out, unsigned char *out
 	}
 	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
 	void *ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
-	ssl_npn(ssl_ctx_data, &selected_protocol, &selected_len);
+	ssl_npn(ssl, ssl_ctx_data, &selected_protocol, &selected_len);
 	if (SSL_select_next_proto(
 		(unsigned char **)out,
 		outlen,
@@ -92,7 +93,7 @@ int kgl_ssl_npn_advertise(SSL *ssl, const unsigned char **out, unsigned int *out
 {
 	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
 	void *ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
-	ssl_npn(ssl_ctx_data, out, outlen);
+	ssl_npn(ssl, ssl_ctx_data, out, outlen);
 	return SSL_TLSEXT_ERR_OK;
 }
 #endif
@@ -418,7 +419,7 @@ SSL_CTX *kgl_ssl_ctx_new_client(const char *ca_path, const char *ca_file,void *s
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
 		const unsigned char *alpn_protos = NULL;
 		unsigned int alpn_protos_len = 0;
-		ssl_npn(ssl_ctx_data, &alpn_protos, &alpn_protos_len);
+		ssl_npn(NULL, ssl_ctx_data, &alpn_protos, &alpn_protos_len);
 		SSL_CTX_set_alpn_protos(ctx, alpn_protos, alpn_protos_len);
 #endif
 	}

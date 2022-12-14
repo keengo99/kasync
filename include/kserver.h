@@ -12,7 +12,7 @@
 #define KGL_SERVER_SSL         (1<<31)
 #define KGL_SERVER_START       (1<<30)
 #define KGL_SERVER_UNIX        (1<<29)
-#define KGL_SERVER_EARLY_DATA  (1<<28)
+//#define KGL_SSL_CTX_EARLY_DATA (1<<28)
 #ifndef _WIN32
 #define MULTI_SERVER_SELECTABLE_SUPPORTED 1
 #endif
@@ -75,10 +75,14 @@ struct kserver_selectable_s{
 };
 struct kserver_s {
 	kcountable_t refs;
+	uint32_t flags;
 	kserver_free_opaque  free_opaque;
 	KOPAQUE data;
 	kgl_list ss;
 	kmutex ss_lock;
+#ifdef KSOCKET_SSL
+	kgl_ssl_ctx* ssl_ctx;
+#endif
 #ifdef KSOCKET_UNIX
 	union {
 		sockaddr_i addr;
@@ -87,11 +91,6 @@ struct kserver_s {
 #else
 	sockaddr_i addr;
 #endif
-#ifdef KSOCKET_SSL
-	kgl_ssl_ctx* ssl_ctx;
-	u_char  alpn;
-#endif
-	uint32_t flags;
 };
 bool is_server_multi_selectable(kserver *server);
 DLL_PUBLIC kserver *kserver_init();
@@ -119,11 +118,11 @@ DLL_PUBLIC kserver_selectable *kserver_listen(kserver *server, int flag, result_
 DLL_PUBLIC bool kserver_selectable_accept(kserver_selectable *ss, void *arg);
 DLL_PUBLIC void kserver_selectable_destroy(kserver_selectable *ss);
 DLL_PUBLIC kconnection* accept_result_new_connection(KOPAQUE data, int got);
-INLINE void kserver_set_flag(kserver* server, int flag, bool val) {
+INLINE void kgl_set_flag(uint32_t *flags, int flag, bool val) {
 	if (val) {
-		KBIT_SET(server->flags, flag);
+		KBIT_SET(*flags, flag);
 	} else {
-		KBIT_CLR(server->flags, flag);
+		KBIT_CLR(*flags, flag);
 	}
 }
 //NOTICE: kserver_close will not release server,release server must call kserver_release

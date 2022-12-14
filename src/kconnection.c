@@ -15,8 +15,6 @@ typedef struct {
 	void *arg;
 } kconnection_ssl_param;
 
-extern kgl_ssl_create_sni_f kgl_ssl_create_sni;
-extern kgl_ssl_free_sni_f kgl_ssl_free_sni;
 static kev_result ssl_handshake_result(kconnection_ssl_param *sh, bool result)
 {
 	kev_result ret = sh->cb(sh->c->st.data, sh->arg, result ? 0 : -1);
