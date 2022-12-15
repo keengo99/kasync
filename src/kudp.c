@@ -106,8 +106,8 @@ retry:
 		case KASYNC_IO_ERR_BUFFER:
 			goto retry;
 		case KASYNC_IO_ERR_SYS:
-			return result(uc->st.data,arg,-1);
 		default:
-			return result(uc->st.data,arg,got);
+			kgl_selector_module.next(uc->st.selector, uc->st.data, result, arg, got);
+			return kev_ok;
 	}
 }
