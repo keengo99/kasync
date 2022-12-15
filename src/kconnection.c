@@ -7,6 +7,7 @@
 #include "kssl_bio.h"
 #include "kmalloc.h"
 #include "kfiber.h"
+#include "kgl_ssl.h"
 
 #ifdef KSOCKET_SSL
 typedef struct {

@@ -3,7 +3,7 @@
 #include "kfeature.h"
 #ifdef ENABLE_KSSL_BIO
 #include "kselector.h"
-#include <openssl/bio.h>
+#include "openssl/bio.h"
 KBEGIN_DECLS
 typedef struct {
 	BIO *bio;

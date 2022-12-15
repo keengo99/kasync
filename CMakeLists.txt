@@ -36,6 +36,10 @@ endif()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	list(APPEND KASYNC_LIBS ws2_32)
+else()
+    check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
+    check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)
+    check_symbol_exists(setmntent mntent.h HAVE_SETMNTENT)
 endif()
 #message(STATUS "cmake_system_name is ${CMAKE_SYSTEM_NAME}")
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "Android") 
@@ -70,9 +74,7 @@ endif()
 
 
 
-check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
-check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)
-check_symbol_exists(setmntent mntent.h HAVE_SETMNTENT)
+
 
 
 if (CMAKE_ANDROID_ARCH STREQUAL  "arm")

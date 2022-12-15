@@ -23,13 +23,7 @@ typedef struct {
     (str)->len = sizeof(text) - 1; (str)->data = (char *) text
 #define kgl_str_null(str)   (str)->len = 0; (str)->data = NULL
 
-INLINE int64_t string2int(const char *buf) {
-#ifdef _WIN32
-	return _atoi64(buf);
-#else
-	return atoll(buf);
-#endif
-}
+
 INLINE kgl_refs_string *convert_refs_string(char *str, int len)
 {
 	kgl_refs_string *s = xmemory_new(kgl_refs_string);
