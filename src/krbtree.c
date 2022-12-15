@@ -131,7 +131,7 @@ void rb_insert_color(struct krb_node *node, struct krb_root *root)
 		if (parent == gparent->rb_left)
 		{
 			{
-				register struct krb_node *uncle = gparent->rb_right;
+				struct krb_node *uncle = gparent->rb_right;
 				if (uncle && rb_is_red(uncle))
 				{
 					rb_set_black(uncle);
@@ -144,7 +144,7 @@ void rb_insert_color(struct krb_node *node, struct krb_root *root)
 
 			if (parent->rb_right == node)
 			{
-				register struct krb_node *tmp;
+				struct krb_node *tmp;
 				__rb_rotate_left(parent, root);
 				tmp = parent;
 				parent = node;
@@ -157,7 +157,7 @@ void rb_insert_color(struct krb_node *node, struct krb_root *root)
 		}
 		else {
 			{
-				register struct krb_node *uncle = gparent->rb_left;
+				struct krb_node *uncle = gparent->rb_left;
 				if (uncle && rb_is_red(uncle))
 				{
 					rb_set_black(uncle);
@@ -170,7 +170,7 @@ void rb_insert_color(struct krb_node *node, struct krb_root *root)
 
 			if (parent->rb_left == node)
 			{
-				register struct krb_node *tmp;
+				struct krb_node *tmp;
 				__rb_rotate_right(parent, root);
 				tmp = parent;
 				parent = node;
