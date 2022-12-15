@@ -107,7 +107,7 @@ void kselector_destroy(kselector *selector)
 	kgl_selector_module.destroy(selector);
 	xfree(selector);
 }
-kselector *kselector_new()
+kselector *kselector_new(kselector_tick *tick)
 {
 	kselector *selector = (kselector *)xmalloc(sizeof(kselector));
 	memset(selector, 0, sizeof(kselector));
@@ -117,6 +117,9 @@ kselector *kselector_new()
 	}
 	klist_init(&selector->tick);
 	kgl_selector_module.init(selector);
+	if (tick) {
+		klist_append(&selector->tick, &tick->queue);
+	}
 	return selector;
 }
 bool kselector_start(kselector *selector)
@@ -376,22 +379,27 @@ bool kselector_default_remove_readhup(kselector *selector, kselectable *st)
 void kselector_default_remove(kselector *selector, kselectable *st)
 {
 }
-kselector_tick* kselector_register_tick(kselector_tick_callback cb, void* arg)
+kselector_tick* kselector_new_tick(kselector_tick_callback cb, void* arg)
 {
-	kselector* selector = kgl_get_tls_selector();
-	if (selector == NULL) {
-		return NULL;
-	}
 	kselector_tick* tick = (kselector_tick*)xmalloc(sizeof(kselector_tick));
 	if (tick == NULL) {
 		return NULL;
 	}
 	tick->arg = arg;
 	tick->cb = cb;
-	klist_append(&selector->tick, &tick->queue);
+	klist_init(&tick->queue);
 	return tick;
 }
-bool kselector_unregister_tick(kselector_tick* tick)
+bool kselector_register_tick(kselector_tick *tick)
+{
+	kselector* selector = kgl_get_tls_selector();
+	if (selector == NULL) {
+		return false;
+	}
+	klist_append(&selector->tick, &tick->queue);
+	return true;
+}
+bool kselector_close_tick(kselector_tick* tick)
 {
 	kselector* selector = kgl_get_tls_selector();
 	if (selector == NULL) {

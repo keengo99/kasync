@@ -1,10 +1,11 @@
+#include "kudp.h"
+#include <errno.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
 #endif
-#include <errno.h>
-#include "kudp.h"
 #include "kmalloc.h"
 #include "kfile.h"
+
 #ifdef _WIN32
 #define CMSG_DATA(msg) (msg+1)
 #endif
@@ -96,8 +97,17 @@ int kudp_send(kconnection* uc, const struct sockaddr* peer_addr, socklen_t peer_
 }
 kev_result kudp_recv_from(kconnection*uc, result_callback result, buffer_callback buffer, void* arg)
 {
-	if (!kgl_selector_module.recvmsg(uc->st.selector, &uc->st, result, buffer, arg)) {
-		return result(uc->st.data, arg, -1);
+	KASYNC_IO_RESULT got;
+retry:
+	got = kgl_selector_module.recvmsg(uc->st.selector, &uc->st, result, buffer, arg);
+	switch (got) {
+		case KASYNC_IO_PENDING:
+			return kev_ok;
+		case KASYNC_IO_ERR_BUFFER:
+			goto retry;
+		case KASYNC_IO_ERR_SYS:
+			return result(uc->st.data,arg,-1);
+		default:
+			return result(uc->st.data,arg,got);
 	}
-	return kev_ok;
 }

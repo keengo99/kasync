@@ -18,6 +18,7 @@
 #define SELECTOR_TMO_MSEC 100
 
 #define KASYNC_IO_RESULT     int
+
 #define KASYNC_IO_PENDING     -1
 #define KASYNC_IO_ERR_BUFFER  -2 //socket should retry with this error
 #define KASYNC_IO_ERR_SYS     -3 //socket must close with this error
@@ -47,6 +48,11 @@ typedef bool (*selector_remove_readhup)(kselector *selector, kselectable *st);
 
 typedef bool (*selector_write)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef bool (*selector_connect)(kselector *selector, kselectable *st, result_callback result, void *arg);
+/* >=0                  is success
+* KASYNC_IO_PENDING     is pending
+* KASYNC_IO_ERR_BUFFER  socket should retry with this error
+* KASYNC_IO_ERR_SYS     socket must close with this error
+*/
 typedef KASYNC_IO_RESULT (*selector_recvmsg)(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg);
 typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got);
 
@@ -126,7 +132,7 @@ struct kselector_s {
 	pthread_t thread_id;
 	volatile int ret_val;
 };
-kselector *kselector_new();
+kselector *kselector_new(kselector_tick *tick);
 void kselector_destroy(kselector *selector);
 bool kselector_start(kselector *selector);
 KTHREAD_FUNCTION kselector_thread(void *param);
@@ -143,8 +149,9 @@ bool kselector_default_readhup(kselector *selector, kselectable *st, result_call
 bool kselector_default_remove_readhup(kselector *selector, kselectable *st);
 void kselector_default_remove(kselector *selector, kselectable *st);
 
-kselector_tick* kselector_register_tick(kselector_tick_callback cb, void* arg);
-bool kselector_unregister_tick(kselector_tick* tick);
+kselector_tick* kselector_new_tick(kselector_tick_callback cb, void* arg);
+bool kselector_register_tick(kselector_tick *tick);
+bool kselector_close_tick(kselector_tick* tick);
 
 kev_result kselector_event_accept(KOPAQUE data, void *arg,int got);
 int kconnection_buffer_addr(KOPAQUE data, void* arg, WSABUF* buffer, int bc);

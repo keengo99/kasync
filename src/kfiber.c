@@ -1,3 +1,4 @@
+#include "kfeature.h"
 #include <assert.h>
 #include <stdio.h>
 #include <errno.h>

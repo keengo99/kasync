@@ -302,7 +302,7 @@ void selector_manager_init(unsigned  size, bool register_thread_timer)
 	kgl_selector_hash = kgl_selector_count - 1;
 	kgl_selectors = (kselector **)xmalloc(sizeof(kselector *)*kgl_selector_count);
 	for (i = 0; i < kgl_selector_count; i++) {
-		kgl_selectors[i] = kselector_new();
+		kgl_selectors[i] = kselector_new(NULL);
 		if (i == 0) {
 			kgl_selectors[i]->utm = 1;
 		}
@@ -409,7 +409,7 @@ int kasync_main(kfiber_start_func main, void* arg, int argc)
 	kasync_init();
 	//kelector_manager_init(1, true);
 	//kselector* selector = kgl_selectors[0];
-	kselector* selector = kselector_new();
+	kselector* selector = kselector_new(NULL);
 	selector->aysnc_main = 1;
 	void* args[2];
 	args[0] = (void*)main;
