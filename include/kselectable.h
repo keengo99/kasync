@@ -140,6 +140,14 @@ INLINE bool selectable_is_locked(kselectable *st)
 {
 	return is_selectable(st, STF_LOCK);
 }
+INLINE kssl_session* selectable_get_ssl(kselectable* st)
+{
+#ifdef KSOCKET_SSL
+	return st->ssl;
+#else
+	return NULL;
+#endif
+}
 INLINE bool selectable_is_ssl_handshake(kselectable *st)
 {
 #ifdef KSOCKET_SSL
