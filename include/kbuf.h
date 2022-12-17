@@ -86,7 +86,7 @@ void ks_write_str(ks_buffer *buf, const char *str, int len);
 void ks_write_int(ks_buffer *buf, int val);
 void ks_write_int64(ks_buffer *buf, int64_t val);
 char *ks_get_write_buffer(ks_buffer *buf, int *len);
-void ks_save_point(ks_buffer *buf, const char *hot, int len);
+void ks_save_point(ks_buffer *buf, const char *hot);
 
 INLINE void ks_buffer_switch_read(ks_buffer *buf)
 {
