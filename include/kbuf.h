@@ -82,7 +82,7 @@ INLINE void ks_buffer_clean(ks_buffer *buf)
 	xfree(buf->buf);
 }
 void ks_write_success(ks_buffer *buf, int got);
-void ks_write_str(ks_buffer *buf, const char *str, int len);
+bool ks_write_str(ks_buffer *buf, const char *str, int len);
 void ks_write_int(ks_buffer *buf, int val);
 void ks_write_int64(ks_buffer *buf, int64_t val);
 char *ks_get_write_buffer(ks_buffer *buf, int *len);

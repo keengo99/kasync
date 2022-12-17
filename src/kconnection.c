@@ -186,8 +186,9 @@ kev_result kselectable_ssl_handshake(kselectable *st,result_callback cb, void *a
 	} else
 #endif
 	status = kgl_ssl_handshake(ssl->ssl);
-
+#ifdef SSL_READ_EARLY_DATA_SUCCESS
 check_status:
+#endif
 #ifdef ENABLE_KSSL_BIO
 	if (status != ret_error && BIO_pending(ssl->bio[OP_WRITE].bio) > 0) {
 		//want write

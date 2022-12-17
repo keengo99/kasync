@@ -10,7 +10,7 @@
 #else
 #define WIN32_LEAN_AND_MEAN 1
 #define HAVE_SOCKLEN_T 1
-#pragma warning(disable: 4290 4996 4819)
+#pragma warning(disable: 4290 4996 4819 26812)
 #endif
 #ifdef  __cplusplus
 	#define KBEGIN_DECLS  extern "C" {
