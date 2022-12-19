@@ -35,10 +35,11 @@ int kudp_get_recvaddr(kconnection *uc, struct sockaddr *addr)
 		struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
 #ifdef IP_SENDSRCADDR
 		if (msg->cmsg_level==IPPROTO_IP && msg->cmsg_type==IP_SENDSRCADDR) {
+			memcpy(&addr4->sin_addr,CMSG_DATA(msg),sizeof(addr4->sin_addr));
 #else
 		if (msg->cmsg_level==IPPROTO_IP && msg->cmsg_type==IP_PKTINFO) {
+			memcpy(&addr4->sin_addr,&((struct in_pktinfo *)CMSG_DATA(msg))->ipi_addr,sizeof(addr4->sin_addr));
 #endif
-			memcpy(&addr4->sin_addr,CMSG_DATA(msg),sizeof(addr4->sin_addr));
 			return 0;
 		}
 	} else {
@@ -78,9 +79,6 @@ kconnection* kudp_new2(int flags, kselector* st)
 #endif
 		uc->udp = xmemory_new(kudp_extend);
 	}
-#ifndef KGL_IOCP
-	KBIT_SET(uc->st.st_flags,STF_RREADY|STF_WREADY);
-#endif
 	selectable_bind(&uc->st, st);
 	return uc;
 }

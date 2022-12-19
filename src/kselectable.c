@@ -258,26 +258,7 @@ void selectable_udp_read_event(kselectable *st)
 	if (KBIT_TEST(st->st_flags, STF_ET))
 #endif
 		KBIT_CLR(st->st_flags,STF_READ);
-#ifndef _WIN32
-	int got = selectable_recvmsg(st);
-	if (got>=0) {
-		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
-		return;
-	}
-	got = -1;
-	/*
-	int err = errno;
-	if (err==EAGAIN || err==EWOULDBLOCK) {
-		KBIT_CLR(st->st_flags,STF_RREADY);
-		assert(false);
-	}
-	*/
-#else
-	//windows never go here
-	assert(false);
-	int got = -1;
-#endif
-	st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
+	st->e[OP_READ].result(st->data, st->e[OP_READ].arg, -1);
 }
 void selectable_read_event(kselectable *st)
 {
