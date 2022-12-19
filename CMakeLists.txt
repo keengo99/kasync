@@ -37,6 +37,8 @@ endif()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	list(APPEND KASYNC_LIBS ws2_32)
+	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
 else()
     check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
     check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)

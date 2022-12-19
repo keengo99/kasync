@@ -90,6 +90,7 @@ void ks_buffer_destroy(ks_buffer* buf)
 void ks_save_point(ks_buffer* buf, const char* hot)
 {
 	kassert(buf->buf_size > 0);
+	assert(hot >= buf->buf);
 	if (hot == buf->buf) {
 		if (buf->used == buf->buf_size) {
 			/* not enough buffer */
