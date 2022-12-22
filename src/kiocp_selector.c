@@ -398,12 +398,12 @@ static void handle_complete_event(kselector *selector,kselectable *st, BOOL resu
 	}
 	kassert(false);
 }
-static int iocp_selector_selectx(kselector *selector)
+static int iocp_selector_selectx(kselector *selector,int tmo)
 {
 	OVERLAPPED_ENTRY oe[MAXEVENT];
 	DWORD ret = 0;
 	memset(oe, 0, sizeof(oe));
-	BOOL result = pGetQueuedCompletionStatusEx(selector->ctx, oe, MAXEVENT, &ret, SELECTOR_TMO_MSEC, TRUE);
+	BOOL result = pGetQueuedCompletionStatusEx(selector->ctx, oe, MAXEVENT, &ret, tmo, TRUE);
 	if (selector->utm) {
 		kselector_update_time();
 	}
@@ -415,13 +415,14 @@ static int iocp_selector_selectx(kselector *selector)
 	}
 	return (int)ret;
 }
-static int iocp_selector_select(kselector *selector)
+static int iocp_selector_select(kselector *selector,int tmo)
 {
 	assert(pGetQueuedCompletionStatusEx == NULL);
 	DWORD recvBytes = 0;
 	OVERLAPPED *evlp;	
 	kselectable *st = NULL;
-	BOOL result = GetQueuedCompletionStatus(selector->ctx, &recvBytes, (PULONG_PTR)&st, (LPOVERLAPPED *)&evlp, SELECTOR_TMO_MSEC);
+
+	BOOL result = GetQueuedCompletionStatus(selector->ctx, &recvBytes, (PULONG_PTR)&st, (LPOVERLAPPED *)&evlp, tmo);
 	if (selector->utm) {
 		kselector_update_time();
 	}

@@ -383,10 +383,10 @@ static bool epoll_selector_write(kselector *selector, kselectable *st, result_ca
 	}
 	return true;
 }
-static int epoll_selector_select(kselector *selector) {
+static int epoll_selector_select(kselector *selector,int tmo) {
 	struct epoll_event events[MAXEVENT];
 	uint32_t ev;
-	int ret = epoll_wait(((kepoll_selector *)selector->ctx)->kdpfd, events, MAXEVENT,SELECTOR_TMO_MSEC);
+	int ret = epoll_wait(((kepoll_selector *)selector->ctx)->kdpfd, events, MAXEVENT, tmo);
 	if (selector->utm) {
 		kselector_update_time();	
 	}

@@ -199,12 +199,13 @@ void kselector_update_time()
 	kgl_current_msec = (int64_t)tv.tv_sec * 1000 + (tv.tv_usec / 1000);
 	return;
 }
-void kselector_check_timeout(kselector *selector,int event_number)
+int kselector_check_timeout(kselector *selector,int event_number)
 {
 	kgl_list* tick_list,*tick_next_list;
 	kselector_tick* tick;
 	struct krb_node *block = NULL;
 	struct krb_node *last = NULL;
+	int min_event_time = SELECTOR_TMO_MSEC;
 	//read write timeout
 	for (int i = 0; i < KGL_LIST_SYNC; i++) {
 		for (;;) {
@@ -337,12 +338,17 @@ void kselector_check_timeout(kselector *selector,int event_number)
 		}
 	}
 	tick_list = klist_head(&selector->tick);
+
 	while (tick_list != &selector->tick) {
 		tick = kgl_list_data(tick_list, kselector_tick, queue);
 		tick_next_list = tick_list->next;
-		tick->cb(tick->arg, event_number);
+		int next_event_time = tick->cb(tick->arg, event_number);
+		if (next_event_time > 0 && next_event_time < min_event_time) {
+			min_event_time = next_event_time;
+		}
 		tick_list = tick_next_list;
 	}
+	return min_event_time;
 }
 void kselector_add_block_queue(kselector *selector, kgl_block_queue *brq)
 {

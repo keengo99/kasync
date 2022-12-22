@@ -32,7 +32,7 @@ typedef struct kselectable_s kselectable;
 typedef struct kasync_file_s kasync_file;
 typedef struct kselector_tick_s kselector_tick;
 
-typedef void (*kselector_tick_callback)(void *arg, int event_count);
+typedef int (*kselector_tick_callback)(void *arg, int event_count);
 typedef kev_result (*aio_callback)(kasync_file *fp, void *arg, char *buf, int length);
 
 
@@ -59,8 +59,8 @@ typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback
 typedef void (*selector_aio_open)(kselector *selector, kasync_file *file, FILE_HANDLE fd);
 typedef bool (*selector_aio_write)(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg);
 typedef bool (*selector_aio_read)(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg);
-
-typedef int  (*selector_select)(kselector *selector);
+/* tmo is millisecond */
+typedef int  (*selector_select)(kselector *selector,int tmo);
 typedef void (*selector_destroy)(kselector *selector);
 
 typedef struct kconnection_s kconnection;
@@ -141,7 +141,7 @@ void kselector_add_list(kselector *selector,kselectable *st, int list);
 void kselector_add_fiber_ready(kselector* selector, kfiber* fiber);
 void kselector_remove_list(kselector *selector, kselectable *st);
 void kselector_update_time();
-void kselector_check_timeout(kselector *selector,int event_number);
+int kselector_check_timeout(kselector *selector,int event_number);
 void kselector_add_timer(kselector *selector, result_callback result, void *arg, int msec,kselectable *st);
 void kselector_adjust_time(kselector *selector,int64_t diff_time);
 void kselector_default_bind(kselector *selector, kselectable *st);

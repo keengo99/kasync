@@ -80,8 +80,7 @@ int kselector_step(int index)
 	kselector* selector = kgl_selectors[index];
 	assert(selector == kgl_get_tls_selector());
 	assert(selector != NULL);
-	kselector_check_timeout(selector, 1);
-	return kgl_selector_module.select(selector);
+	return kgl_selector_module.select(selector, kselector_check_timeout(selector, 1));
 }
 void kselector_step_exit(int index)
 {
@@ -100,8 +99,7 @@ KTHREAD_FUNCTION kselector_thread(void *param)
 			break;
 		}
 #endif
-		kselector_check_timeout(selector, ret);
-		ret = kgl_selector_module.select(selector);
+		ret = kgl_selector_module.select(selector, kselector_check_timeout(selector, ret));
 	}
 	kselector_exit(selector);
 	KTHREAD_RETURN;
@@ -417,8 +415,9 @@ int kasync_main(kfiber_start_func main, void* arg, int argc)
 	kselector_init(selector);
 	kfiber_create2(selector, kasync_fiber_main, (void*)args, argc, 0, NULL);
 	selector->utm = 1;
+	int tmo = SELECTOR_TMO_MSEC;
 	for (;;) {
-		kselector_check_timeout(selector, kgl_selector_module.select(selector));
+		tmo = kselector_check_timeout(selector, kgl_selector_module.select(selector, tmo));
 		if (selector->closed) {
 			assert(klist_empty(&selector->list[KGL_LIST_READY]));
 			break;

@@ -418,13 +418,13 @@ static int iouring_handle_cq(kselector *selector,struct io_uring *ring,int count
 	io_uring_smp_store_release(cq->khead, head);
 	return result;
 }
-static int iouring_selector_select(kselector *selector)
+static int iouring_selector_select(kselector *selector, int tmo)
 {
 	kiouring_selector *es = (kiouring_selector *)selector->ctx;
 	struct __kernel_timespec tm;
 	memset(&tm,0,sizeof(tm));
-	tm.tv_sec = SELECTOR_TMO_MSEC/1000;
-	tm.tv_nsec = SELECTOR_TMO_MSEC * 1000 - tm.tv_sec * 1000000;
+	tm.tv_sec = tmo / 1000;
+	tm.tv_nsec = tmo * 1000 - tm.tv_sec * 1000000;
 	iouring_add_timeout(&es->ring,1,&tm);
 	int n = io_uring_submit_and_wait(&es->ring, 1);
 	if (selector->utm) {

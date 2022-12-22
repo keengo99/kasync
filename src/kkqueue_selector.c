@@ -254,13 +254,13 @@ static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable
 		return KASYNC_IO_ERR_SYS;
 	}
 }
-static int kqueue_selector_select(kselector *selector) 
+static int kqueue_selector_select(kselector *selector, int tmo) 
 {
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
 	struct kevent events[MAXEVENT]; 
 	struct timespec tm;
-	tm.tv_sec = SELECTOR_TMO_MSEC/1000;
-	tm.tv_nsec = SELECTOR_TMO_MSEC * 1000 - tm.tv_sec * 1000000;
+	tm.tv_sec = tmo / 1000;
+	tm.tv_nsec = tmo * 1000 - tm.tv_sec * 1000000;
 	int ret = kevent(es->kdpfd, NULL, 0, events, MAXEVENT, &tm);
 	if (selector->utm) {
 		kselector_update_time();	
