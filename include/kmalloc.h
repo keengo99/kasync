@@ -125,8 +125,15 @@ kgl_array_t *kgl_array_create(kgl_pool_t *p, size_t n, size_t size);
 void kgl_array_destroy(kgl_array_t *a);
 void *kgl_array_push(kgl_array_t *a);
 void *kgl_array_push_n(kgl_array_t *a, size_t n);
-
-
+INLINE bool kgl_realloc(void** ptr, size_t size)
+{
+	void* new_ptr = realloc(*ptr, size);
+	if (new_ptr == NULL) {
+		return false;
+	}
+	*ptr = new_ptr;
+	return true;
+}
 INLINE bool kgl_array_init(kgl_array_t *array, kgl_pool_t *pool, size_t n, size_t size)
 {
 
