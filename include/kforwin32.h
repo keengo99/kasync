@@ -117,6 +117,7 @@ typedef HANDLE Token_t;
 //#define PRId64 "I64d"
 //#endif
 #else
+#include <inttypes.h>
 #ifndef ntohll
 #define ntohll be64toh
 #define htonll htobe64
@@ -138,7 +139,7 @@ typedef void * KTHREAD_FUNCTION;
 #define kgl_strndup strndup
 typedef int * Token_t;
 #define PATH_SPLIT_CHAR		'/'
-#define INT64_FORMAT     "%lld"
+#define INT64_FORMAT     "%" PRId64
 #define INT64_FORMAT_HEX "%llx"
 #endif
 #ifndef WIN32
