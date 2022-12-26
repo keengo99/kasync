@@ -10,7 +10,6 @@
 #include "kfiber.h"
 #include "kudp.h"
 
-#define MAXSENDBUF  32
 #define MAXEVENT	256	
 
 typedef BOOL(WINAPI *GetQueuedCompletionStatusEx_fn)(
@@ -155,11 +154,11 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 {
 	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);
 	KBIT_SET(st->st_flags,STF_READ);
-	WSABUF recvBuf[MAXSENDBUF];
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
 	memset(&recvBuf, 0, sizeof(recvBuf));
 	int bufferCount;
 	if (buffer) {
-		bufferCount = buffer(st->data,arg, recvBuf, MAXSENDBUF);
+		bufferCount = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
 	} else {
 		bufferCount = 1;
 	}
@@ -188,11 +187,11 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 static bool iocp_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	KBIT_SET(st->st_flags,STF_WRITE);
-	WSABUF recvBuf[MAXSENDBUF];
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
 	memset(&recvBuf, 0, sizeof(recvBuf));
 	int bufferCount;
 	if (buffer) {
-		bufferCount = buffer(st->data,arg, recvBuf, MAXSENDBUF);
+		bufferCount = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
 		kassert(recvBuf[0].len > 0);
 	} else {
 		bufferCount = 1;

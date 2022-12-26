@@ -9,7 +9,7 @@
 #include "klist.h"
 #include "kudp.h"
 
-#define MAXSENDBUF 16
+
 #ifdef KSOCKET_SSL
 static int kgl_ssl_writev(kssl_session *ssl, LPWSABUF buffer, int bc)
 {
@@ -24,7 +24,7 @@ static int kgl_ssl_writev(kssl_session *ssl, LPWSABUF buffer, int bc)
 			if (left <= 0) {
 				return got;
 			}
-			len = MIN(left, len);
+			len = KGL_MIN(left, len);
 #endif
 #ifdef SSL_READ_EARLY_DATA_SUCCESS
 			if (ssl->in_early) {
@@ -319,8 +319,8 @@ static bool selectable_ssl_write(kselectable *st, result_callback result, buffer
 	kssl_bio *ssl_bio = &st->ssl->bio[OP_WRITE];
 	ssl_bio->got = 0;
 	if (buffer) {
-		WSABUF recvBuf[MAXSENDBUF];
-		int bufferCount = buffer(st->data,arg, recvBuf, MAXSENDBUF);
+		WSABUF recvBuf[MAX_IOVECT_COUNT];
+		int bufferCount = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
 		ssl_bio->got = kgl_ssl_writev(st->ssl, recvBuf, bufferCount);
 	}
 	if (BIO_pending(ssl_bio->bio) <= 0) {
@@ -347,8 +347,8 @@ void selectable_low_event_write(kselectable *st, result_callback result, buffer_
 		result(st->data,arg, 0);
 		return;
 	}
-	WSABUF recvBuf[MAXSENDBUF];
-	int bc = buffer(st->data,arg, recvBuf, MAXSENDBUF);
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
+	int bc = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
 	kassert(recvBuf[0].iov_len > 0);
 	int got = kgl_writev(st->fd, recvBuf, bc);
 	if (got >= 0) {
@@ -372,8 +372,8 @@ void selectable_low_event_read(kselectable *st, result_callback result, buffer_c
 		result(st->data,arg, 0);
 		return;
 	}
-	WSABUF recvBuf[MAXSENDBUF];
-	int bc = buffer(st->data,arg, recvBuf, MAXSENDBUF);
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
+	int bc = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
 	kassert(recvBuf[0].iov_len > 0);
 	int got = kgl_readv(st->fd, recvBuf, bc);
 	if (got >= 0) {
@@ -473,7 +473,7 @@ bool selectable_try_read(kselectable *st, result_callback result, buffer_callbac
 
 kev_result selectable_event_write(kselectable *st,result_callback result, buffer_callback buffer, void *arg)
 {
-	WSABUF recvBuf[MAXSENDBUF];
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
 	if (KBIT_TEST(st->st_flags, STF_WREADY2)) {
 		KBIT_CLR(st->st_flags, STF_WREADY2);
 #ifdef ENABLE_KSSL_BIO		
@@ -490,7 +490,7 @@ kev_result selectable_event_write(kselectable *st,result_callback result, buffer
 	if (unlikely(buffer==NULL)) {
 		return result(st->data,arg,0);
 	}
-	int bc = buffer(st->data,arg,recvBuf, MAXSENDBUF);
+	int bc = buffer(st->data,arg,recvBuf, MAX_IOVECT_COUNT);
 	kassert(recvBuf[0].iov_len>0);
 	int got;
 #ifdef KSOCKET_SSL
@@ -550,8 +550,8 @@ kev_result selectable_event_read(kselectable *st, result_callback result, buffer
 	if (unlikely(buffer==NULL)) {
 		return result(st->data,arg,0);
 	}
-	WSABUF recvBuf[MAXSENDBUF];
-	int bc = buffer(st->data, arg, recvBuf, MAXSENDBUF);
+	WSABUF recvBuf[MAX_IOVECT_COUNT];
+	int bc = buffer(st->data, arg, recvBuf, MAX_IOVECT_COUNT);
 	kassert(recvBuf[0].iov_len>0);
 	int got;
 #ifdef KSOCKET_SSL

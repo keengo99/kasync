@@ -530,7 +530,7 @@ static kev_result kfiber_getaddr_callback(void* arg, kgl_addr* addr)
 static int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF* buf, int bc)
 {
 	kfiber* fiber = (kfiber*)arg;
-	int copy_bc = MIN(bc, fiber->retval);
+	int copy_bc = KGL_MIN(bc, fiber->retval);
 	kgl_memcpy(buf, fiber->arg, copy_bc * sizeof(WSABUF));
 	return copy_bc;
 }

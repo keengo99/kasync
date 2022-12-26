@@ -13,14 +13,13 @@
 #include "kfiber.h"
 
 #define URING_COUNT 128
-#define MAXSENDBUF  32
 
 
 static unsigned URING_MASK;
 typedef struct {
     struct io_uring ring;
 	kepoll_notice_selectable notice_st;
-	WSABUF bufs[URING_COUNT][MAXSENDBUF];
+	WSABUF bufs[URING_COUNT][MAX_IOVECT_COUNT];
 	unsigned buf_index;
 } kiouring_selector;
 static int null_buffer(KOPAQUE data, void *arg,LPWSABUF buf,int bc)
@@ -195,7 +194,7 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 	if (buffer) {
 		e->buffer = buffer;
 		WSABUF *bufs = kiouring_get_bufs(cs);
-		int bc = buffer(st->data, arg, bufs, MAXSENDBUF);
+		int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
 		io_uring_prep_readv(sqe,st->fd,bufs,bc,0);
 	} else {
 		e->buffer = null_buffer;
@@ -224,7 +223,7 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 	if (buffer) {
 		e->buffer = buffer;
 		WSABUF *bufs = kiouring_get_bufs(cs);
-		int bc = buffer(st->data, arg, bufs, MAXSENDBUF);
+		int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
 		kassert(bufs[0].iov_len > 0);
 		io_uring_prep_writev(sqe,st->fd,bufs,bc,0);
 	} else {

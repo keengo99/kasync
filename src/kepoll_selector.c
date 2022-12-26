@@ -66,7 +66,7 @@ void aio_result(kasync_file *file,struct iocb *iocb, long res, long res2)
         //printf("aio_result res=[%d] iocb=[%p],offset_adjust=[%d]\n",res,iocb,ctx->offset_adjust);
         int length = res - file->offset_adjust;
         char *buf = file->buf + file->offset_adjust;
-        async_file_event(file,buf,MIN(length,file->length));
+        async_file_event(file,buf,KGL_MIN(length,file->length));
 }
 
 static kev_result result_aio_event(KOPAQUE data, void *arg,int got)

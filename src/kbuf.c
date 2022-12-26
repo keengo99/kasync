@@ -155,7 +155,7 @@ bool krw_read_success(krw_buffer* rw_buffer, int got)
 	kassert(rw_buffer->read_hot && rw_buffer->head);
 	while (got > 0) {
 		int hot_left = (int)(rw_buffer->head->used - (rw_buffer->read_hot - rw_buffer->head->data));
-		int this_len = MIN(got, hot_left);
+		int this_len = KGL_MIN(got, hot_left);
 		rw_buffer->read_hot += this_len;
 		got -= this_len;
 		rw_buffer->total_len -= this_len;
@@ -208,7 +208,7 @@ void krw_write_str(krw_buffer* rw_buffer, const char* buf, int len)
 		int wlen;
 		char* t = krw_get_write_buffer(rw_buffer, &wlen);
 		kassert(t);
-		wlen = MIN(len, wlen);
+		wlen = KGL_MIN(len, wlen);
 		kgl_memcpy(t, buf, wlen);
 		buf += wlen;
 		len -= wlen;
@@ -239,7 +239,7 @@ int krw_read(krw_buffer* rw_buffer, char* buf, int len)
 		if (read_data == NULL) {
 			return 0;
 		}
-		length = MIN(length, len);
+		length = KGL_MIN(length, len);
 		if (length <= 0) {
 			break;
 		}
@@ -381,7 +381,7 @@ int kr_get_read_buffers(kr_buffer* r_buffer, LPWSABUF buffer, int bc)
 	kbuf* tmp = r_buffer->head;
 	buffer[0].iov_base = r_buffer->read_hot;
 	int hot_left = r_buffer->head->used - (int)(r_buffer->read_hot - r_buffer->head->data);
-	hot_left = MIN(hot_left, got);
+	hot_left = KGL_MIN(hot_left, got);
 	buffer[0].iov_len = hot_left;
 	got -= hot_left;
 	int i;
@@ -391,7 +391,7 @@ int kr_get_read_buffers(kr_buffer* r_buffer, LPWSABUF buffer, int bc)
 			break;
 		}
 		buffer[i].iov_base = tmp->data;
-		buffer[i].iov_len = MIN(got, tmp->used);
+		buffer[i].iov_len = KGL_MIN(got, tmp->used);
 		got -= buffer[i].iov_len;
 	}
 	return i;
@@ -401,7 +401,7 @@ bool kr_read_success(kr_buffer* r_buffer, int got)
 	r_buffer->total_len -= got;
 	while (got > 0) {
 		int hot_left = r_buffer->head->used - (int)(r_buffer->read_hot - r_buffer->head->data);
-		int this_len = MIN(got, hot_left);
+		int this_len = KGL_MIN(got, hot_left);
 		r_buffer->read_hot += this_len;
 		got -= this_len;
 		if (r_buffer->head->used == r_buffer->read_hot - r_buffer->head->data) {

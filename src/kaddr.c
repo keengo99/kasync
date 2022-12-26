@@ -57,7 +57,7 @@ static kasync_worker *addr_worker = NULL;
 #if 0
 bool kgl_addr_build(struct addrinfo  *addr, uint16_t port, sockaddr_i *sockaddr)
 {
-	kgl_memcpy(sockaddr, addr->ai_addr, MIN(addr->ai_addrlen, sizeof(sockaddr_i)));
+	kgl_memcpy(sockaddr, addr->ai_addr, KGL_MIN(addr->ai_addrlen, sizeof(sockaddr_i)));
 #ifdef KSOCKET_IPV6
 	if (addr->ai_family == PF_INET6) {
 		sockaddr->v6.sin6_port = htons(port);

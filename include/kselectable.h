@@ -39,6 +39,7 @@
 #define STF_OPAQUE_SERVER  (1<<14)
 #define STF_OPAQUE_HTTP2   (1<<15)
 
+#define MAX_IOVECT_COUNT 128
 
 KBEGIN_DECLS
 typedef enum {

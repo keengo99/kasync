@@ -102,7 +102,7 @@ void ksocket_ipaddr(const sockaddr_i *addr, ip_addr *to) {
 	if (addr->v4.sin_family == PF_INET) {
 		to->addr32[0] = addr->v4.sin_addr.s_addr;
 	} else {
-		kgl_memcpy(&to->data, &addr->v6.sin6_addr, MIN(sizeof(to->data), sizeof(addr->v6.sin6_addr)));
+		kgl_memcpy(&to->data, &addr->v6.sin6_addr, KGL_MIN(sizeof(to->data), sizeof(addr->v6.sin6_addr)));
 	}
 #else
 	*to = addr->v4.sin_addr.s_addr;
@@ -280,7 +280,7 @@ void ksocket_addrinfo_sockaddr(struct addrinfo *ai, uint16_t port,sockaddr_i *ad
 	} else
 #endif
 		((struct sockaddr_in *)ai->ai_addr)->sin_port = htons(port);
-	int copy_len = MIN((socklen_t)ai->ai_addrlen, sizeof(sockaddr_i));
+	int copy_len = KGL_MIN((socklen_t)ai->ai_addrlen, sizeof(sockaddr_i));
 	kgl_memcpy(addr, ai->ai_addr, copy_len);
 }
 bool ksocket_getaddr(const char *host, uint16_t port,int ai_family, int ai_flags, sockaddr_i *addr)

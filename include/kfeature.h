@@ -76,12 +76,12 @@ KBEGIN_DECLS
 #define KBIT_SET(a,b)   ((a)|=(b))
 #define KBIT_CLR(a,b)   ((a)&=~(b))
 #define KBIT_TEST(a,b)  ((a)&(b))
-#define SAFE_STRCPY(s,s1)   do {memset(s,0,sizeof(s));strncpy(s,s1,sizeof(s)-1);}while(0)
-#ifndef MAX
-#define MAX(a,b)  ((a)>(b)?(a):(b))
+
+#ifndef KGL_MAX
+#define KGL_MAX(a,b)  ((a)>(b)?(a):(b))
 #endif
-#ifndef MIN
-#define MIN(a,b)  ((a)>(b)?(b):(a))
+#ifndef KGL_MIN
+#define KGL_MIN(a,b)  ((a)>(b)?(b):(a))
 #endif
 #define        IS_SPACE(a)     isspace((unsigned char)a)
 #define        IS_DIGIT(a)     isdigit((unsigned char)a)
