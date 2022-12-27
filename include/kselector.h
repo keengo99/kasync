@@ -9,10 +9,9 @@
 #endif
 #define KGL_LIST_CONNECT          0
 #define KGL_LIST_RW               1
-#define KGL_LIST_SYNC             2
-#define KGL_LIST_READY            3
-#define KGL_LIST_BLOCK            4
-#define KGL_LIST_NONE             5
+#define KGL_LIST_READY            2
+#define KGL_LIST_COUNT            3
+
 #define OP_READ  0
 #define OP_WRITE 1
 #define SELECTOR_TMO_MSEC 100
@@ -120,12 +119,11 @@ struct kselector_s {
 	uint32_t aysnc_main : 1;
 	volatile uint32_t closed : 1;
 	volatile uint32_t shutdown : 1;
-	int timeout[KGL_LIST_BLOCK];
-	kgl_list list[KGL_LIST_BLOCK];
+	int timeout[KGL_LIST_COUNT];
+	kgl_list list[KGL_LIST_COUNT];
 	kgl_list tick;
 	struct krb_root block;
 	struct krb_node *block_first;
-	//selector_check_timeout_callback check_timeout;
 #ifdef MALLOCDEBUG
 	volatile
 #endif

@@ -36,18 +36,11 @@
 #define STF_RLOCK       STF_READ
 #define STF_WLOCK       STF_WRITE
 #define STF_LOCK        (STF_RLOCK|STF_WLOCK)
-#define STF_OPAQUE_SERVER  (1<<14)
-#define STF_OPAQUE_HTTP2   (1<<15)
+
 
 #define MAX_IOVECT_COUNT 128
 
 KBEGIN_DECLS
-typedef enum {
-	kgl_opaque_server,
-	kgl_opaque_server_http2,
-	kgl_opaque_client_http2,
-	kgl_opaque_other,
-} kgl_opaque_type;
 
 typedef void(*kgl_void_f)();
 typedef struct {
@@ -102,7 +95,7 @@ struct kselectable_s {
 	KOPAQUE data;	
 	kgl_event e[2];
 };
-void selectable_bind_opaque(kselectable *st, KOPAQUE data, kgl_opaque_type type);
+void selectable_bind_opaque(kselectable *st, KOPAQUE data);
 void selectable_clean(kselectable *st);
 bool selectable_remove(kselectable *st);
 INLINE void selectable_next(kselectable *st, result_callback result, void *arg,int got)
@@ -119,10 +112,6 @@ bool selectable_try_write(kselectable *st, result_callback result, buffer_callba
 bool selectable_readhup(kselectable *st, result_callback result, void *arg);
 void selectable_remove_readhup(kselectable *st);
 
-void selectable_add_sync(kselectable *st);
-void selectable_remove_sync(kselectable *st);
-int selectable_sync_read(kselectable *st, LPWSABUF buf, int bc);
-int selectable_sync_write(kselectable *st, LPWSABUF buf, int bc);
 
 void selectable_shutdown(kselectable *st);
 INLINE void selectable_clear_flags(kselectable *st, uint16_t flags)

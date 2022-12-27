@@ -4,7 +4,6 @@
 #include "kselector.h"
 #include "kserver.h"
 KBEGIN_DECLS
-typedef bool (*selectable_iterator)(void *ctx, kselector *selector, kselectable *st);
 int get_selector_count();
 void selector_manager_init(unsigned  size,bool register_thread_timer);
 void selector_manager_on_ready(result_callback cb, void *arg);
@@ -18,7 +17,6 @@ void selector_manager_start(void(*time_hook)(), bool thread);
 void selector_manager_close();
 void selector_manager_set_timeout(int connect_tmo_sec,int rw_tmo_sec);
 void selector_manager_adjust_time(int64_t diff_time);
-void selector_manager_iterator(void *ctx,selectable_iterator it);
 kselector *get_perfect_selector();
 kselector *get_selector_by_index(int index);
 void kselector_step_init(int index);

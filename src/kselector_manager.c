@@ -31,12 +31,6 @@ static int kgl_selector_count = 0;
 static unsigned kgl_selector_hash = 0;
 static unsigned kgl_selector_index = 0;
 
-typedef struct {
-	void *ctx;
-	selectable_iterator it;
-	kfiber_cond *cond;
-} selectable_iterator_param;
-
 typedef struct kgl_selector_manager_callback_s kgl_selector_manager_callback;
 struct kgl_selector_manager_callback_s
 {
@@ -117,49 +111,6 @@ static kev_result add_timer_on_ready(KOPAQUE data, void* arg, int got)
 	kselector *selector = get_perfect_selector();
 	kgl_selector_module.next(selector,NULL, next_add_timer, brq,0);
 	return kev_ok;
-}
-static kev_result selector_iterator(KOPAQUE data, void *arg, int got)
-{
-	selectable_iterator_param *param = (selectable_iterator_param *)arg;
-	kselector *selector = kgl_get_tls_selector();
-	struct krb_node *node = selector->block_first;
-	for (int i = 0; i < KGL_LIST_BLOCK; i++) {
-		kgl_list *l;
-		klist_foreach(l, &selector->list[i]) {
-			kselectable *st = (kselectable *)kgl_list_data(l, kselectable, queue);
-			if (!param->it(param->ctx, selector, st)) {
-				goto done;
-			}
-		}
-	}
-	while (node) {
-		kgl_block_queue *brq = (kgl_block_queue *)node->data;
-		while (brq) {
-			if (brq->st) {
-				if (!param->it(param->ctx, selector, brq->st)) {
-					goto done;
-				}
-			}
-			brq = brq->next;
-		}
-		node = rb_next(node);
-	}
-done:
-	param->cond->f->notice(param->cond, got);
-	return kev_ok;
-}
-void selector_manager_iterator(void *ctx, selectable_iterator it)
-{
-	selectable_iterator_param param;
-	param.ctx = ctx;
-	param.it = it;
-	param.cond = kfiber_cond_init_ts(true);
-	for (int i = 0; i < kgl_selector_count; i++) {
-		kselector *selector = kgl_selectors[i];
-		kgl_selector_module.next(selector, NULL, selector_iterator, &param, 0);
-		param.cond->f->wait(param.cond);
-	}
-	param.cond->f->release(param.cond);
 }
 void selector_manager_add_timer(result_callback timer, void *arg, int msec, kselectable *st)
 {

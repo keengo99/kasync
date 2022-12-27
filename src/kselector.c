@@ -111,7 +111,7 @@ kselector *kselector_new(kselector_tick *tick)
 {
 	kselector *selector = (kselector *)xmalloc(sizeof(kselector));
 	memset(selector, 0, sizeof(kselector));
-	for (int i = 0; i < KGL_LIST_BLOCK; i++) {
+	for (int i = 0; i < KGL_LIST_COUNT; i++) {
 		klist_init(&selector->list[i]);
 		selector->timeout[i] = 60 * 1000;
 	}
@@ -139,7 +139,7 @@ void kselector_add_list(kselector *selector, kselectable *st, int list)
 	st->tmo_left = st->tmo;
 	kassert(st->selector == selector);
 	st->active_msec = kgl_current_msec;
-	kassert(list >= 0 && list < KGL_LIST_NONE);
+	kassert(list >= 0 && list < KGL_LIST_COUNT);
 	if (st->queue.next) {
 		klist_remove(&st->queue);
 	} else {
@@ -174,7 +174,7 @@ void kselector_adjust_time(kselector *selector, int64_t diff_time)
 		brq->active_msec += diff_time;
 		node = rb_next(node);
 	}
-	for (int i = 0; i < KGL_LIST_SYNC; i++) {
+	for (int i = 0; i <= KGL_LIST_RW; i++) {
 		kgl_list *pos;
 		klist_foreach (pos, &selector->list[i]) {
 			kselectable *st = kgl_list_data(pos, kselectable, queue);
@@ -207,7 +207,7 @@ int kselector_check_timeout(kselector *selector,int event_number)
 	struct krb_node *last = NULL;
 	int min_event_time = SELECTOR_TMO_MSEC;
 	//read write timeout
-	for (int i = 0; i < KGL_LIST_SYNC; i++) {
+	for (int i = 0; i <= KGL_LIST_RW; i++) {
 		for (;;) {
 			kgl_list *l = klist_head(&selector->list[i]);
 			if (l == &selector->list[i]) {
