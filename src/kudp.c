@@ -43,11 +43,13 @@ int kudp_get_recvaddr(kconnection *uc, struct sockaddr *addr)
 			return 0;
 		}
 	} else {
+#ifdef IPV6_PKTINFO
 		if (msg->cmsg_level==IPPROTO_IPV6 && msg->cmsg_type==IPV6_PKTINFO) {
 			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
 			memcpy(&addr6->sin6_addr,CMSG_DATA(msg),sizeof(addr6->sin6_addr));
 			return 0;
 		}
+#endif
 	}
 	return -1;
 }
