@@ -8,7 +8,9 @@
 #define SOCKET  	int
 #define INVALID_SOCKET  -1
 #else
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN 1
+#endif
 #define HAVE_SOCKLEN_T 1
 #pragma warning(disable: 4290 4996 4819 26812)
 #endif
