@@ -101,10 +101,6 @@ INLINE kgl_ssl_ctx* kgl_new_ssl_ctx(SSL_CTX* ctx)
 	ssl_ctx->ctx = ctx;
 	return ssl_ctx;
 }
-#else
-typedef void kgl_ssl_ctx;
-typedef void kssl_session;
-#endif
 typedef void* (*kgl_ssl_create_sni_f)(KOPAQUE server_ctx, const char* hostname, SSL_CTX** ssl_ctx);
 typedef void (*kgl_ssl_free_sni_f)(void* sni);
 extern kgl_ssl_create_sni_f kgl_ssl_create_sni;
@@ -114,6 +110,9 @@ void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_
 void kssl_init2();
 void kssl_set_npn_callback(kgl_ssl_npn_f npn);
 void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
-
 KEND_DECLS
+#else
+typedef void kgl_ssl_ctx;
+typedef void kssl_session;
+#endif
 #endif
