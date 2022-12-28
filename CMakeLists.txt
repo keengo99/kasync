@@ -34,17 +34,6 @@ if (KSOCKET_SSL)
 else()
     unset(KSOCKET_SSL_BIO)
 endif()
-
-if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-	list(APPEND KASYNC_LIBS ws2_32)
-	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
-else()
-    check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
-    check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)
-    check_symbol_exists(setmntent mntent.h HAVE_SETMNTENT)
-endif()
-#message(STATUS "cmake_system_name is ${CMAKE_SYSTEM_NAME}")
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "Android") 
     list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE) 
     set(LINUX ON)
@@ -58,27 +47,67 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "Android")
 	endif()
 elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 	set(FREEBSD ON)
-    list(APPEND KASYNC_LIBS pthread)
+	list(APPEND KASYNC_LIBS pthread)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 	set(DARWIN ON)
-    set(ENABLE_LIBUCONTEXT ON)
-    set(LIBUCONTEXT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libucontext)
-    set(LIBUCONTEXT_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/libucontext/libucontext.a)
-    add_custom_target(libucontext.a ALL
-        COMMAND ${CMAKE_MAKE_PROGRAM} FREESTANDING=yes libucontext.a 
-        WORKING_DIRECTORY ${LIBUCONTEXT_DIR}
-        COMMENT "Original metis makefile target")
-    add_library(ucontext STATIC IMPORTED GLOBAL)
-    set_property(TARGET ucontext APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-    set_target_properties(ucontext PROPERTIES IMPORTED_LOCATION_NOCONFIG "${LIBUCONTEXT_LIBRARY}")
-    list(APPEND KASYNC_LIBS ucontext)
-    list(APPEND KASYNC_INCLUDE_DIR ${LIBUCONTEXT_DIR}/include)
+        set(ENABLE_LIBUCONTEXT ON)
 endif()
 
 
 
 
+if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+	list(APPEND KASYNC_LIBS ws2_32)
+	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
+else()
+    include(CheckCSourceCompiles)
+    if (NOT ENABLE_LIBUCONTEXT)
+	    check_c_source_compiles(
+		"#include<ucontext.h>
+		int main(){
+			ucontext_t ucp;
+			getcontext(&ucp);
+			}" HAVE_UCONTEXT)
+	    if (NOT HAVE_UCONTEXT)
+		    message(STATUS "NOT FOUND ucontext now auto turn on -DENABLE_LIBUCONTEXT=ON")
+		    set(ENABLE_LIBUCONTEXT ON)
+	    endif()
+    endif()
+    if (ENABLE_LIBUCONTEXT)
+	    if (NOT LIBUCONTEXT_DIR)
+		    set(LIBUCONTEXT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libucontext)
+	    endif()
+	    check_c_source_compiles(
+		"#include<ucontext.h>
+		typedef greg_t libucontext_greg_t;
+		int main(){}" HAVE_UCONTEXT_GREG_T)
+	    message(STATUS "now use libucontext dir ${LIBUCONTEXT_DIR}")
+	    set(LIBUCONTEXT_LIBRARY ${LIBUCONTEXT_DIR}/libucontext.a)
 
+	    if (HAVE_UCONTEXT_GREG_T)
+		    set(FREESTANDING "no")
+	    else()
+		    set(FREESTANDING "yes")
+	    endif()
+	    message(STATUS "build libucontext.a FREESTANDING=${FREESTANDING}")
+	    add_custom_target(libucontext.a ALL
+		    COMMAND ${CMAKE_MAKE_PROGRAM} FREESTANDING=${FREESTANDING} libucontext.a 
+		WORKING_DIRECTORY ${LIBUCONTEXT_DIR}
+		COMMENT "build libucontext.a")
+	    add_library(ucontext STATIC IMPORTED GLOBAL)
+	    set_property(TARGET ucontext APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+	    set_target_properties(ucontext PROPERTIES IMPORTED_LOCATION_NOCONFIG "${LIBUCONTEXT_LIBRARY}")
+	    add_dependencies(ucontext libucontext.a)
+	    list(APPEND KASYNC_LIBS ucontext)
+	    list(APPEND KASYNC_INCLUDE_DIR ${LIBUCONTEXT_DIR}/include)
+
+    endif()
+    check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
+    check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)
+    check_symbol_exists(setmntent mntent.h HAVE_SETMNTENT)
+endif()
+    
 
 if (GTEST_ROOT) 
     set(USE_CXX)
