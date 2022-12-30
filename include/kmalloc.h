@@ -34,7 +34,7 @@ int dump_memory_leak(int min_time, int max_time);
 #else
 #define kassert assert
 #endif
-extern int kgl_aio_align_size;
+extern size_t kgl_aio_align_size;
 
 #define kgl_align_floor(d, a)     ((d) & ~(a - 1))
 #define kgl_align(d, a)     (((d) + (a - 1)) & ~(a - 1))
@@ -110,6 +110,7 @@ void kgl_destroy_pool(kgl_pool_t *pool);
 void *kgl_palloc(kgl_pool_t *pool, size_t size);
 //不对齐分配内存
 void *kgl_pnalloc(kgl_pool_t *pool, size_t size);
+void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment);
 bool kgl_pfree(kgl_pool_t *pool, void *p);
 kgl_pool_cleanup_t *kgl_pool_cleanup_add(kgl_pool_t *pool, size_t size);
 

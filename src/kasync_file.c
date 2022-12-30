@@ -8,7 +8,7 @@
 #include <sys/ioctl.h>  
 #include <linux/fs.h> 
 #endif
-int kgl_aio_align_size = 512;
+
 void init_aio_align_size()
 {
 	kgl_aio_align_size = 512;

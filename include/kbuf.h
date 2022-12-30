@@ -24,7 +24,7 @@ INLINE kbuf* new_pool_kbuf_align(kgl_pool_t* pool, int len)
 	kbuf* b = (kbuf*)kgl_pnalloc(pool, sizeof(kbuf));
 	b->used = len;
 	b->flags = 0;
-	b->data = (char*)kgl_palloc(pool, len);
+	b->data = (char*)kgl_pmemalign(pool, len, kgl_aio_align_size);
 	return b;
 }
 INLINE kbuf *new_pool_kbuf(kgl_pool_t *pool, int len)
