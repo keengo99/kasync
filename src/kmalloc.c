@@ -2,11 +2,7 @@
 #include <string.h>
 #include "katom.h"
 unsigned kgl_pagesize;
-#ifdef _MAX_ALIGNMENT
-#define KGL_ALIGNMENT  _MAX_ALIGNMENT
-#else
-#define KGL_ALIGNMENT   sizeof(unsigned long)
-#endif
+#define KGL_ALIGNMENT   kgl_aio_align_size
 
 static void * kgl_palloc_block(kgl_pool_t *pool, size_t size)
 {

@@ -34,7 +34,7 @@ int dump_memory_leak(int min_time, int max_time);
 #else
 #define kassert assert
 #endif
-
+extern int kgl_aio_align_size;
 
 #define kgl_align_floor(d, a)     ((d) & ~(a - 1))
 #define kgl_align(d, a)     (((d) + (a - 1)) & ~(a - 1))

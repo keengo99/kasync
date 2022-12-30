@@ -26,7 +26,7 @@ struct _kf_aiocb {
         kf_aio_cmd cmd;
 };
 #endif
-extern int kgl_aio_align_size;
+
 void init_aio_align_size();
 void *aio_alloc_buffer(size_t size);
 void aio_free_buffer(void *buf);
