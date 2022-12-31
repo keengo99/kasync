@@ -32,6 +32,7 @@ void *aio_alloc_buffer(size_t size);
 void aio_free_buffer(void *buf);
 kev_result result_async_file_event(KOPAQUE data, void *arg, int got);
 struct kasync_file_s {
+#if defined(LINUX_EPOLL) || defined(BSD_OS) || defined(KF_ASYNC_WORKER)
 	union {
 #ifdef LINUX_EPOLL
 		struct iocb iocb;
@@ -43,6 +44,7 @@ struct kasync_file_s {
 		kf_aiocb kiocb;
 #endif
 	};
+#endif
 #ifdef KF_ASYNC_WORKER
 	int offset_adjust;
 	int length;
