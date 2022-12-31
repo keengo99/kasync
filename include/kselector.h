@@ -77,10 +77,9 @@ struct kselector_notice_s
 typedef struct kgl_block_queue_s kgl_block_queue;
 struct kgl_block_queue_s
 {
-	kselectable *st;
+	KOPAQUE data;
 	void *arg;
 	result_callback func;
-	int got;
 	int64_t active_msec;
 	kgl_block_queue *next;
 };
@@ -140,7 +139,7 @@ void kselector_add_fiber_ready(kselector* selector, kfiber* fiber);
 void kselector_remove_list(kselector *selector, kselectable *st);
 void kselector_update_time();
 int kselector_check_timeout(kselector *selector,int event_number);
-void kselector_add_timer(kselector *selector, result_callback result, void *arg, int msec,kselectable *st);
+void kselector_add_timer(kselector *selector, result_callback result, void *arg, int msec,KOPAQUE data);
 void kselector_adjust_time(kselector *selector,int64_t diff_time);
 void kselector_default_bind(kselector *selector, kselectable *st);
 bool kselector_default_readhup(kselector *selector, kselectable *st, result_callback result,  void *arg);

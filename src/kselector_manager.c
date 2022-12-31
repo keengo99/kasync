@@ -112,26 +112,26 @@ static kev_result add_timer_on_ready(KOPAQUE data, void* arg, int got)
 	kgl_selector_module.next(selector,NULL, next_add_timer, brq,0);
 	return kev_ok;
 }
-void selector_manager_add_timer(result_callback timer, void *arg, int msec, kselectable *st)
+void selector_manager_add_timer(result_callback timer, void *arg, int msec, KOPAQUE data)
 {
 	kgl_block_queue *brq = xmemory_new(kgl_block_queue);
 	brq->active_msec = kgl_current_msec + msec;
 	brq->func = timer;
 	brq->arg = arg;
-	brq->st = st;
+	brq->data = data;
 	if (is_selector_manager_init()) {
 		kgl_selector_module.next(get_perfect_selector(), NULL, next_add_timer, brq, 0);
 		return;
 	}
 	selector_manager_on_ready(add_timer_on_ready, brq);
 }
-void kselector_add_timer_ts(kselector *selector,result_callback timer, void *arg, int msec, kselectable *st)
+void kselector_add_timer_ts(kselector *selector,result_callback timer, void *arg, int msec, KOPAQUE data)
 {
 	kgl_block_queue *brq = xmemory_new(kgl_block_queue);
 	brq->active_msec = kgl_current_msec + msec;
 	brq->func = timer;
 	brq->arg = arg;
-	brq->st = st;
+	brq->data = data;
 	kassert(is_selector_manager_init());
 	if (kselector_is_same_thread(selector)) {
 		kselector_add_block_queue(selector, brq);
