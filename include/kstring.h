@@ -13,8 +13,9 @@ typedef struct {
 } kgl_str_t;
 
 typedef struct {
-	kgl_str_t str;
 	volatile int32_t refs;
+	int  len;
+	const char* data;
 } kgl_refs_string;
 
 #define kgl_string(str)     { (char *)str,sizeof(str) - 1 }
@@ -28,20 +29,34 @@ INLINE kgl_refs_string *convert_refs_string(char *str, int len)
 {
 	kgl_refs_string *s = xmemory_new(kgl_refs_string);
 	s->refs = 1;
-	s->str.data = str;
-	s->str.len = len;
+	s->data = str;
+	s->len = len;
 	return s;
 }
-INLINE void refs_string(kgl_refs_string *s)
+INLINE kgl_refs_string *kstring_refs(kgl_refs_string *s)
 {
+	if (!s) {
+		return NULL;
+	}
 	katom_inc((void *)&s->refs);
+	return s;
 }
-INLINE void release_string(kgl_refs_string *s)
+INLINE void kstring_release(kgl_refs_string *s)
 {
+	if (!s) {
+		return;
+	}
 	if (katom_dec((void *)&s->refs) == 0) {
-		xfree(s->str.data);
+		xfree((void *)s->data);
 		xfree(s);
 	}
+}
+INLINE kgl_refs_string* kstring_from(const char* str) {
+	if (str && *str) {
+		int len = (int)strlen(str);
+		return convert_refs_string(kgl_strndup(str, len), len);
+	}
+	return NULL;
 }
 KEND_DECLS
 #endif
