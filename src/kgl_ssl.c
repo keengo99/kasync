@@ -401,7 +401,6 @@ SSL_CTX *kgl_ssl_ctx_new_client(const char *ca_path, const char *ca_file,void *s
 	}
 	if (ca_path != NULL || ca_file!=NULL) {
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
-		//SSL_CTX_set_verify_depth(ctx, 1);
 		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
 			fprintf(stderr, "SSL_CTX_load_verify_locations error Error allocating handle: %s\n",
 				ERR_error_string(ERR_get_error(), NULL));
@@ -459,7 +458,6 @@ static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const c
 	}
 	if (ca_path != NULL || ca_file != NULL) {
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-		SSL_CTX_set_verify_depth(ctx, 1);
 		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
 			fprintf(stderr, "SSL error %s:%d: Error allocating handle: %s\n",
 				__FILE__, __LINE__, ERR_error_string(ERR_get_error(), NULL));
