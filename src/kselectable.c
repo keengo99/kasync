@@ -145,10 +145,6 @@ static int kgl_readv(SOCKET s, WSABUF* buffer, int bc)
 	return got;
 #endif
 }
-void selectable_bind_opaque(kselectable* st, KOPAQUE data)
-{
-	st->data = data;
-}
 void selectable_clean(kselectable* st)
 {
 	kassert(KBIT_TEST(st->st_flags, STF_LOCK) == 0);

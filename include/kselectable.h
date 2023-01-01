@@ -95,7 +95,12 @@ struct kselectable_s {
 	KOPAQUE data;	
 	kgl_event e[2];
 };
-void selectable_bind_opaque(kselectable *st, KOPAQUE data);
+inline KOPAQUE selectable_get_opaque(kselectable* st) {
+	return st->data;
+}
+inline void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
+	st->data = data;
+}
 void selectable_clean(kselectable *st);
 bool selectable_remove(kselectable *st);
 INLINE void selectable_next(kselectable *st, result_callback result, void *arg,int got)
