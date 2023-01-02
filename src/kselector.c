@@ -111,6 +111,7 @@ kselector *kselector_new(kselector_tick *tick)
 {
 	kselector *selector = (kselector *)xmalloc(sizeof(kselector));
 	memset(selector, 0, sizeof(kselector));
+	selector->sid = -1;
 	for (int i = 0; i < KGL_LIST_COUNT; i++) {
 		klist_init(&selector->list[i]);
 		selector->timeout[i] = 60 * 1000;
