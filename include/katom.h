@@ -23,6 +23,13 @@ INLINE uint32_t katom_inc(void * var)
 #endif
 }
 #ifdef ENABLE_KATOM_16
+INLINE uint16_t katom_set16(void* var, const uint16_t value) {
+#ifdef _WIN32
+	return InterlockedExchange16((short*)(var), (short)(value)); // NOLINT
+#else
+	return __sync_lock_test_and_set((uint16_t*)(var), value);  // NOLINT
+#endif
+}
 //自增，返回之后的值
 INLINE int16_t katom_inc16(void * var)
 {
