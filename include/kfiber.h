@@ -78,13 +78,13 @@ INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
 		}
 		while (got > 0) {
 			if ((int)buf->iov_len > got) {
-				buf->iov_len += got;
+				buf->iov_len -= got;
 				buf->iov_base = (char *)buf->iov_base + got;
 				break;
 			}
 			got -= (int)buf->iov_len;			
-			buf += 1;
-			*vc -= 1;
+			buf ++;
+			(*vc) --;
 		}
 	}
 	return true;
