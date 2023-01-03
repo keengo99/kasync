@@ -171,13 +171,6 @@ bool selectable_remove(kselectable* st)
 }
 void selectable_shutdown(kselectable* st)
 {
-#if 0
-	if (KBIT_TEST(st->st_flags, STF_RECVFROM)) {
-		ksocket_close(st->fd);
-		ksocket_init(st->fd);
-		return;
-	}
-#endif
 #ifdef _WIN32
 	ksocket_cancel(st->fd);
 #endif
