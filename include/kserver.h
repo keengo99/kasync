@@ -12,6 +12,8 @@
 #define KGL_SERVER_SSL         (1<<31)
 #define KGL_SERVER_START       (1<<30)
 #define KGL_SERVER_UNIX        (1<<29)
+#define KGL_SERVER_H2          (1<<28)
+
 //#define KGL_SSL_CTX_EARLY_DATA (1<<28)
 #ifndef _WIN32
 #define MULTI_SERVER_SELECTABLE_SUPPORTED 1
