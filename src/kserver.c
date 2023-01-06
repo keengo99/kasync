@@ -37,7 +37,7 @@ kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 		//printf("try again\n");
 		assert(!KBIT_TEST(ss->st.st_flags, STF_RREADY2));
 		KBIT_CLR(ss->st.st_flags,STF_RREADY);
-		if (kgl_selector_module.accept(ss->st.selector, ss, ss->st.e[OP_WRITE].arg)) {
+		if (kgl_selector_module.accept(ss, ss->st.e[OP_WRITE].arg)) {
 			return kev_ok;
 		}
 	}
