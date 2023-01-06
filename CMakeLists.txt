@@ -31,9 +31,12 @@ if (KSOCKET_SSL)
 		list(APPEND KASYNC_INCLUDE_DIR ${OPENSSL_DIR}/include)
 		list(APPEND KASYNC_LIBS ssl crypto)
     endif()
-else()
+endif()
+
+if (NOT KSOCKET_SSL)
     unset(KSOCKET_SSL_BIO)
 endif()
+
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "Android") 
     list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE) 
     set(LINUX ON)
