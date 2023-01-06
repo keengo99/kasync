@@ -399,6 +399,16 @@ int kfiber_create2(kselector* selector, kfiber_start_func start, void* arg, int 
 	if (fiber == NULL) {
 		return -1;
 	}
+	if (selector == NULL) {
+		fiber->selector = kgl_get_tls_selector();
+		if (ret_fiber) {
+			fiber->ref++;
+			*ret_fiber = fiber;
+			fiber->close_cond = kfiber_cond_init(false);
+		}
+		kfiber_wakeup(fiber, NULL, len);
+		return 0;
+	}
 	fiber->selector = selector;
 	if (ret_fiber) {
 		fiber->ref++;
@@ -416,22 +426,6 @@ int kfiber_start(kfiber* fiber, int len)
 	kfiber_wakeup(fiber, NULL, len);
 	return 0;
 }
-int kfiber_create(kfiber_start_func start, void* arg, int len, int stk_size, kfiber** ret_fiber)
-{
-	kfiber* fiber = kfiber_new(start, arg, stk_size);
-	if (fiber == NULL) {
-		return -1;
-	}
-	fiber->selector = kgl_get_tls_selector();
-	if (ret_fiber) {
-		fiber->ref++;
-		*ret_fiber = fiber;
-		fiber->close_cond = kfiber_cond_init(false);
-	}
-	kfiber_wakeup(fiber, NULL, len);
-	return 0;
-}
-
 kev_result kfiber_join2(kfiber* fiber, KOPAQUE data, result_callback notice, void* arg)
 {
 	kassert(kfiber_is_main());
