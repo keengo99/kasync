@@ -114,6 +114,8 @@ void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment);
 bool kgl_pfree(kgl_pool_t *pool, void *p);
 kgl_pool_cleanup_t *kgl_pool_cleanup_add(kgl_pool_t *pool, size_t size);
 
+typedef void* (*kgl_malloc)(void* arg, size_t size);
+void* kgl_sys_malloc(void* arg, size_t size);
 typedef struct {
 	void        *elts;
 	size_t      nelts;
