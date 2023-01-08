@@ -58,6 +58,8 @@ typedef void (*selector_next)(kselector *selector, KOPAQUE data, result_callback
 typedef void (*selector_aio_open)(kselector *selector, kasync_file *file, FILE_HANDLE fd);
 typedef bool (*selector_aio_write)(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg);
 typedef bool (*selector_aio_read)(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg);
+typedef bool (*selector_support_sendfile)(kselector* selector, kselectable* st);
+typedef bool (*selector_sendfile)(kselector* selector, kselectable* st, kasync_file* file, int64_t offset, int length, result_callback result, void *arg);
 /* tmo is millisecond */
 typedef int  (*selector_select)(kselector *selector,int tmo);
 typedef void (*selector_destroy)(kselector *selector);
@@ -107,6 +109,8 @@ typedef struct {
 	selector_aio_open aio_open;
 	selector_aio_write aio_write;
 	selector_aio_read aio_read;
+	selector_support_sendfile support_sendfile;
+	selector_sendfile sendfile;
 
 } kselector_module;
 

@@ -5,6 +5,61 @@
 #endif
 #include <stdio.h>
 #include "kfile.h"
+#ifdef _WIN32
+FILE_HANDLE kfopen_w(const wchar_t* path, fileModel model, int flag) {
+	int share_flag = FILE_SHARE_READ | FILE_SHARE_WRITE;
+	int other_flag = 0;
+	if (KBIT_TEST(flag, KFILE_TEMP_MODEL)) {
+		share_flag = 0;
+		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
+	}
+	if (KBIT_TEST(flag, KFILE_ASYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
+	}
+	if (KBIT_TEST(flag, KFILE_DSYNC)) {
+		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
+	}
+	if (KBIT_TEST(flag, KFILE_SEQUENTIAL)) {
+		KBIT_SET(other_flag, FILE_FLAG_SEQUENTIAL_SCAN);
+	}
+	SECURITY_ATTRIBUTES sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.bInheritHandle = FALSE;
+	int flag1 = 0;
+	int flag2 = OPEN_EXISTING;
+	switch (model) {
+	case fileRead:
+		flag1 = GENERIC_READ;
+		break;
+	case fileAppend:
+		flag1 = FILE_APPEND_DATA;
+		flag2 = OPEN_ALWAYS;
+		break;
+	case fileModify:
+		flag1 = GENERIC_WRITE;
+		flag2 = OPEN_ALWAYS;
+		break;
+	case fileWrite:
+		flag1 = GENERIC_WRITE;
+		flag2 = CREATE_ALWAYS;
+		break;
+	case fileReadWrite:
+		flag1 = GENERIC_READ | GENERIC_WRITE;
+		break;
+	case fileWriteRead:
+		flag1 = GENERIC_READ | GENERIC_WRITE;
+		flag2 = CREATE_ALWAYS;
+		break;
+	}
+	return CreateFileW(path,
+		flag1,
+		share_flag,
+		&sa,
+		flag2,
+		other_flag,
+		NULL);
+}
+#endif
 FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 {
 #ifdef _WIN32
@@ -19,6 +74,9 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 	}
 	if (KBIT_TEST(flag, KFILE_DSYNC)) {
 		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
+	}
+	if (KBIT_TEST(flag, KFILE_SEQUENTIAL)) {
+		KBIT_SET(other_flag, FILE_FLAG_SEQUENTIAL_SCAN);
 	}
 	SECURITY_ATTRIBUTES sa;
 	memset(&sa, 0, sizeof(sa));

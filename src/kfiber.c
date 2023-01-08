@@ -646,6 +646,24 @@ int kfiber_net_read(kconnection* cn, char* buf, int len)
 	v.iov_len = len;
 	return kfiber_net_readv(cn, &v, 1);
 }
+static kev_result kfiber_sendfile_callback(KOPAQUE data, void* arg, int got) {
+	kfiber_wakeup((kfiber*)arg, arg, got);
+	return kev_fiber_ok;
+}
+int kfiber_sendfile(kconnection* cn, kfiber_file* file, int length) {
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	kselector* selector = cn->st.selector;
+	if (!kgl_selector_module.sendfile(selector,&cn->st, &file->fp, file->offset, length, kfiber_sendfile_callback, fiber)) {
+		return -1;
+	}
+	__kfiber_wait(fiber, fiber);
+	int got = fiber->retval;
+	if (got > 0) {
+		file->offset += got;
+	}
+	return fiber->retval;
+}
 #ifdef KSOCKET_SSL
 kev_result result_fiber_ssl_shutdown(KOPAQUE data, void* arg, int got)
 {
@@ -737,7 +755,6 @@ kfiber_file* kfiber_file_bind(FILE_HANDLE fp,int kf_flags)
 }
 kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags)
 {
-
 #ifndef KF_ASYNC_WORKER
 	kf_flags |= KFILE_ASYNC;
 #endif

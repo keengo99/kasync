@@ -15,6 +15,7 @@ extern LPFN_WSARECVMSG lpfnWsaRecvMsg;
 extern LPFN_WSASENDMSG lpfnWsaSendMsg;
 extern LPFN_ACCEPTEX lpfnAcceptEx;
 extern LPFN_CONNECTEX lpfnConnectEx;
+extern LPFN_TRANSMITFILE lpfnTransmitFile;
 typedef BOOL(WINAPI *fCancelIoEx)(
 	__in      HANDLE hFile,
 	__in_opt  LPOVERLAPPED lpOverlapped

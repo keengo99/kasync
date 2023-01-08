@@ -5,9 +5,6 @@
 #include "kfeature.h"
 #include "kforwin32.h"
 KBEGIN_DECLS
-
-
-
 INLINE bool kfile_close_on_exec(FILE_HANDLE fd, bool close_on_exec)
 {
 #ifndef _WIN32
@@ -37,57 +34,7 @@ INLINE int kfread(FILE_HANDLE h, char *buf, int len)
 #define kfinit(h)              (h=INVALID_HANDLE_VALUE)
 #define kflike(h)              (h!=INVALID_HANDLE_VALUE)
 #define kfclose             CloseHandle
-INLINE FILE_HANDLE kfopen_w(const wchar_t *path, fileModel model, int flag)
-{
-	int share_flag = FILE_SHARE_READ | FILE_SHARE_WRITE;
-	int other_flag = 0;
-	if (KBIT_TEST(flag, KFILE_TEMP_MODEL)) {
-		share_flag = 0;
-		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
-		}
-	if (KBIT_TEST(flag, KFILE_ASYNC)) {
-		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
-	}
-	if (KBIT_TEST(flag, KFILE_DSYNC)) {
-		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
-	}
-	SECURITY_ATTRIBUTES sa;
-	memset(&sa, 0, sizeof(sa));
-	sa.bInheritHandle = FALSE;
-	int flag1 = 0;
-	int flag2 = OPEN_EXISTING;
-	switch (model) {
-	case fileRead:
-		flag1 = GENERIC_READ;
-		break;
-	case fileAppend:
-		flag1 = FILE_APPEND_DATA;
-		flag2 = OPEN_ALWAYS;
-		break;
-	case fileModify:
-		flag1 = GENERIC_WRITE;
-		flag2 = OPEN_ALWAYS;
-		break;
-	case fileWrite:
-		flag1 = GENERIC_WRITE;
-		flag2 = CREATE_ALWAYS;
-		break;
-	case fileReadWrite:
-		flag1 = GENERIC_READ | GENERIC_WRITE;
-		break;
-	case fileWriteRead:
-		flag1 = GENERIC_READ | GENERIC_WRITE;
-		flag2 = CREATE_ALWAYS;
-		break;
-	}
-	return CreateFileW(path,
-		flag1,
-		share_flag,
-		&sa,
-		flag2,
-		other_flag,
-		NULL);	
-}
+FILE_HANDLE kfopen_w(const wchar_t* path, fileModel model, int flag);
 #else
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -368,6 +368,42 @@ bool iocp_selector_aio_read(kselector *selector, kasync_file *file, char *buf, i
 	}
 	return true;
 }
+bool iocp_selector_support_sendfile(kselector* selector, kselectable* st) {
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		return false;
+	}
+#endif
+	assert(lpfnTransmitFile);
+	return true;
+}
+bool iocp_selector_sendfile(kselector* selector, kselectable* st, kasync_file* file, int64_t offset, int length, result_callback result, void* arg) {
+#ifdef KSOCKET_SSL
+	assert(st->ssl == NULL);
+#endif
+	assert(!KBIT_TEST(st->st_flags, STF_WRITE));
+	KBIT_SET(st->st_flags, STF_WRITE);	
+	//printf("iocp write bc=[%d],data_len=[%d]\n", bufferCount,recvBuf[0].len);
+	DWORD BytesRecv = 0;
+	DWORD Flags = 0;
+	st->e[OP_WRITE].arg = arg;
+	st->e[OP_WRITE].result = result;
+	assert(st->selector == selector);
+	st->e[OP_WRITE].lp.Pointer = (void *)(uintptr_t)offset;
+	
+	int rc = lpfnTransmitFile(st->fd, (FILE_HANDLE)file->st.fd, length, 0, &st->e[OP_WRITE].lp, NULL, 0);
+	if (rc == FALSE) {
+		int err = WSAGetLastError();
+		if (WSA_IO_PENDING != err) {
+			KBIT_CLR(st->st_flags, STF_WRITE);
+			return false;
+		}
+	}
+	if (st->queue.next == NULL) {
+		kselector_add_list(selector, st, KGL_LIST_RW);
+	}
+	return true;
+}
 static void handle_complete_event(kselector *selector,kselectable *st, BOOL result, DWORD recvBytes, OVERLAPPED *evlp)
 {
 	//printf("handle_complete_event st=[%p]\n", st);
@@ -453,7 +489,9 @@ static kselector_module iocp_selector_module = {
 	iocp_selector_next,
 	iocp_selector_aio_open,
 	iocp_selector_aio_write,
-	iocp_selector_aio_read
+	iocp_selector_aio_read,
+	iocp_selector_support_sendfile,
+	iocp_selector_sendfile
 };
 void kiocp_module_init()
 {

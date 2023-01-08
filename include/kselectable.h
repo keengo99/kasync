@@ -107,6 +107,9 @@ INLINE void selectable_next(kselectable *st, result_callback result, void *arg,i
 {
 	kgl_selector_module.next(st->selector, st->data, result, arg, got);
 }
+INLINE bool selectable_support_sendfile(kselectable* st) {
+	return kgl_selector_module.support_sendfile(st->selector, st);
+}
 void selectable_next_read(kselectable *st, result_callback result, void *arg);
 void selectable_next_write(kselectable *st, result_callback result, void *arg);
 

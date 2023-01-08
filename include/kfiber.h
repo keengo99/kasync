@@ -28,6 +28,7 @@ void kfiber_init();
 int kfiber_get_count();
 //create a paused fiber
 kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size);
+
 int kfiber_start(kfiber* fiber,int len);
 int kfiber_create2(kselector *selector, kfiber_start_func start, void *start_arg, int len, int stk_size, kfiber** fiber);
 INLINE int kfiber_create(kfiber_start_func start, void* arg, int len, int stk_size, kfiber** fiber) {
@@ -71,6 +72,18 @@ int kfiber_net_connect(kconnection *cn, sockaddr_i *bind_addr, int tproxy_mask);
 int kfiber_net_write(kconnection *cn, const char *buf, int len);
 int kfiber_net_writev(kconnection *cn, WSABUF *buf, int vc);
 int kfiber_net_read(kconnection *cn, char *buf, int len);
+
+int kfiber_sendfile(kconnection* cn, kfiber_file* fp, int len);
+INLINE bool kfiber_sendfile_full(kconnection* cn, kfiber_file* fp, int* len) {
+	while (*len > 0) {
+		int got = kfiber_sendfile(cn, fp, *len);
+		if (got <= 0) {
+			return false;
+		}
+		*len -= got;
+	}
+	return true;
+}
 INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
 {
 	while (*vc > 0) {
