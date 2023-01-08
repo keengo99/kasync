@@ -149,6 +149,7 @@ void kselector_default_bind(kselector *selector, kselectable *st);
 bool kselector_default_readhup(kselector *selector, kselectable *st, result_callback result,  void *arg);
 bool kselector_default_remove_readhup(kselector *selector, kselectable *st);
 void kselector_default_remove(kselector *selector, kselectable *st);
+bool kselector_not_support_sendfile(kselector* selector, kselectable* st);
 
 kselector_tick* kselector_new_tick(kselector_tick_callback cb, void* arg);
 bool kselector_register_tick(kselector_tick *tick);

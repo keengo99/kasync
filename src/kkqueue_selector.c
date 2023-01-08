@@ -413,7 +413,9 @@ static kselector_module kqueue_selector_module = {
 	kqueue_selector_next,
 	kqueue_selector_aio_open,
 	kqueue_selector_aio_write,
-	kqueue_selector_aio_read
+	kqueue_selector_aio_read,
+	kselector_not_support_sendfile,
+	NULL
 };
 void kkqueue_module_init()
 {

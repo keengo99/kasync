@@ -63,6 +63,7 @@ void kselector_exit(kselector* selector)
 	klog(KLOG_ERR, "selector thread = [%d] now close.\n", selector->thread_id);
 	selector->thread_id = 0;
 }
+
 void kselector_step_init(int index)
 {
 	kselector* selector = kgl_selectors[index];

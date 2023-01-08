@@ -29,6 +29,8 @@
 #define STF_UDP         (1<<12)
 
 #define STF_FIBER       (1<<13)
+#define STF_SENDFILE    (1<<14)
+
 #define STF_REVENT      (STF_READ)
 #define STF_WEVENT      (STF_WRITE|STF_RDHUP)
 #define STF_EVENT       (STF_REVENT|STF_WEVENT)

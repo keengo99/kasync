@@ -55,7 +55,7 @@ struct kasync_file_s {
 #else
 	kselectable st;
 #endif
-	char *buf; //deprecated
+	char *buf;
 	void *arg;
 	aio_callback cb;
 };

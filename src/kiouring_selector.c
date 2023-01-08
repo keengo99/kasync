@@ -450,7 +450,9 @@ static kselector_module iouring_selector_module = {
 
 	iouring_selector_aio_open,
 	iouring_selector_aio_write,
-	iouring_selector_aio_read
+	iouring_selector_aio_read,
+	kselector_not_support_sendfile,
+	NULL
 };
 
 void kiouring_module_init()

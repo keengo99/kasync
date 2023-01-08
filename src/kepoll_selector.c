@@ -256,7 +256,7 @@ static void epoll_selector_remove(kselector *selector, kselectable *st)
 	if (epoll_ctl(es->kdpfd, EPOLL_CTL_DEL,sockfd, &ev) != 0) {
 		klog(KLOG_ERR, "epoll del sockfd error: fd=%d,errno=%d\n", sockfd,errno);
 		return;
-	}	
+	}
 }
 
 static bool epoll_selector_readhup(kselector *selector, kselectable *st, result_callback result, void *arg)
@@ -383,6 +383,33 @@ static bool epoll_selector_write(kselector *selector, kselectable *st, result_ca
 	}
 	return true;
 }
+
+static bool epoll_selector_sendfile(kselector* selector, kselectable* st, kasync_file* file, int64_t offset, int length, result_callback result, void* arg) {
+#ifdef KSOCKET_SSL
+	assert(st->ssl == NULL);
+#endif
+	kepoll_selector *es = (kepoll_selector *)selector->ctx;
+	assert(!KBIT_TEST(st->st_flags, STF_WRITE|STF_SENDFILE));
+	st->e[OP_WRITE].arg = arg;
+	st->e[OP_WRITE].result = result;
+	st->e[OP_WRITE].buffer = NULL;
+	KBIT_SET(st->st_flags,STF_WRITE|STF_SENDFILE);
+	KBIT_CLR(st->st_flags,STF_RDHUP);
+	if (KBIT_TEST(st->st_flags,STF_WREADY)) {
+		kselector_add_list(selector,st,KGL_LIST_READY);
+		return true;
+	}
+	if (!KBIT_TEST(st->st_flags,STF_WEV)) {
+		if (!epoll_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
+			KBIT_CLR(st->st_flags,STF_WRITE);
+			return false;
+		}
+	}
+	if (st->queue.next==NULL) {
+		kselector_add_list(selector,st,KGL_LIST_RW);
+	}
+	return true;
+}
 static int epoll_selector_select(kselector *selector,int tmo) {
 	struct epoll_event events[MAXEVENT];
 	uint32_t ev;
@@ -475,6 +502,14 @@ bool epoll_selector_aio_write(kselector *selector, kasync_file *file, char *buf,
 	return false;
 
 }
+static bool epoll_selector_support_sendfile(kselector* selector, kselectable* st) {
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		return false;
+	}
+#endif	
+	return false;
+}
 bool epoll_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
 {
 	kassert(kfiber_check_file_callback(cb));
@@ -529,7 +564,9 @@ static kselector_module epoll_selector_module = {
 	epoll_selector_next,
 	epoll_selector_aio_open,
 	epoll_selector_aio_write,
-	epoll_selector_aio_read
+	epoll_selector_aio_read,
+	epoll_selector_support_sendfile,
+	epoll_selector_sendfile
 };
 void kepoll_module_init() {
 	kgl_selector_module = epoll_selector_module;

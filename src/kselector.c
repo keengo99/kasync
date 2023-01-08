@@ -412,3 +412,6 @@ bool kselector_close_tick(kselector_tick* tick)
 	xfree(tick);
 	return true;
 }
+bool kselector_not_support_sendfile(kselector* selector, kselectable* st) {
+	return false;
+}
