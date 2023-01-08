@@ -303,72 +303,71 @@ static void iocp_selector_next(kselector *selector, KOPAQUE data, result_callbac
 		perror("notice error");
 	}
 }
+
 void iocp_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
 	kassert(kselector_is_same_thread(selector));
-	//kasync_file *aio_file = xmemory_new(kasync_file);
-	//memset(aio_file, 0, sizeof(kasync_file));
+#ifndef KF_ASYNC_WORKER
 	aio_file->st.fd = (SOCKET)fd;
-
 	iocp_selector_bind(selector, &aio_file->st);
 	aio_file->st.selector = selector;
+#else
+	aio_file->fd = fd;
+	aio_file->selector = selector;
+#endif
 	return;
 }
-bool iocp_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool iocp_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void* arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	assert(file->cb == NULL);
-	katom_inc((void *)&kgl_aio_count);
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
+#ifndef KF_ASYNC_WORKER
+	kassert(kfiber_check_file_callback(result));
+	assert(KBIT_TEST(file->st.st_flags, STF_WRITE|STF_READ)==0);
 	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_WRITE].lp.Pointer;
-	li->QuadPart = offset;
+	li->QuadPart = file->offset;
 	DWORD bytesWrite;
 	KBIT_SET(file->st.st_flags, STF_WRITE);
-	file->st.e[OP_WRITE].result = result_async_file_event;
-	file->st.e[OP_WRITE].arg = file;
+	file->st.e[OP_WRITE].result = result;
+	file->st.e[OP_WRITE].arg = arg;
 	file->st.e[OP_WRITE].buffer = NULL;
-	BOOL ret = WriteFile((FILE_HANDLE)file->st.fd, buf, length, &bytesWrite, &file->st.e[OP_WRITE].lp);
+	BOOL ret = WriteFile(kasync_file_get_handle(file), buf, length, &bytesWrite, &file->st.e[OP_WRITE].lp);
 	if (!ret) {
 		int err = WSAGetLastError();
 		if (err != ERROR_IO_PENDING) {
-			katom_dec((void *)&kgl_aio_count);
 			KBIT_CLR(file->st.st_flags, STF_WRITE);
-			file->cb = NULL;
 			return false;
 		}
 	}
 	return true;
+#else
+	return false;
+#endif
 }
-bool iocp_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	assert(file->cb == NULL);
-	katom_inc((void *)&kgl_aio_count);
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
+#ifndef KF_ASYNC_WORKER
+	kassert(kfiber_check_file_callback(result));
+	assert(KBIT_TEST(file->st.st_flags, STF_WRITE | STF_READ) == 0);
 	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_READ].lp.Pointer;
-	li->QuadPart = offset;
+	li->QuadPart = file->offset;
 	DWORD bytesRead;
 	KBIT_SET(file->st.st_flags, STF_READ);
-	file->st.e[OP_READ].result = result_async_file_event;
-	file->st.e[OP_READ].arg = file;
+	file->st.e[OP_READ].result = result;
+	file->st.e[OP_READ].arg = arg;
 	file->st.e[OP_READ].buffer = NULL;
-	BOOL ret = ReadFile((FILE_HANDLE)file->st.fd, buf, length, &bytesRead, &file->st.e[OP_READ].lp);
+	BOOL ret = ReadFile(kasync_file_get_handle(file), buf, length, &bytesRead, &file->st.e[OP_READ].lp);
 	if (!ret) {
 		int err = WSAGetLastError();
 		if (err != ERROR_IO_PENDING) {
-			katom_dec((void *)&kgl_aio_count);
 			KBIT_CLR(file->st.st_flags, STF_READ);
-			file->cb = NULL;			
 			return false;
 		}
 	}
 	return true;
+#else
+	return false;
+#endif
 }
-bool iocp_selector_support_sendfile(kselector* selector, kselectable* st) {
+bool iocp_selector_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
 		return false;
@@ -377,7 +376,7 @@ bool iocp_selector_support_sendfile(kselector* selector, kselectable* st) {
 	assert(lpfnTransmitFile);
 	return true;
 }
-bool iocp_selector_sendfile(kselector* selector, kselectable* st, kasync_file* file, int64_t offset, int length, result_callback result, void* arg) {
+bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	assert(st->ssl == NULL);
 #endif
@@ -388,10 +387,12 @@ bool iocp_selector_sendfile(kselector* selector, kselectable* st, kasync_file* f
 	DWORD Flags = 0;
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	assert(st->selector == selector);
-	st->e[OP_WRITE].lp.Pointer = (void *)(uintptr_t)offset;
-	
-	int rc = lpfnTransmitFile(st->fd, (FILE_HANDLE)file->st.fd, length, 0, &st->e[OP_WRITE].lp, NULL, 0);
+	WSABUF bufs;
+	buffer(st->data, arg, &bufs, 1);
+	kasync_file* file = (kasync_file *)bufs.iov_base;
+	LARGE_INTEGER* li = (LARGE_INTEGER*)&st->e[OP_WRITE].lp.Pointer;
+	li->QuadPart = file->offset;
+	int rc = lpfnTransmitFile(st->fd, kasync_file_get_handle(file), bufs.iov_len, 0, &st->e[OP_WRITE].lp, NULL, 0);
 	if (rc == FALSE) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
@@ -400,7 +401,7 @@ bool iocp_selector_sendfile(kselector* selector, kselectable* st, kasync_file* f
 		}
 	}
 	if (st->queue.next == NULL) {
-		kselector_add_list(selector, st, KGL_LIST_RW);
+		kselector_add_list(st->selector, st, KGL_LIST_RW);
 	}
 	return true;
 }

@@ -20,10 +20,10 @@
 #ifdef ANDROID
 #ifndef ENABLE_LIBUCONTEXT
 KBEGIN_DECLS
-int getcontext(ucontext_t *ucp);
-int setcontext(const ucontext_t *ucp);
-void makecontext(ucontext_t *ucp, void (*func)(), int argc, ...);
-int swapcontext(ucontext_t *oucp, const ucontext_t *ucp);
+int getcontext(ucontext_t* ucp);
+int setcontext(const ucontext_t* ucp);
+void makecontext(ucontext_t* ucp, void (*func)(), int argc, ...);
+int swapcontext(ucontext_t* oucp, const ucontext_t* ucp);
 #endif
 KEND_DECLS
 #endif
@@ -46,13 +46,15 @@ static volatile int32_t fiber_count = 0;
 pthread_key_t kgl_main_fiber_key;
 pthread_key_t kgl_current_fiber_key;
 typedef struct _kfiber_chan_data kfiber_chan_data;
-struct _kfiber_chan_data {
+struct _kfiber_chan_data
+{
 	void* data;
 	int len;
 	kfiber_chan_data* next;
 };
 
-struct _kfiber_chan {
+struct _kfiber_chan
+{
 	kfiber_chan_data* head;
 	kfiber_chan_data* last;
 	kfiber_waiter* reciver;
@@ -62,16 +64,13 @@ struct _kfiber_chan {
 	int closed;
 };
 
-
-
 #ifdef KF_ASYNC_WORKER
 #define KFIBER_AIO_DEFAULT_WORKER 16
 static kgl_list kfiber_aio_list;
 static kasync_worker* kfiber_aio_worker = NULL;
 #endif
 
-static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread)
-{
+static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
 	if (same_thread) {
 		assert(fiber->selector == kgl_get_tls_selector());
 		//assert(fiber->start_called == 1);
@@ -83,16 +82,13 @@ static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool sa
 	}
 	kgl_selector_module.next(fiber->selector, NULL, cb, fiber, got);
 }
-int kfiber_get_count()
-{
+int kfiber_get_count() {
 	return (int)katom_get((void*)&fiber_count);
 }
-kfiber* kfiber_main()
-{
+kfiber* kfiber_main() {
 	return (kfiber*)pthread_getspecific(kgl_main_fiber_key);
 }
-bool is_main_fiber(kfiber* fiber)
-{
+bool is_main_fiber(kfiber* fiber) {
 	if (fiber->switch_from == NULL) {
 		assert(fiber == kfiber_main());
 		return true;
@@ -100,8 +96,7 @@ bool is_main_fiber(kfiber* fiber)
 	assert(fiber != kfiber_main());
 	return false;
 }
-bool kfiber_is_main()
-{
+bool kfiber_is_main() {
 	kfiber* fiber = kfiber_self();
 	if (fiber == NULL || is_main_fiber(fiber)) {
 		return true;
@@ -129,8 +124,7 @@ static void kfiber_delete_context(kfiber* fiber) {
 	free(fiber->stack);
 #endif
 }
-static void kfiber_destroy(kfiber* fiber)
-{
+static void kfiber_destroy(kfiber* fiber) {
 	if (fiber->close_cond) {
 		fiber->close_cond->f->release(fiber->close_cond);
 	}
@@ -138,16 +132,13 @@ static void kfiber_destroy(kfiber* fiber)
 	xfree(fiber);
 	katom_dec((void*)&fiber_count);
 }
-void kfiber_set_self(kfiber* thread)
-{
+void kfiber_set_self(kfiber* thread) {
 	pthread_setspecific(kgl_current_fiber_key, thread);
 }
-kfiber* kfiber_self()
-{
+kfiber* kfiber_self() {
 	return (kfiber*)pthread_getspecific(kgl_current_fiber_key);
 }
-void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to)
-{
+void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
 	//printf("switch fiber from [%p] to [%p]\n", fiber_from, fiber_to);
 	assert(kfiber_self() == fiber_from);
 	assert(fiber_from != fiber_to);
@@ -163,7 +154,7 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to)
 
 #ifndef DISABLE_KFIBER
 	int swap_result = kfiber_swapcontext(&fiber_from->ctx, &fiber_to->ctx);
-	if (swap_result!=0) {
+	if (swap_result != 0) {
 		//printf("swapcontext error = [%d]\n",errno);
 	}
 #else
@@ -173,8 +164,7 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to)
 	assert(kfiber_self() == fiber_from);
 }
 
-int __kfiber_wait(kfiber* fiber, void* obj)
-{
+int __kfiber_wait(kfiber* fiber, void* obj) {
 	kassert(fiber->switch_from);
 	kassert(fiber == kfiber_self());
 #ifndef NDEBUG
@@ -184,8 +174,7 @@ int __kfiber_wait(kfiber* fiber, void* obj)
 			klog(KLOG_ERR, "BUG __kfiber_wait fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
 			abort();
 		}
-	}
-	else {
+	} else {
 		fiber->wait_code = KFIBER_WAIT_CODE(obj);
 	}
 	fiber->wait_flag = 1;
@@ -193,16 +182,14 @@ int __kfiber_wait(kfiber* fiber, void* obj)
 	__kfiber_switch(fiber, fiber->switch_from);
 	return fiber->retval;
 }
-int kfiber_wait(void* obj)
-{
+int kfiber_wait(void* obj) {
 	kfiber* fiber = kfiber_self();
 #ifndef NDEBUG
 	fiber->wait_notice_flag = 0;
 #endif
 	return __kfiber_wait(fiber, obj);
 }
-void kfiber_wakeup(kfiber* fiber, void* obj, int ret)
-{
+void kfiber_wakeup(kfiber* fiber, void* obj, int ret) {
 	kfiber* fiber_from = kfiber_self();
 	kassert(fiber_from);
 	kassert(fiber_from->selector);
@@ -215,8 +202,7 @@ void kfiber_wakeup(kfiber* fiber, void* obj, int ret)
 			klog(KLOG_ERR, "BUG wakeup fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
 			abort();
 		}
-	}
-	else {
+	} else {
 		fiber->wait_code = KFIBER_WAIT_CODE(obj);
 	}
 	fiber->notice_flag = 1;
@@ -230,8 +216,7 @@ void kfiber_wakeup(kfiber* fiber, void* obj, int ret)
 	__kfiber_switch(fiber_from, fiber);
 }
 
-kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got)
-{
+kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
 	if (got == 1) {
 		//exit
 		return kev_ok;
@@ -254,8 +239,7 @@ kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got)
 	return kev_ok;
 	//printf("main fiber=[%p]\n", fiber);
 }
-void kfiber_init()
-{
+void kfiber_init() {
 	pthread_key_create(&kgl_main_fiber_key, NULL);
 	pthread_key_create(&kgl_current_fiber_key, NULL);
 #ifdef KF_ASYNC_WORKER
@@ -264,14 +248,12 @@ void kfiber_init()
 #endif
 	selector_manager_thread_init(kfiber_thread_init, NULL);
 }
-static void kfiber_release(kfiber* fiber)
-{
+static void kfiber_release(kfiber* fiber) {
 	if (katom_dec((void*)&fiber->ref) == 0) {
 		kfiber_destroy(fiber);
 	}
 }
-static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
-{
+static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got) {
 	kfiber* fiber = (kfiber*)arg;
 	fiber->retval = got;
 	kfiber_delete_context(fiber);
@@ -282,8 +264,7 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got)
 	return kev_ok;
 }
 
-static void kfiber_exit(kfiber* fiber, int retval)
-{
+static void kfiber_exit(kfiber* fiber, int retval) {
 #ifndef NDEBUG
 	fiber->wait_notice_flag = 0;
 #endif
@@ -293,10 +274,10 @@ static void kfiber_exit(kfiber* fiber, int retval)
 #ifdef _WIN32
 void WINAPI fiber_start(void* arg) {
 	kfiber* fiber = (kfiber*)arg;
-	assert(kfiber_self()==fiber);
+	assert(kfiber_self() == fiber);
 #else
 void fiber_start() {
-	kfiber *fiber = kfiber_self();
+	kfiber* fiber = kfiber_self();
 #endif
 	int result = -1;
 	while (!fiber->start_called) {
@@ -305,24 +286,13 @@ void fiber_start() {
 	}
 	kfiber_exit(fiber, result);
 }
-kev_result result_switch_fiber(KOPAQUE data, void* arg, int got)
-{
+kev_result result_switch_fiber(KOPAQUE data, void* arg, int got) {
 	kfiber* fiber = (kfiber*)arg;
 	kfiber_wakeup(fiber, data, got);
 	return kev_fiber_ok;
 }
 #define result_fiber_accept result_switch_fiber
-#if 0
-kev_result result_fiber_accept(KOPAQUE data, void* arg, int got)
-{
-	kserver_selectable* ss = (kserver_selectable*)data;
-	kfiber* fiber = (kfiber*)arg;
-	kfiber_wakeup(fiber, data, got);
-	return kev_fiber_ok;
-}
-#endif
-void kfiber_wakeup2(kselector* selector, kfiber* fiber, void* obj, int retval)
-{
+void kfiber_wakeup2(kselector * selector, kfiber * fiber, void* obj, int retval) {
 	if (selector == kgl_get_tls_selector()) {
 		kfiber_wakeup(fiber, obj, retval);
 		return;
@@ -330,8 +300,7 @@ void kfiber_wakeup2(kselector* selector, kfiber* fiber, void* obj, int retval)
 	kgl_selector_module.next(selector, obj, result_switch_fiber, fiber, retval);
 }
 
-kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
-{
+kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	kfiber* fiber;
 	/* Adjust stack size */
 	if (stk_size == 0) {
@@ -378,8 +347,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size)
 	katom_inc((void*)&fiber_count);
 	return fiber;
 }
-int kfiber_create_sync(kfiber_start_func start, void* arg, int len, int stk_size, kfiber** ret_fiber)
-{
+int kfiber_create_sync(kfiber_start_func start, void* arg, int len, int stk_size, kfiber * *ret_fiber) {
 	kfiber* fiber = kfiber_new(start, arg, stk_size);
 	if (fiber == NULL) {
 		return -1;
@@ -393,8 +361,7 @@ int kfiber_create_sync(kfiber_start_func start, void* arg, int len, int stk_size
 	kfiber_wakeup2(fiber->selector, fiber, NULL, len);
 	return 0;
 }
-int kfiber_create2(kselector* selector, kfiber_start_func start, void* arg, int len, int stk_size, kfiber** ret_fiber)
-{
+int kfiber_create2(kselector * selector, kfiber_start_func start, void* arg, int len, int stk_size, kfiber * *ret_fiber) {
 	kfiber* fiber = kfiber_new(start, arg, stk_size);
 	if (fiber == NULL) {
 		return -1;
@@ -418,16 +385,14 @@ int kfiber_create2(kselector* selector, kfiber_start_func start, void* arg, int 
 	kfiber_wakeup2(selector, fiber, NULL, len);
 	return 0;
 }
-int kfiber_start(kfiber* fiber, int len)
-{
+int kfiber_start(kfiber * fiber, int len) {
 	fiber->selector = kgl_get_tls_selector();
 	fiber->close_cond = kfiber_cond_init(false);
 	fiber->ref++;
 	kfiber_wakeup(fiber, NULL, len);
 	return 0;
 }
-kev_result kfiber_join2(kfiber* fiber, KOPAQUE data, result_callback notice, void* arg)
-{
+kev_result kfiber_join2(kfiber * fiber, KOPAQUE data, result_callback notice, void* arg) {
 	kassert(kfiber_is_main());
 	if (fiber->close_cond == NULL) {
 		kev_result result = notice(data, arg, -1);
@@ -439,8 +404,7 @@ kev_result kfiber_join2(kfiber* fiber, KOPAQUE data, result_callback notice, voi
 	return result;
 }
 
-int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg)
-{
+int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	if (fiber->close_cond == NULL) {
@@ -450,15 +414,13 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg)
 }
 
 
-bool kfiber_has_next()
-{
+bool kfiber_has_next() {
 	kfiber* fiber = kfiber_self();
 	//CHECK_FIBER(fiber);
 	return fiber->start_called == 0;
 }
 
-int kfiber_next(kfiber_start_func start, void* arg, int got)
-{
+int kfiber_next(kfiber_start_func start, void* arg, int got) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	assert(fiber->start_called);
@@ -469,23 +431,20 @@ int kfiber_next(kfiber_start_func start, void* arg, int got)
 	return 0;
 }
 
-kfiber* kfiber_ref_self(bool thread_safe)
-{
+kfiber* kfiber_ref_self(bool thread_safe) {
 	kfiber* fiber = kfiber_self();
 	assert(fiber && !is_main_fiber(fiber));
 	if (fiber->close_cond == NULL) {
 		if (thread_safe) {
 			fiber->close_cond = kfiber_cond_init_ts(true);
-		}
-		else {
+		} else {
 			fiber->close_cond = kfiber_cond_init(true);
 		}
 	}
 	katom_inc((void*)&fiber->ref);
 	return fiber;
 }
-int kfiber_join(kfiber* fiber, int* retval)
-{
+int kfiber_join(kfiber * fiber, int* retval) {
 	assert(fiber->close_cond);
 	if (fiber->close_cond == NULL) {
 		kfiber_release(fiber);
@@ -501,8 +460,7 @@ int kfiber_join(kfiber* fiber, int* retval)
 	kfiber_release(fiber);
 	return 0;
 }
-int kfiber_msleep(int msec)
-{
+int kfiber_msleep(int msec) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	kselector_add_timer(kgl_get_tls_selector(), result_switch_fiber, fiber, msec, NULL);
@@ -510,8 +468,7 @@ int kfiber_msleep(int msec)
 	return 0;
 }
 
-static kev_result kfiber_getaddr_callback(void* arg, kgl_addr* addr)
-{
+static kev_result kfiber_getaddr_callback(void* arg, kgl_addr * addr) {
 	kfiber* fiber = (kfiber*)arg;
 	if (addr) {
 		kgl_addr_refs(addr);
@@ -521,27 +478,24 @@ static kev_result kfiber_getaddr_callback(void* arg, kgl_addr* addr)
 	kfiber_wakeup(fiber, (void*)kfiber_getaddr_callback, addr ? 0 : -1);
 	return kev_fiber_ok;
 }
-static int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF* buf, int bc)
-{
+static int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF * buf, int bc) {
 	kfiber* fiber = (kfiber*)arg;
 	int copy_bc = KGL_MIN(bc, fiber->retval);
 	kgl_memcpy(buf, fiber->arg, copy_bc * sizeof(WSABUF));
 	return copy_bc;
 }
-int kfiber_net_listen(kserver* server, int flag, kserver_selectable** ss)
-{
+int kfiber_net_listen(kserver * server, int flag, kserver_selectable * *ss) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	*ss = kserver_listen(server, flag, result_fiber_accept);
 	return 0;
 }
-int kfiber_net_accept(kserver_selectable* ss, kconnection** c)
-{
+int kfiber_net_accept(kserver_selectable * ss, kconnection * *c) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	assert(ss->st.selector == kgl_get_tls_selector());
 	fiber->retval = -1;
-	if (!KBIT_TEST(ss->server->flags,KGL_SERVER_START) || !kserver_selectable_accept(ss, fiber)) {
+	if (!KBIT_TEST(ss->server->flags, KGL_SERVER_START) || !kserver_selectable_accept(ss, fiber)) {
 		return -1;
 	}
 	assert(ss->st.data == ss);
@@ -553,8 +507,7 @@ int kfiber_net_accept(kserver_selectable* ss, kconnection** c)
 	}
 	return 0;
 }
-int kfiber_net_getaddr(const char* hostname, kgl_addr** addr)
-{
+int kfiber_net_getaddr(const char* hostname, kgl_addr * *addr) {
 	struct addrinfo* res = NULL;
 	struct addrinfo f;
 	memset(&f, 0, sizeof(f));
@@ -578,8 +531,7 @@ int kfiber_net_getaddr(const char* hostname, kgl_addr** addr)
 	return fiber->retval;
 }
 
-int kfiber_net_connect(kconnection* c, sockaddr_i* bind_addr, int tproxy_mask)
-{
+int kfiber_net_connect(kconnection * c, sockaddr_i * bind_addr, int tproxy_mask) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	if (!kconnection_half_connect(c, bind_addr, tproxy_mask)) {
@@ -591,16 +543,14 @@ int kfiber_net_connect(kconnection* c, sockaddr_i* bind_addr, int tproxy_mask)
 	}
 	return fiber->retval;
 }
-int kfiber_net_write(kconnection* cn, const char* buf, int len)
-{
+int kfiber_net_write(kconnection * cn, const char* buf, int len) {
 	WSABUF v;
 	v.iov_base = (char*)buf;
 	v.iov_len = len;
 	return kfiber_net_writev(cn, &v, 1);
 }
 
-int kfiber_net_writev(kconnection* cn, WSABUF* buf, int vc)
-{
+int kfiber_net_writev(kconnection * cn, WSABUF * buf, int vc) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	fiber->retval = vc;
@@ -610,8 +560,7 @@ int kfiber_net_writev(kconnection* cn, WSABUF* buf, int vc)
 	}
 	return fiber->retval;
 }
-int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc)
-{
+int kfiber_udp_readv(kconnection * cn, WSABUF * buf, int vc) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	fiber->retval = vc;
@@ -621,15 +570,13 @@ int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc)
 	}
 	return fiber->retval;
 }
-int kfiber_udp_read(kconnection* cn, char* buf, int len)
-{
+int kfiber_udp_read(kconnection * cn, char* buf, int len) {
 	WSABUF v;
 	v.iov_base = buf;
 	v.iov_len = len;
 	return kfiber_udp_readv(cn, &v, 1);
 }
-int kfiber_net_readv(kconnection* cn, WSABUF* buf, int vc)
-{
+int kfiber_net_readv(kconnection * cn, WSABUF * buf, int vc) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	fiber->retval = vc;
@@ -639,34 +586,47 @@ int kfiber_net_readv(kconnection* cn, WSABUF* buf, int vc)
 	}
 	return fiber->retval;
 }
-int kfiber_net_read(kconnection* cn, char* buf, int len)
-{
+int kfiber_net_read(kconnection * cn, char* buf, int len) {
 	WSABUF v;
 	v.iov_base = buf;
 	v.iov_len = len;
 	return kfiber_net_readv(cn, &v, 1);
 }
-static kev_result kfiber_sendfile_callback(KOPAQUE data, void* arg, int got) {
-	kfiber_wakeup((kfiber*)arg, arg, got);
+struct kfiber_sendfile_op
+{
+	kfiber_file* fp;
+	int length;
+};
+static int kfiber_buffer_sendfile(KOPAQUE data, void* arg, WSABUF * buf, int bc) {
+	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
+	assert(bc == 1);
+	buf[0].iov_base = (char*)op->fp;
+	buf[0].iov_len = op->length;
+	return 1;
+}
+static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {
+	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
+	if (got > 0) {
+		op->fp->offset += got;
+	}
+	kfiber_wakeup((kfiber*)kasync_file_get_opaque(op->fp), arg, got);
 	return kev_fiber_ok;
 }
-int kfiber_sendfile(kconnection* cn, kfiber_file* file, int length) {
+int kfiber_sendfile(kconnection * cn, kfiber_file * file, int length) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
-	kselector* selector = cn->st.selector;
-	if (!kgl_selector_module.sendfile(selector,&cn->st, &file->fp, file->offset, length, kfiber_sendfile_callback, fiber)) {
+	kasync_file_bind_opaque(file, fiber);
+	kfiber_sendfile_op op;
+	op.fp = file;
+	op.length = length;
+	if (!kgl_selector_module.sendfile(&cn->st, kfiber_result_sendfile, kfiber_buffer_sendfile, &op)) {
 		return -1;
 	}
-	__kfiber_wait(fiber, fiber);
-	int got = fiber->retval;
-	if (got > 0) {
-		file->offset += got;
-	}
+	__kfiber_wait(fiber, &op);
 	return fiber->retval;
 }
 #ifdef KSOCKET_SSL
-kev_result result_fiber_ssl_shutdown(KOPAQUE data, void* arg, int got)
-{
+kev_result result_fiber_ssl_shutdown(KOPAQUE data, void* arg, int got) {
 	kfiber* fiber = (kfiber*)arg;
 	switch (got) {
 	case -1:
@@ -679,8 +639,7 @@ kev_result result_fiber_ssl_shutdown(KOPAQUE data, void* arg, int got)
 		return kselectable_ssl_shutdown((kselectable*)fiber->arg, result_fiber_ssl_shutdown, fiber);
 	}
 }
-kev_result result_fiber_ssl_handshake(KOPAQUE data, void* arg, int got)
-{
+kev_result result_fiber_ssl_handshake(KOPAQUE data, void* arg, int got) {
 	//printf("result_fiber_ssl_handshake=[%d]\n", got);
 	kfiber* fiber = (kfiber*)arg;
 	switch (got) {
@@ -694,8 +653,7 @@ kev_result result_fiber_ssl_handshake(KOPAQUE data, void* arg, int got)
 		return kselectable_ssl_handshake((kselectable*)fiber->arg, result_fiber_ssl_handshake, fiber);
 	}
 }
-int kfiber_ssl_handshake(kconnection* cn)
-{
+int kfiber_ssl_handshake(kconnection * cn) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	cn->st.ssl->handshake = 1;
@@ -706,8 +664,7 @@ int kfiber_ssl_handshake(kconnection* cn)
 	}
 	return fiber->retval;
 }
-int kfiber_ssl_shutdown(kconnection *c)
-{
+int kfiber_ssl_shutdown(kconnection * c) {
 	if (kconnection_is_ssl_handshake(c) && !c->st.ssl->shutdown) {
 		kfiber* fiber = kfiber_self();
 		CHECK_FIBER(fiber);
@@ -723,42 +680,37 @@ int kfiber_ssl_shutdown(kconnection *c)
 	return 0;
 }
 #endif
-int kfiber_net_shutdown(kconnection *c)
-{
+int kfiber_net_shutdown(kconnection * c) {
 #ifdef KSOCKET_SSL
 	kfiber_ssl_shutdown(c);
 #endif
 	return ksocket_shutdown(c->st.fd, SHUT_RDWR);
 }
-int kfiber_net_close(kconnection* c)
-{
+int kfiber_net_close(kconnection * c) {
 #ifdef KSOCKET_SSL
 	kfiber_ssl_shutdown(c);
 #endif
 	kconnection_real_destroy(c);
 	return 0;
 }
-kfiber_file* kfiber_file_bind(FILE_HANDLE fp,int kf_flags)
-{
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp, int kf_flags) {
 	kselector* selector = kgl_get_tls_selector();
 	if (selector == NULL) {
 		return NULL;
 	}
 	kfiber_file* af = (kfiber_file*)xmemory_newz(sizeof(kfiber_file));
-	kgl_selector_module.aio_open(selector, &af->fp, fp);
+	kgl_selector_module.aio_open(selector, af, fp);
 #ifdef KF_ASYNC_WORKER
 	if (!KBIT_TEST(kf_flags, KFILE_ASYNC)) {
-		KBIT_SET(af->fp.flags, KF_ASYNC_WORKER);
+		KBIT_SET(af->flags, KF_ASYNC_WORKER);
 	}
 #endif
 	return af;
 }
-kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags)
-{
+kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags) {
 #ifndef KF_ASYNC_WORKER
 	kf_flags |= KFILE_ASYNC;
-#endif
-#ifdef DARWIN
+#else
 	kf_flags &= ~KFILE_ASYNC;
 #endif
 	FILE_HANDLE fp = kfopen(filename, model, kf_flags);
@@ -773,17 +725,36 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 	return af;
 }
 #ifdef KF_ASYNC_WORKER
-static kev_result kfiber_aio_callback(void* data, int msec)
-{
+static kev_result kfiber_aio_callback(void* data, int msec) {
 	kfiber* fiber = (kfiber*)data;
 	kfiber_file* file = (kfiber_file*)fiber->arg;
+#ifdef _WIN32
+	OVERLAPPED lp;
+	memset(&lp, 0, sizeof(lp));
+	LARGE_INTEGER* li = (LARGE_INTEGER*)&lp.Pointer;
+	li->QuadPart = file->offset;
+	DWORD ret;
+#else
 	int ret;
-	switch (file->fp.kiocb.cmd) {
+#endif
+	switch (file->kiocb.cmd) {
 	case kf_aio_read:
-		ret = (int)pread(file->fp.fd, file->fp.buf, (size_t)file->fp.length, file->offset);
+#ifdef _WIN32
+		if (!ReadFile(kasync_file_get_handle(file), file->buf, file->length, &ret, &lp)) {
+			ret = -1;
+		}
+#else
+		ret = (int)pread(kasync_file_get_handle(file), file->buf, (size_t)file->length, file->offset);
+#endif
 		break;
 	case kf_aio_write:
-		ret = (int)pwrite(file->fp.fd, file->fp.buf, (size_t)file->fp.length, file->offset);
+#ifdef _WIN32
+		if (!WriteFile(kasync_file_get_handle(file), file->buf, file->length, &ret, &lp)) {
+			ret = -1;
+		}
+#else
+		ret = (int)pwrite(kasync_file_get_handle(file), file->buf, (size_t)file->length, file->offset);
+#endif
 		break;
 	default:
 		ret = -1;
@@ -792,79 +763,63 @@ static kev_result kfiber_aio_callback(void* data, int msec)
 	if (ret > 0) {
 		file->offset += ret;
 	}
-	kgl_selector_module.next(fiber->selector, kasync_file_get_opaque(&file->fp), result_switch_fiber, fiber, ret);
+	kgl_selector_module.next(fiber->selector, kasync_file_get_opaque(file), result_switch_fiber, fiber, (int)ret);
 	return kev_fiber_ok;
 }
 #endif
-static kev_result kfiber_file_callback(kasync_file* fp, void* arg, char* buf, int length)
-{
-	kfiber_file* file = (kfiber_file*)fp;
-	//printf("kfiber_file_callback fiber=[%p] offset=[%d],got=[%d]\n", arg, (int)file->offset,length);
+static kev_result kfiber_file_callback(KOPAQUE data, void* arg, int length) {
+	kfiber_file* file = (kfiber_file*)arg;
 	if (length > 0) {
 		file->offset += length;
 	}
-	kfiber_wakeup((kfiber*)arg, kasync_file_get_opaque(fp), length);
+	kfiber* fiber = (kfiber*)data;
+	kfiber_wakeup(fiber, fiber, length);
 	return kev_fiber_ok;
 }
-int64_t kfiber_file_size(kfiber_file* fp)
-{
-	return kfsize(kasync_file_get_handle(&fp->fp));
+int64_t kfiber_file_size(kfiber_file * fp) {
+	return kfsize(kasync_file_get_handle(fp));
 }
-int kfiber_file_read(kfiber_file* file, char* buf, int length)
-{
+int kfiber_file_read(kfiber_file * file, char* buf, int length) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
-	kasync_file_bind_opaque(&file->fp, &fiber);
+	kasync_file_bind_opaque(file, fiber);
 #ifdef KF_ASYNC_WORKER
-	if (KBIT_TEST(file->fp.flags, KF_ASYNC_WORKER)) {
-		file->fp.length = length;
-		file->fp.buf = buf;
-		file->fp.kiocb.cmd = kf_aio_read;
-		fiber->arg = file;
-		assert(kfiber_aio_worker);
-		kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
-		__kfiber_wait(fiber, &fiber);
-		return fiber->retval;
-	}
-#endif
+	file->length = length;
+	file->buf = buf;
+	file->kiocb.cmd = kf_aio_read;
+	fiber->arg = file;
+	assert(kfiber_aio_worker);
+	kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
+#else
 	//printf("kfiber=[%p] read offset=[%d]\n", fiber, (int)file->offset);
-
-	kselector* selector = kasync_file_get_selector(&file->fp);
-	if (!kgl_selector_module.aio_read(selector, &file->fp, buf, file->offset, length, kfiber_file_callback, fiber)) {
+	if (!kgl_selector_module.aio_read(file, kfiber_file_callback, buf, length, file)) {
 		return -1;
-	}
-	__kfiber_wait(fiber, &fiber);
-	return fiber->retval;
-}
-int kfiber_file_write(kfiber_file* file, const char* buf, int length)
-{
-	kfiber* fiber = kfiber_self();
-	kasync_file_bind_opaque(&file->fp, &fiber);
-	CHECK_FIBER(fiber);
-#ifdef KF_ASYNC_WORKER
-	if (KBIT_TEST(file->fp.flags, KF_ASYNC_WORKER)) {
-		file->fp.length = length;
-		file->fp.buf = (char*)buf;
-		file->fp.kiocb.cmd = kf_aio_write;
-		fiber->arg = file;
-		assert(kfiber_aio_worker);
-		kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
-		__kfiber_wait(fiber, &fiber);
-		return fiber->retval;
 	}
 #endif
-	//printf("kfiber=[%p] write offset=[%d]\n", fiber, (int)file->offset);
-	kselector* selector = kasync_file_get_selector(&file->fp);
-	if (!kgl_selector_module.aio_write(selector, &file->fp, (char*)buf, file->offset, length, kfiber_file_callback, fiber)) {
-		return -1;
-	}
-	__kfiber_wait(fiber, &fiber);
-	//printf("kfiber=[%p] write wakeup retval=[%d]\n", kfiber_self(), fiber->retval);
-	//print_stack_trace(fiber->sp);
+	__kfiber_wait(fiber, fiber);
 	return fiber->retval;
 }
-int kfiber_file_seek(kfiber_file* file, seekPosion pos, int64_t offset)
-{
+int kfiber_file_write(kfiber_file * file, const char* buf, int length) {
+	kfiber* fiber = kfiber_self();
+	kasync_file_bind_opaque(file, fiber);
+	CHECK_FIBER(fiber);
+#ifdef KF_ASYNC_WORKER
+	file->length = length;
+	file->buf = (char*)buf;
+	file->kiocb.cmd = kf_aio_write;
+	fiber->arg = file;
+	assert(kfiber_aio_worker);
+	kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
+#else
+	//printf("kfiber=[%p] write offset=[%d]\n", fiber, (int)file->offset);
+	if (!kgl_selector_module.aio_write(file, kfiber_file_callback, buf, length, file)) {
+		return -1;
+	}
+#endif
+	__kfiber_wait(fiber, fiber);
+	return fiber->retval;
+}
+int kfiber_file_seek(kfiber_file * file, seekPosion pos, int64_t offset) {
 	switch (pos) {
 	case seekBegin:
 		file->offset = offset;
@@ -876,18 +831,15 @@ int kfiber_file_seek(kfiber_file* file, seekPosion pos, int64_t offset)
 		return -1;
 	}
 }
-int64_t kfiber_file_tell(kfiber_file* file)
-{
+int64_t kfiber_file_tell(kfiber_file * file) {
 	return file->offset;
 }
-void kfiber_file_close(kfiber_file* file)
-{
-	kasync_file_close(&file->fp);
+void kfiber_file_close(kfiber_file * file) {
+	kasync_file_close(file);
 	xfree(file);
 }
 
-bool kfiber_check_result_callback(result_callback cb)
-{
+bool kfiber_check_result_callback(result_callback cb) {
 	if (kfiber_self() == kfiber_main()) {
 		return true;
 	}
@@ -904,8 +856,7 @@ bool kfiber_check_result_callback(result_callback cb)
 #endif
 	return false;
 }
-bool kfiber_check_file_callback(aio_callback cb)
-{
+bool kfiber_check_file_callback(result_callback cb) {
 	if (kfiber_self() == kfiber_main()) {
 		return true;
 	}
@@ -914,8 +865,7 @@ bool kfiber_check_file_callback(aio_callback cb)
 	}
 	return false;
 }
-bool kfiber_check_addr_callback(kgl_addr_call_back cb)
-{
+bool kfiber_check_addr_callback(kgl_addr_call_back cb) {
 	if (kfiber_self() == kfiber_main()) {
 		return true;
 	}
@@ -925,15 +875,13 @@ bool kfiber_check_addr_callback(kgl_addr_call_back cb)
 	return false;
 }
 //chan
-kfiber_chan* kfiber_chan_create(int buf_size)
-{
+kfiber_chan* kfiber_chan_create(int buf_size) {
 	assert(buf_size >= 0);
 	kfiber_chan* ch = (kfiber_chan*)xmemory_newz(sizeof(kfiber_chan));
 	ch->buf_limit = buf_size;
 	return ch;
 }
-int kfiber_chan_send(kfiber_chan* ch, void* data, int len)
-{
+int kfiber_chan_send(kfiber_chan * ch, void* data, int len) {
 	kfiber* fiber = kfiber_self();
 	assert(fiber);
 	CHECK_FIBER(fiber);
@@ -947,8 +895,7 @@ int kfiber_chan_send(kfiber_chan* ch, void* data, int len)
 	ch->buf_size += len;
 	if (ch->last) {
 		ch->last->next = ch_data;
-	}
-	else {
+	} else {
 		ch->head = ch_data;
 	}
 	ch->last = ch_data;
@@ -969,8 +916,7 @@ int kfiber_chan_send(kfiber_chan* ch, void* data, int len)
 	}
 	return 0;
 }
-int kfiber_chan_recv(kfiber_chan* ch, void** data)
-{
+int kfiber_chan_recv(kfiber_chan * ch, void** data) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	for (;;) {
@@ -1002,28 +948,24 @@ int kfiber_chan_recv(kfiber_chan* ch, void** data)
 		__kfiber_wait(fiber, &fiber);
 	}
 }
-int kfiber_chan_shutdown(kfiber_chan* ch)
-{
+int kfiber_chan_shutdown(kfiber_chan * ch) {
 	ch->closed = 1;
 	return 0;
 }
-int kfiber_chan_close(kfiber_chan* ch)
-{
+int kfiber_chan_close(kfiber_chan * ch) {
 	assert(ch->reciver == NULL && ch->sender == NULL);
 	assert(ch->head == NULL && ch->last == NULL);
 	assert(ch->buf_size == 0);
 	xfree(ch);
 	return 0;
 }
-KTHREAD_FUNCTION _kfiber_worker_thread(void* arg)
-{
+KTHREAD_FUNCTION _kfiber_worker_thread(void* arg) {
 	kfiber* fiber = (kfiber*)arg;
 	int result = fiber->start(fiber->arg, fiber->retval);
 	kfiber_wakeup2(fiber->selector, fiber, fiber->arg, result);
 	KTHREAD_RETURN;
 }
-int kfiber_thread_call(kfiber_start_func start, void* arg, int argc, int* ret)
-{
+int kfiber_thread_call(kfiber_start_func start, void* arg, int argc, int* ret) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	fiber->start = start;

@@ -13,9 +13,11 @@ FILE_HANDLE kfopen_w(const wchar_t* path, fileModel model, int flag) {
 		share_flag = 0;
 		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
 	}
+#ifndef KF_ASYNC_WORKER
 	if (KBIT_TEST(flag, KFILE_ASYNC)) {
 		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
 	}
+#endif
 	if (KBIT_TEST(flag, KFILE_DSYNC)) {
 		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
 	}
@@ -69,9 +71,11 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 		share_flag = 0;
 		other_flag = (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE);
 	}
+#ifndef KF_ASYNC_WORKER
 	if (KBIT_TEST(flag, KFILE_ASYNC)) {
 		KBIT_SET(other_flag, FILE_FLAG_OVERLAPPED);
 	}
+#endif
 	if (KBIT_TEST(flag, KFILE_DSYNC)) {
 		KBIT_SET(other_flag, FILE_FLAG_WRITE_THROUGH);
 	}

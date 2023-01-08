@@ -5,6 +5,14 @@
 #include "kfeature.h"
 #include "kforwin32.h"
 KBEGIN_DECLS
+#ifdef DARWIN
+#define KF_ASYNC_WORKER 1
+#endif
+#ifdef LINUX_EPOLL
+//#define KF_ASYNC_WORKER 1
+#endif
+//#define KF_ASYNC_WORKER 1
+
 INLINE bool kfile_close_on_exec(FILE_HANDLE fd, bool close_on_exec)
 {
 #ifndef _WIN32
@@ -17,17 +25,17 @@ INLINE bool kfile_close_on_exec(FILE_HANDLE fd, bool close_on_exec)
 #ifdef _WIN32
 INLINE int kfwrite(FILE_HANDLE h, const char *buf, int len)
 {
-	int ret = 0;
+	DWORD ret = 0;
 	if (WriteFile(h, (void *)buf, len, (LPDWORD)&ret, NULL)) {
-		return ret;
+		return (int)ret;
 	}
 	return -1;
 }
 INLINE int kfread(FILE_HANDLE h, char *buf, int len)
 {
-	int ret = 0;
+	DWORD ret = 0;
 	if (ReadFile(h, (void *)buf, len, (LPDWORD)&ret, NULL)) {
-		return ret;
+		return (int)ret;
 	}
 	return -1;
 }

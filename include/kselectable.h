@@ -45,41 +45,51 @@
 KBEGIN_DECLS
 
 typedef void(*kgl_void_f)();
-typedef struct {
-	void *arg;
-	union {
+typedef struct
+{
+	void* arg;
+	union
+	{
 		result_callback result;
 		kgl_void_f void_result;
 	};
-	union {
+	union
+	{
 		buffer_callback buffer;
 		kgl_void_f void_buffer;
 	};
 } kgl_app_event;
 
-typedef struct {
+typedef struct
+{
 	kgl_app_event ev;
-	void *arg;
+	void* arg;
 } kgl_stack_context;
 
 typedef struct
 {
-	void *arg;
-	result_callback result;
-	union
+
+	struct
 	{
-		buffer_callback buffer;
-		void* buffer_ctx;
+		void* arg;
+		result_callback result;
+		union
+		{
+			buffer_callback buffer;
+			void* buffer_ctx;
+		};
 	};
+
 #ifdef _WIN32
 	WSAOVERLAPPED lp;
 #endif
 #ifdef LINUX_IOURING
-	kselectable *st;
+	kselectable* st;
 #endif
 } kgl_event;
 
-struct kselectable_s {
+struct kselectable_s
+{
 	kgl_list queue;
 	kselector* selector;
 	uint16_t st_flags;
@@ -91,10 +101,10 @@ struct kselectable_s {
 	kgl_list queue_edge;
 #endif
 #ifdef KSOCKET_SSL
-	kssl_session *ssl;
+	kssl_session* ssl;
 #endif
 	int64_t active_msec;
-	KOPAQUE data;	
+	KOPAQUE data;
 	kgl_event e[2];
 };
 inline KOPAQUE selectable_get_opaque(kselectable* st) {
@@ -103,71 +113,64 @@ inline KOPAQUE selectable_get_opaque(kselectable* st) {
 inline void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
 	st->data = data;
 }
-void selectable_clean(kselectable *st);
-bool selectable_remove(kselectable *st);
-INLINE void selectable_next(kselectable *st, result_callback result, void *arg,int got)
-{
+void selectable_clean(kselectable* st);
+bool selectable_remove(kselectable* st);
+INLINE void selectable_next(kselectable* st, result_callback result, void* arg, int got) {
 	kgl_selector_module.next(st->selector, st->data, result, arg, got);
 }
 INLINE bool selectable_support_sendfile(kselectable* st) {
-	return kgl_selector_module.support_sendfile(st->selector, st);
+	return kgl_selector_module.support_sendfile(st);
 }
-void selectable_next_read(kselectable *st, result_callback result, void *arg);
-void selectable_next_write(kselectable *st, result_callback result, void *arg);
+void selectable_next_read(kselectable* st, result_callback result, void* arg);
+void selectable_next_write(kselectable* st, result_callback result, void* arg);
 
-kev_result selectable_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
-kev_result selectable_write(kselectable *st, result_callback result, buffer_callback buffer,void *arg);
-bool selectable_try_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
-bool selectable_try_write(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
-bool selectable_readhup(kselectable *st, result_callback result, void *arg);
-void selectable_remove_readhup(kselectable *st);
+kev_result selectable_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+kev_result selectable_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+bool selectable_readhup(kselectable* st, result_callback result, void* arg);
+void selectable_remove_readhup(kselectable* st);
 
 
-void selectable_shutdown(kselectable *st);
-INLINE void selectable_clear_flags(kselectable *st, uint16_t flags)
-{
+void selectable_shutdown(kselectable* st);
+INLINE void selectable_clear_flags(kselectable* st, uint16_t flags) {
 	KBIT_CLR(st->st_flags, flags);
 }
-INLINE void selectable_bind(kselectable *st, kselector *selector)
-{
+INLINE void selectable_bind(kselectable* st, kselector* selector) {
 	kgl_selector_module.bind(selector, st);
 }
-INLINE bool is_selectable(kselectable *st, uint16_t flags)
-{
+INLINE bool is_selectable(kselectable* st, uint16_t flags) {
 	return KBIT_TEST(st->st_flags, flags) > 0;
 }
-INLINE bool selectable_is_locked(kselectable *st)
-{
+INLINE bool selectable_is_locked(kselectable* st) {
 	return is_selectable(st, STF_LOCK);
 }
-INLINE kssl_session* selectable_get_ssl(kselectable* st)
-{
+INLINE kssl_session* selectable_get_ssl(kselectable* st) {
 #ifdef KSOCKET_SSL
 	return st->ssl;
 #else
 	return NULL;
 #endif
 }
-INLINE bool selectable_is_ssl_handshake(kselectable *st)
-{
+INLINE bool selectable_is_ssl_handshake(kselectable* st) {
 #ifdef KSOCKET_SSL
 	return st->ssl && st->ssl->handshake;
 #else
 	return false;
 #endif
 }
-void selectable_udp_read_event(kselectable *st);
-void selectable_read_event(kselectable *st);
-void selectable_write_event(kselectable *st);
-kev_result selectable_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
-kev_result selectable_event_write(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
+void selectable_udp_read_event(kselectable* st);
+void selectable_read_event(kselectable* st);
+void selectable_write_event(kselectable* st);
+kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 
 #ifdef ENABLE_KSSL_BIO
-void selectable_low_event_read(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
-void selectable_low_event_write(kselectable *st, result_callback result, buffer_callback buffer, void *arg);
+void selectable_low_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+void selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 #endif
 #ifndef _WIN32
-int selectable_recvmsg(kselectable *st);
+int selectable_recvmsg(kselectable* st);
 #endif
 KEND_DECLS
 #endif

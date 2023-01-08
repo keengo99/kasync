@@ -16,7 +16,6 @@ pthread_key_t kgl_selector_key;
 kselector_module kgl_selector_module = { NULL };
 volatile int64_t kgl_current_msec = 0;
 volatile time_t kgl_current_sec = 0;
-volatile uint32_t kgl_aio_count = 0;
 time_t kgl_program_start_sec = 0;
 void (*kgl_second_change_hook)() = NULL;
 KTHREAD_FUNCTION kselector_thread(void *param);
