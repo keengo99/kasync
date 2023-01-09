@@ -377,7 +377,7 @@ bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf
 bool iocp_selector_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
-		return false;
+		return kgl_ssl_support_sendfile(st->ssl);
 	}
 #endif
 	assert(lpfnTransmitFile);

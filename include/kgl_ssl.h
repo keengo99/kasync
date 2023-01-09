@@ -50,7 +50,7 @@ typedef struct
 	uint16_t alt_svc_sent : 1;
 } kssl_session;
 
-
+bool kgl_ssl_support_sendfile(kssl_session *ssl);
 void kgl_ssl_ctx_set_early_data(SSL_CTX* ssl_ctx, bool early_data);
 bool kgl_ssl_ctx_load_cert_key(SSL_CTX* ssl_ctx, const char* cert_file, const char* key_file);
 SSL_CTX* kgl_ssl_ctx_new_server_from_memory(const char* cert, const char* key, const char* ca_path, const char* ca_file, void* ssl_ctx_data);

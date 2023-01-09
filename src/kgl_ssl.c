@@ -150,6 +150,16 @@ void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_
 	kssl_set_npn_callback(npn);
 	kssl_init2();
 }
+bool kgl_ssl_support_sendfile(kssl_session *ssl)
+{
+#ifdef ENABLE_KSSL_BIO
+	return false;
+#endif
+#if defined(BIO_get_ktls_send) && !defined(_WIN32)
+	return BIO_get_ktls_send(SSL_get_wbio(ssl->ssl))==1;
+#endif
+	return false;
+}
 static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_length)
 {
 	static RSA  *key;

@@ -438,9 +438,39 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	kasync_file *file = (kasync_file *)bufs.iov_base;
 	off_t offset = file->st.offset;
 	assert(sizeof(off_t)==sizeof(int64_t));
-	int got;
+	int got = -1;
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		assert(kgl_ssl_support_sendfile(st->ssl));
+#if defined(BIO_get_ktls_send)
+		got = SSL_sendfile(st->ssl->ssl,file->st.fd,offset,bufs.iov_len,0);
+		if (got>=0) {
+			return result(st->data, arg, got);
+		}
+		int err = SSL_get_error(st->ssl->ssl, got);
+		if (err==SSL_ERROR_WANT_WRITE) {	
+			KBIT_CLR(st->st_flags, STF_WREADY);
+			if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
+				return kev_ok;
+			}
+		}
+#endif
+		return result(st->data, arg, got);
+	}
+#endif
+
 #ifdef LINUX
 	got = sendfile(st->fd,file->st.fd, &offset, bufs.iov_len);
+	if (got >= 0) {
+		return result(st->data, arg, got);
+	}
+	if (errno == EAGAIN) {
+		KBIT_CLR(st->st_flags, STF_WREADY);
+		if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
+			return kev_ok;
+		}
+	}
+	return result(st->data, arg, got);
 #elif BSD_OS
 	off_t send_bytes = 0;
 	got = sendfile(file->st.fd, st->fd, offset, bufs.iov_len, NULL, &send_bytes,0);
@@ -460,17 +490,7 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 #else
 #error "no system provide sendfile" 
 #endif
-	//printf("sendfile got=[%d] file->offset=[%lld] offset=[%lld] length=[%d]\n",got,file->offset,offset,bufs.iov_len);
-	if (got >= 0) {
-		return result(st->data, arg, got);
-	}
-	if (errno == EAGAIN) {
-		KBIT_CLR(st->st_flags, STF_WREADY);
-		if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
-			return kev_ok;
-		}
-	}
-	return result(st->data, arg, got);
+	//printf("sendfile got=[%d] file->offset=[%lld] offset=[%lld] length=[%d]\n",got,file->offset,offset,bufs.iov_len);	
 }
 #endif
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)

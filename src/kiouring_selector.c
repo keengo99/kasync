@@ -468,7 +468,7 @@ static int iouring_selector_select(kselector *selector, int tmo)
 static bool iouring_selector_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
-		return false;
+		return kgl_ssl_support_sendfile(st->ssl);
 	}
 #endif	
 	return true;

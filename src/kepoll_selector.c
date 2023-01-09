@@ -498,7 +498,7 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 static bool epoll_selector_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
-		return false;
+		return kgl_ssl_support_sendfile(st->ssl);
 	}
 #endif	
 	return true;

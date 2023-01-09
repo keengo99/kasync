@@ -415,7 +415,7 @@ static void kqueue_selector_remove(kselector *selector, kselectable *st)
 static bool kqueue_selector_support_sendfile(kselectable *st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
-		return false;
+		return kgl_ssl_support_sendfile(st->ssl);
 	}
 #endif
 	return true;
