@@ -460,8 +460,6 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 {
 	kassert(kfiber_check_file_callback(result));
 	kepoll_selector *es = (kepoll_selector *)file->st.selector->ctx;
-	file->st.e[OP_READ].arg = arg;
-	file->st.e[OP_READ].result = result;
 	file->st.direct_io_offset = 0;
 	if (file->st.direct_io) {
 		file->st.direct_io_orig_length = length;
@@ -469,11 +467,16 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 		assert(file->st.offset == kgl_align(file->st.offset, kgl_aio_align_size));
 	}
 #ifdef KF_ASYNC_WORKER
+	file->st.e[OP_WRITE].arg = arg;
+	file->st.e[OP_WRITE].result = result;
 	file->kiocb.length = length;
 	file->kiocb.buf = (char*)buf;
 	file->kiocb.cmd = kf_aio_write;
 	return kasync_file_worker_start(file);
 #else
+	//io_submit always use OP_READ for aio_read/aio_write.
+	file->st.e[OP_READ].arg = arg;
+	file->st.e[OP_READ].result = result;
 	struct iocb *iocb = &file->iocb;
 	memset(iocb, 0, sizeof(*iocb));
 	iocb->aio_fildes = file->st.fd;
