@@ -5,6 +5,11 @@
 #ifdef LINUX
 #include <sys/sendfile.h>
 #endif
+#ifdef BSD_OS
+//#include <sys/types.h>
+//#include <sys/socket.h>
+//#include <sys/uio.h>
+#endif
 #include "kselectable.h"
 #include "ksocket.h"
 #include "kmalloc.h"
@@ -433,7 +438,28 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	kasync_file *file = (kasync_file *)bufs.iov_base;
 	off_t offset = file->st.offset;
 	assert(sizeof(off_t)==sizeof(int64_t));
-	int got = sendfile(st->fd,file->st.fd, &offset, bufs.iov_len);
+	int got;
+#ifdef LINUX
+	got = sendfile(st->fd,file->st.fd, &offset, bufs.iov_len);
+#elif BSD_OS
+	off_t send_bytes = 0;
+	got = sendfile(file->st.fd, st->fd, offset, bufs.iov_len, NULL, &send_bytes,0);
+	if (got<0) {
+		if (errno==EAGAIN) {
+			KBIT_CLR(st->st_flags, STF_WREADY);
+		}
+		if (send_bytes==0) {
+			if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
+				return kev_ok;
+			}
+		}
+		//int err = errno;
+		//printf("sendfile got=[%d] file->offset=[%lld] send_bytes=[%d] length=[%d] err=[%d %s]\n",got,file->st.offset,send_bytes,bufs.iov_len,err,strerror(err));
+	}
+	return result(st->data,arg,(int)send_bytes);
+#else
+#error "no system provide sendfile" 
+#endif
 	//printf("sendfile got=[%d] file->offset=[%lld] offset=[%lld] length=[%d]\n",got,file->offset,offset,bufs.iov_len);
 	if (got >= 0) {
 		return result(st->data, arg, got);

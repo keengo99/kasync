@@ -101,6 +101,7 @@ static void kqueue_selector_next(kselector *selector,KOPAQUE data, result_callba
 	notice->arg = arg;
 	notice->result = result;
 	notice->got = got;
+	assert(result);
 	kmutex_lock(&es->notice_st.lock);
 	notice->next = es->notice_st.head;
 	es->notice_st.head = notice;
@@ -216,6 +217,30 @@ static bool kqueue_selector_write(kselector *selector, kselectable *st, result_c
 	}
 	return true;
 }
+static bool kqueue_selector_sendfile(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+{
+	kqueue_selector *es = (kqueue_selector *)st->selector->ctx;
+	assert(KBIT_TEST(st->st_flags,STF_WRITE)==0);
+	st->e[OP_WRITE].arg = arg;
+	st->e[OP_WRITE].result = result;
+	st->e[OP_WRITE].buffer = buffer;
+	KBIT_SET(st->st_flags,STF_WRITE|STF_SENDFILE);
+	KBIT_CLR(st->st_flags,STF_RDHUP);
+	if (KBIT_TEST(st->st_flags,STF_WREADY)) {
+		kselector_add_list(st->selector,st,KGL_LIST_READY);
+		return true;
+	}
+	if (!KBIT_TEST(st->st_flags,STF_WEV)) {
+		if (!kqueue_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
+			KBIT_CLR(st->st_flags,STF_WRITE);
+			return false;
+		}
+	}
+	if (st->queue.next==NULL) {
+		kselector_add_list(st->selector,st,KGL_LIST_RW);
+	}
+	return true;
+}
 static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kqueue_selector* es = (kqueue_selector*)selector->ctx;
@@ -300,33 +325,22 @@ static int kqueue_selector_select(kselector *selector, int tmo)
 }
 void kqueue_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
-#ifdef KF_ASYNC_WORKER
-	aio_file->fd = fd;
-	aio_file->selector = selector;
-#else
 	aio_file->st.fd = fd;
 	aio_file->st.selector = selector;
-#endif
 }
-bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool kqueue_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-#ifndef DARWIN
-	katom_inc((void *)&kgl_aio_count);
-	kqueue_selector *es = (kqueue_selector *)selector->ctx;
-	file->st.e[OP_WRITE].result = result_async_file_event;
-	file->st.e[OP_WRITE].arg = file;
+	kassert(kfiber_check_file_callback(result));
+	kqueue_selector *es = (kqueue_selector *)file->st.selector->ctx;
+	file->st.e[OP_WRITE].result = result;
+	file->st.e[OP_WRITE].arg = arg;
 	file->st.e[OP_WRITE].buffer = NULL;
-
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-
+#ifndef KF_ASYNC_WORKER
  	KBIT_SET(file->st.st_flags, STF_WRITE|STF_ET);
 	memset(&file->iocb, 0,sizeof(struct aiocb));
 	file->iocb.aio_fildes = file->st.fd;
-	file->iocb.aio_offset = offset;
-	file->iocb.aio_buf = buf;
+	file->iocb.aio_offset = file->st.offset;
+	file->iocb.aio_buf = (char *)buf;
 	file->iocb.aio_nbytes = length;
 
 	file->iocb.aio_sigevent.sigev_notify_kqueue = es->kdpfd;
@@ -335,30 +349,28 @@ bool kqueue_selector_aio_write(kselector *selector, kasync_file *file, char *buf
 
 	int n = aio_write(&file->iocb);
 	if (n!=-1) {
-			return true;
+		return true;
 	}
-	katom_dec((void *)&kgl_aio_count);
-#endif
 	return false;
+#else
+	file->kiocb.length = length;
+	file->kiocb.buf = (char *)buf;
+	file->kiocb.cmd = kf_aio_write;
+	return kasync_file_worker_start(file);
+#endif
 }
-bool kqueue_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool kqueue_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-#ifndef DARWIN
-	katom_inc((void *)&kgl_aio_count);
-	kqueue_selector *es = (kqueue_selector *)selector->ctx;
-	file->st.e[OP_READ].result = result_async_file_event;
-	file->st.e[OP_READ].arg = file;
+	kassert(kfiber_check_file_callback(result));
+	kqueue_selector *es = (kqueue_selector *)file->st.selector->ctx;
+	file->st.e[OP_READ].result = result;
+	file->st.e[OP_READ].arg = arg;
 	file->st.e[OP_READ].buffer = NULL;
-
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-
+#ifndef KF_ASYNC_WORKER
 	KBIT_SET(file->st.st_flags, STF_READ|STF_ET);
 	memset(&file->iocb, 0,sizeof(struct aiocb));
 	file->iocb.aio_fildes = file->st.fd;
-	file->iocb.aio_offset = offset;
+	file->iocb.aio_offset = file->st.offset;
 	file->iocb.aio_buf = buf;
 	file->iocb.aio_nbytes = length;
 
@@ -370,9 +382,13 @@ bool kqueue_selector_aio_read(kselector *selector, kasync_file *file, char *buf,
 	if (n!=-1) {
 		return true;
 	}
-	katom_dec((void *)&kgl_aio_count);
-#endif
 	return false;
+#else
+	file->kiocb.length = length;
+	file->kiocb.buf = (char *)buf;
+	file->kiocb.cmd = kf_aio_read;
+	return kasync_file_worker_start(file);
+#endif
 }
 static void kqueue_selector_remove(kselector *selector, kselectable *st)
 {
@@ -395,6 +411,15 @@ static void kqueue_selector_remove(kselector *selector, kselectable *st)
 	kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL);
 	KBIT_CLR(st->st_flags,STF_REV|STF_WEV|STF_ET|STF_RREADY|STF_WREADY);
 }
+
+static bool kqueue_selector_support_sendfile(kselectable *st) {
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		return false;
+	}
+#endif
+	return true;
+}
 static kselector_module kqueue_selector_module = {
 	"kqueue",
 	kqueue_selector_init,
@@ -414,8 +439,8 @@ static kselector_module kqueue_selector_module = {
 	kqueue_selector_aio_open,
 	kqueue_selector_aio_write,
 	kqueue_selector_aio_read,
-	kselector_not_support_sendfile,
-	NULL
+	kqueue_selector_support_sendfile,
+	kqueue_selector_sendfile
 };
 void kkqueue_module_init()
 {

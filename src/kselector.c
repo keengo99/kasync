@@ -138,7 +138,9 @@ void kselector_add_list(kselector *selector, kselectable *st, int list)
 	kassert(kselector_is_same_thread(selector));
 	st->tmo_left = st->tmo;
 	kassert(st->selector == selector);
-	st->active_msec = kgl_current_msec;
+	if (list!=KGL_LIST_READY) { 
+		st->active_msec = kgl_current_msec;
+	}
 	kassert(list >= 0 && list < KGL_LIST_COUNT);
 	if (st->queue.next) {
 		klist_remove(&st->queue);

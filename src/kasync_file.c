@@ -17,6 +17,7 @@ static kasync_worker* kasync_file_aio_worker = NULL;
 
 kev_result kasync_file_worker_callback(void* data, int msec) {
 	kasync_file* file = (kasync_file*)data;
+	int op ;
 #ifdef _WIN32
 	OVERLAPPED lp;
 	memset(&lp, 0, sizeof(lp));
@@ -28,6 +29,7 @@ kev_result kasync_file_worker_callback(void* data, int msec) {
 #endif
 	switch (file->kiocb.cmd) {
 	case kf_aio_read:
+		op = OP_READ;
 #ifdef _WIN32
 		if (!ReadFile(kasync_file_get_handle(file), file->kiocb.buf, file->kiocb.length, &ret, &lp)) {
 			ret = -1;
@@ -37,6 +39,7 @@ kev_result kasync_file_worker_callback(void* data, int msec) {
 #endif
 		break;
 	case kf_aio_write:
+		op = OP_WRITE;
 #ifdef _WIN32
 		if (!WriteFile(kasync_file_get_handle(file), file->kiocb.buf, file->kiocb.length, &ret, &lp)) {
 			ret = -1;
@@ -47,9 +50,11 @@ kev_result kasync_file_worker_callback(void* data, int msec) {
 		break;
 	default:
 		ret = -1;
+		op = OP_READ;
+		assert(false);
 		break;
 	}
-	kgl_selector_module.next(file->st.selector, kasync_file_get_opaque(file), file->st.e[OP_READ].result, file->st.e[OP_READ].arg, kasync_file_adjust_result(file,(int)ret));
+	kgl_selector_module.next(file->st.selector, kasync_file_get_opaque(file), file->st.e[op].result, file->st.e[op].arg, kasync_file_adjust_result(file,(int)ret));
 	return kev_ok;
 }
 

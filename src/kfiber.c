@@ -710,6 +710,10 @@ kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flag
 }
 static kev_result kfiber_file_callback(KOPAQUE data, void* arg, int length) {
 	kfiber_file* file = (kfiber_file*)arg;
+#ifdef BSD_OS
+	length = aio_return(&file->iocb);
+	//int err = aio_error(&file->iocb);
+#endif
 	if (length > 0) {
 		file->st.offset += length;
 	}
