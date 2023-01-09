@@ -1,5 +1,4 @@
 #include "kasync_file.h"
-#include "kfile.h"
 #include "klog.h"
 #include "katom.h"
 #include "kmalloc.h"
@@ -7,8 +6,64 @@
 #include <mntent.h>
 #include <sys/ioctl.h>  
 #include <linux/fs.h> 
+#include <errno.h>
 #endif
 
+#ifdef KF_ASYNC_WORKER
+#include "kasync_worker.h"
+#define KFIBER_AIO_DEFAULT_WORKER 16
+static kgl_list kasync_worker_file_aio_list;
+static kasync_worker* kasync_file_aio_worker = NULL;
+
+kev_result kasync_file_worker_callback(void* data, int msec) {
+	kasync_file* file = (kasync_file*)data;
+#ifdef _WIN32
+	OVERLAPPED lp;
+	memset(&lp, 0, sizeof(lp));
+	LARGE_INTEGER* li = (LARGE_INTEGER*)&lp.Pointer;
+	li->QuadPart = _kasync_file_get_adjust_offset(file->offset);
+	DWORD ret;
+#else
+	int ret;
+#endif
+	switch (file->kiocb.cmd) {
+	case kf_aio_read:
+#ifdef _WIN32
+		if (!ReadFile(kasync_file_get_handle(file), file->kiocb.buf, file->kiocb.length, &ret, &lp)) {
+			ret = -1;
+		}
+#else
+		ret = (int)pread(kasync_file_get_handle(file), file->kiocb.buf, (size_t)file->kiocb.length, _kasync_file_get_adjust_offset(file));
+#endif
+		break;
+	case kf_aio_write:
+#ifdef _WIN32
+		if (!WriteFile(kasync_file_get_handle(file), file->kiocb.buf, file->kiocb.length, &ret, &lp)) {
+			ret = -1;
+		}
+#else
+		ret = (int)pwrite(kasync_file_get_handle(file), file->kiocb.buf, (size_t)file->kiocb.length, _kasync_file_get_adjust_offset(file));
+#endif
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+	kgl_selector_module.next(file->st.selector, kasync_file_get_opaque(file), file->st.e[OP_READ].result, file->st.e[OP_READ].arg, kasync_file_adjust_result(file,(int)ret));
+	return kev_ok;
+}
+
+bool kasync_file_worker_start(kasync_file *file)
+{
+	assert(kasync_file_aio_worker);
+	kasync_worker_start(kasync_file_aio_worker, file, kasync_file_worker_callback);
+	return true;
+}
+void kasync_file_worker_init() {
+	klist_init(&kasync_worker_file_aio_list);
+	kasync_file_aio_worker = kasync_worker_init(KFIBER_AIO_DEFAULT_WORKER, 0);
+}
+#endif
 void init_aio_align_size()
 {
 	kgl_aio_align_size = 512;
@@ -39,6 +94,9 @@ void init_aio_align_size()
 	endmntent(mntfile);
 #endif
 #endif
+#ifdef KF_ASYNC_WORKER
+	kasync_file_worker_init();
+#endif
 	klog(KLOG_ERR, "kgl_aio_align_size=[%d]\n", kgl_aio_align_size);
 }
 void *aio_alloc_buffer(size_t size)
@@ -58,3 +116,16 @@ void aio_free_buffer(void *buf)
 	kgl_align_free(buf);
 #endif
 }
+#if defined(O_DIRECT) && defined(LINUX_EPOLL)
+bool kasync_file_direct(kasync_file *fp, bool on_flag) {
+	int flags = fcntl(fp->st.fd, F_GETFL);
+    if (flags == -1) {
+        return false;
+	}
+	if (fcntl(fp->st.fd, F_SETFL, on_flag?flags | O_DIRECT:flags & ~O_DIRECT) == 0) {
+		fp->st.direct_io = on_flag;
+		return true;
+	}
+	return false;
+}
+#endif

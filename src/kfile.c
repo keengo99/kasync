@@ -129,13 +129,6 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 	if (KBIT_TEST(flag, KFILE_NOFOLLOW)) {
 		KBIT_SET(f, O_NOFOLLOW);
 	}
-#ifdef O_DIRECT
-#ifdef LINUX_EPOLL
-	if (KBIT_TEST(flag, KFILE_ASYNC)) {
-		KBIT_SET(f, O_DIRECT);
-	}
-#endif
-#endif
 	if (KBIT_TEST(flag, KFILE_DSYNC)) {
 #ifdef O_DSYNC
 		KBIT_SET(f, O_DSYNC);

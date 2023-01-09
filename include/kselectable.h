@@ -10,26 +10,26 @@
 #define STF_READ        1
 #define STF_WRITE       (1<<1)
 #define STF_RDHUP       (1<<2)
+#define STF_SENDFILE    (1<<3)
 
-
-#define STF_REV         (1<<3)
-#define STF_WEV         (1<<4)
+#define STF_REV         (1<<4)
+#define STF_WEV         (1<<5)
 #ifndef KGL_IOCP
-#define STF_ET          (1<<5)
+#define STF_ET          (1<<6)
 #endif
-#define STF_ERR         (1<<6)
+#define STF_ERR         (1<<7)
 
-#define STF_RREADY      (1<<7)
-#define STF_WREADY      (1<<8)
+#define STF_RREADY      (1<<8)
+#define STF_WREADY      (1<<9)
 
-#define STF_RREADY2     (1<<9)
-#define STF_WREADY2     (1<<10)
+#define STF_RREADY2     (1<<10)
+#define STF_WREADY2     (1<<11)
 
-#define STF_RTIME_OUT   (1<<11)
-#define STF_UDP         (1<<12)
+#define STF_RTIME_OUT   (1<<12)
+#define STF_UDP         (1<<13)
 
-#define STF_FIBER       (1<<13)
-#define STF_SENDFILE    (1<<14)
+#define STF_FIBER       (1<<14)
+#define STF_AIO_FILE    (1<<15)
 
 #define STF_REVENT      (STF_READ)
 #define STF_WEVENT      (STF_WRITE|STF_RDHUP)
@@ -100,12 +100,26 @@ struct kselectable_s
 #ifdef RQ_LEAK_DEBUG
 	kgl_list queue_edge;
 #endif
-#ifdef KSOCKET_SSL
-	kssl_session* ssl;
-#endif
-	int64_t active_msec;
 	KOPAQUE data;
 	kgl_event e[2];
+	union {
+		struct {
+			/* fd is socket. */
+			int64_t active_msec;	
+#ifdef KSOCKET_SSL
+			kssl_session* ssl;
+#endif		
+		};
+		struct {
+			/* fd is aio file. */
+			int64_t   offset;
+#if defined(O_DIRECT) && defined(LINUX_EPOLL)
+			int       direct_io_orig_length;
+			uint16_t  direct_io_offset;
+			uint16_t  direct_io:1;
+#endif
+		};
+	};
 };
 inline KOPAQUE selectable_get_opaque(kselectable* st) {
 	return st->data;
@@ -164,7 +178,7 @@ void selectable_read_event(kselectable* st);
 void selectable_write_event(kselectable* st);
 kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-
+kev_result selectable_event_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 #ifdef ENABLE_KSSL_BIO
 void selectable_low_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 void selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);

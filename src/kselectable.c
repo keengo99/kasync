@@ -2,13 +2,15 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#ifdef LINUX
+#include <sys/sendfile.h>
+#endif
 #include "kselectable.h"
 #include "ksocket.h"
 #include "kmalloc.h"
 #include "kfiber.h"
 #include "klist.h"
 #include "kudp.h"
-
 
 #ifdef KSOCKET_SSL
 static int kgl_ssl_writev(kssl_session* ssl, WSABUF* buffer, int bc)
@@ -147,7 +149,8 @@ static int kgl_readv(SOCKET s, WSABUF* buffer, int bc)
 }
 void selectable_clean(kselectable* st)
 {
-	kassert(KBIT_TEST(st->st_flags, STF_LOCK) == 0);
+	/* aio file type do not call selectable_clean */
+	kassert(KBIT_TEST(st->st_flags, STF_LOCK|STF_AIO_FILE) == 0);
 	kassert(st->queue.next == NULL);
 	kassert(st->queue.prev == NULL);
 	if (ksocket_opened(st->fd)) {
@@ -223,6 +226,11 @@ void selectable_read_event(kselectable* st)
 }
 void selectable_write_event(kselectable* st)
 {
+	if (KBIT_TEST(st->st_flags,STF_SENDFILE)) {
+		KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);
+		selectable_event_sendfile(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
+		return;
+	}
 	KBIT_CLR(st->st_flags, STF_WRITE | STF_RDHUP);
 	if (KBIT_TEST(st->st_flags, STF_ERR) > 0) {
 		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
@@ -416,7 +424,25 @@ bool selectable_try_read(kselectable* st, result_callback result, buffer_callbac
 #endif
 	return kgl_selector_module.read(st->selector, st, result, buffer, arg);
 }
-
+kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
+	WSABUF bufs;
+	buffer(st->data,arg,&bufs,1);
+	kasync_file *file = (kasync_file *)bufs.iov_base;
+	off_t offset = file->st.offset;
+	assert(sizeof(off_t)==sizeof(int64_t));
+	int got = sendfile(st->fd,file->st.fd, &offset, bufs.iov_len);
+	//printf("sendfile got=[%d] file->offset=[%lld] offset=[%lld] length=[%d]\n",got,file->offset,offset,bufs.iov_len);
+	if (got >= 0) {
+		return result(st->data, arg, got);
+	}
+	if (errno == EAGAIN) {
+		KBIT_CLR(st->st_flags, STF_WREADY);
+		if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
+			return kev_ok;
+		}
+	}
+	return result(st->data, arg, got);
+}
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
 {
 	WSABUF bufs[MAX_IOVECT_COUNT];
@@ -439,6 +465,7 @@ kev_result selectable_event_write(kselectable* st, result_callback result, buffe
 	int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
 	kassert(bufs[0].iov_len > 0);
 	int got;
+
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);

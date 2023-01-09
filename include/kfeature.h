@@ -147,6 +147,7 @@ typedef void(*kgl_cleanup_f) (void *data);
 #define KFILE_NOFOLLOW         4
 #define KFILE_DSYNC            8
 #define KFILE_SEQUENTIAL       16
+
 typedef enum _seekPosion
 {
 	seekBegin,

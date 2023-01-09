@@ -64,11 +64,7 @@ struct _kfiber_chan
 	int closed;
 };
 
-#ifdef KF_ASYNC_WORKER
-#define KFIBER_AIO_DEFAULT_WORKER 16
-static kgl_list kfiber_aio_list;
-static kasync_worker* kfiber_aio_worker = NULL;
-#endif
+
 
 static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
 	if (same_thread) {
@@ -242,10 +238,6 @@ kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
 void kfiber_init() {
 	pthread_key_create(&kgl_main_fiber_key, NULL);
 	pthread_key_create(&kgl_current_fiber_key, NULL);
-#ifdef KF_ASYNC_WORKER
-	klist_init(&kfiber_aio_list);
-	kfiber_aio_worker = kasync_worker_init(KFIBER_AIO_DEFAULT_WORKER, 0);
-#endif
 	selector_manager_thread_init(kfiber_thread_init, NULL);
 }
 static void kfiber_release(kfiber* fiber) {
@@ -592,22 +584,22 @@ int kfiber_net_read(kconnection * cn, char* buf, int len) {
 	v.iov_len = len;
 	return kfiber_net_readv(cn, &v, 1);
 }
-struct kfiber_sendfile_op
+typedef struct _kfiber_sendfile_op
 {
 	kfiber_file* fp;
 	int length;
-};
+} kfiber_sendfile_op;
 static int kfiber_buffer_sendfile(KOPAQUE data, void* arg, WSABUF * buf, int bc) {
 	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
-	assert(bc == 1);
+	assert(bc > 0);
 	buf[0].iov_base = (char*)op->fp;
 	buf[0].iov_len = op->length;
 	return 1;
 }
-static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {
+static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {	
 	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
 	if (got > 0) {
-		op->fp->offset += got;
+		op->fp->st.offset += got;
 	}
 	kfiber_wakeup((kfiber*)kasync_file_get_opaque(op->fp), arg, got);
 	return kev_fiber_ok;
@@ -693,84 +685,33 @@ int kfiber_net_close(kconnection * c) {
 	kconnection_real_destroy(c);
 	return 0;
 }
-kfiber_file* kfiber_file_bind(FILE_HANDLE fp, int kf_flags) {
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp) {
 	kselector* selector = kgl_get_tls_selector();
 	if (selector == NULL) {
 		return NULL;
 	}
-	kfiber_file* af = (kfiber_file*)xmemory_newz(sizeof(kfiber_file));
+	kfiber_file* af = (kfiber_file*)xmemory_newz(sizeof(kfiber_file));	
 	kgl_selector_module.aio_open(selector, af, fp);
-#ifdef KF_ASYNC_WORKER
-	if (!KBIT_TEST(kf_flags, KFILE_ASYNC)) {
-		KBIT_SET(af->flags, KF_ASYNC_WORKER);
-	}
-#endif
+	KBIT_SET(af->st.st_flags,STF_AIO_FILE);
 	return af;
 }
 kfiber_file* kfiber_file_open(const char* filename, fileModel model, int kf_flags) {
-#ifndef KF_ASYNC_WORKER
-	kf_flags |= KFILE_ASYNC;
-#else
-	kf_flags &= ~KFILE_ASYNC;
-#endif
+	KBIT_SET(kf_flags,KFILE_ASYNC);
 	FILE_HANDLE fp = kfopen(filename, model, kf_flags);
 	if (!kflike(fp)) {
 		return NULL;
 	}
-	kfiber_file* af = kfiber_file_bind(fp, kf_flags);
+	kfiber_file* af = kfiber_file_bind(fp);
 	if (af == NULL) {
 		kfclose(fp);
 		return NULL;
 	}
 	return af;
 }
-#ifdef KF_ASYNC_WORKER
-static kev_result kfiber_aio_callback(void* data, int msec) {
-	kfiber* fiber = (kfiber*)data;
-	kfiber_file* file = (kfiber_file*)fiber->arg;
-#ifdef _WIN32
-	OVERLAPPED lp;
-	memset(&lp, 0, sizeof(lp));
-	LARGE_INTEGER* li = (LARGE_INTEGER*)&lp.Pointer;
-	li->QuadPart = file->offset;
-	DWORD ret;
-#else
-	int ret;
-#endif
-	switch (file->kiocb.cmd) {
-	case kf_aio_read:
-#ifdef _WIN32
-		if (!ReadFile(kasync_file_get_handle(file), file->buf, file->length, &ret, &lp)) {
-			ret = -1;
-		}
-#else
-		ret = (int)pread(kasync_file_get_handle(file), file->buf, (size_t)file->length, file->offset);
-#endif
-		break;
-	case kf_aio_write:
-#ifdef _WIN32
-		if (!WriteFile(kasync_file_get_handle(file), file->buf, file->length, &ret, &lp)) {
-			ret = -1;
-		}
-#else
-		ret = (int)pwrite(kasync_file_get_handle(file), file->buf, (size_t)file->length, file->offset);
-#endif
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-	if (ret > 0) {
-		file->offset += ret;
-	}
-	kgl_selector_module.next(fiber->selector, kasync_file_get_opaque(file), result_switch_fiber, fiber, (int)ret);
-	return kev_fiber_ok;
-}
-#endif
 static kev_result kfiber_file_callback(KOPAQUE data, void* arg, int length) {
 	kfiber_file* file = (kfiber_file*)arg;
 	if (length > 0) {
-		file->offset += length;
+		file->st.offset += length;
 	}
 	kfiber* fiber = (kfiber*)data;
 	kfiber_wakeup(fiber, fiber, length);
@@ -783,19 +724,11 @@ int kfiber_file_read(kfiber_file * file, char* buf, int length) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	kasync_file_bind_opaque(file, fiber);
-#ifdef KF_ASYNC_WORKER
-	file->length = length;
-	file->buf = buf;
-	file->kiocb.cmd = kf_aio_read;
-	fiber->arg = file;
-	assert(kfiber_aio_worker);
-	kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
-#else
-	//printf("kfiber=[%p] read offset=[%d]\n", fiber, (int)file->offset);
+	assert(kasync_file_get_selector(file) == fiber->selector);
 	if (!kgl_selector_module.aio_read(file, kfiber_file_callback, buf, length, file)) {
+		assert(false);
 		return -1;
 	}
-#endif
 	__kfiber_wait(fiber, fiber);
 	return fiber->retval;
 }
@@ -803,36 +736,28 @@ int kfiber_file_write(kfiber_file * file, const char* buf, int length) {
 	kfiber* fiber = kfiber_self();
 	kasync_file_bind_opaque(file, fiber);
 	CHECK_FIBER(fiber);
-#ifdef KF_ASYNC_WORKER
-	file->length = length;
-	file->buf = (char*)buf;
-	file->kiocb.cmd = kf_aio_write;
-	fiber->arg = file;
-	assert(kfiber_aio_worker);
-	kasync_worker_start(kfiber_aio_worker, fiber, kfiber_aio_callback);
-#else
-	//printf("kfiber=[%p] write offset=[%d]\n", fiber, (int)file->offset);
+	assert(kasync_file_get_selector(file) == fiber->selector);
 	if (!kgl_selector_module.aio_write(file, kfiber_file_callback, buf, length, file)) {
+		assert(false);
 		return -1;
 	}
-#endif
 	__kfiber_wait(fiber, fiber);
 	return fiber->retval;
 }
 int kfiber_file_seek(kfiber_file * file, seekPosion pos, int64_t offset) {
 	switch (pos) {
 	case seekBegin:
-		file->offset = offset;
+		file->st.offset = offset;
 		return 0;
 	case seekCur:
-		file->offset += offset;
+		file->st.offset += offset;
 		return 0;
 	default:
 		return -1;
 	}
 }
 int64_t kfiber_file_tell(kfiber_file * file) {
-	return file->offset;
+	return file->st.offset;
 }
 void kfiber_file_close(kfiber_file * file) {
 	kasync_file_close(file);

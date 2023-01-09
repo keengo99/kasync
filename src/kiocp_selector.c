@@ -319,16 +319,17 @@ void iocp_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HAN
 }
 bool iocp_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void* arg)
 {
-#ifndef KF_ASYNC_WORKER
 	kassert(kfiber_check_file_callback(result));
-	assert(KBIT_TEST(file->st.st_flags, STF_WRITE|STF_READ)==0);
-	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_WRITE].lp.Pointer;
-	li->QuadPart = file->offset;
-	DWORD bytesWrite;
-	KBIT_SET(file->st.st_flags, STF_WRITE);
+	assert(KBIT_TEST(file->st.st_flags,STF_AIO_FILE));
+	assert(KBIT_TEST(file->st.st_flags, STF_WRITE|STF_READ)==0);	
 	file->st.e[OP_WRITE].result = result;
 	file->st.e[OP_WRITE].arg = arg;
 	file->st.e[OP_WRITE].buffer = NULL;
+#ifndef KF_ASYNC_WORKER
+	KBIT_SET(file->st.st_flags, STF_WRITE);
+	DWORD bytesWrite;
+	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_WRITE].lp.Pointer;
+	li->QuadPart = file->st.offset;
 	BOOL ret = WriteFile(kasync_file_get_handle(file), buf, length, &bytesWrite, &file->st.e[OP_WRITE].lp);
 	if (!ret) {
 		int err = WSAGetLastError();
@@ -339,21 +340,24 @@ bool iocp_selector_aio_write(kasync_file *file, result_callback result, const ch
 	}
 	return true;
 #else
-	return false;
+	file->kiocb.length = length;
+	file->kiocb.buf = (char*)buf;
+	file->kiocb.cmd = kf_aio_write;
+	return kasync_file_worker_start(file);
 #endif
 }
 bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-#ifndef KF_ASYNC_WORKER
 	kassert(kfiber_check_file_callback(result));
-	assert(KBIT_TEST(file->st.st_flags, STF_WRITE | STF_READ) == 0);
-	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_READ].lp.Pointer;
-	li->QuadPart = file->offset;
-	DWORD bytesRead;
-	KBIT_SET(file->st.st_flags, STF_READ);
+	assert(KBIT_TEST(file->st.st_flags, STF_WRITE | STF_READ) == 0);	
 	file->st.e[OP_READ].result = result;
 	file->st.e[OP_READ].arg = arg;
 	file->st.e[OP_READ].buffer = NULL;
+#ifndef KF_ASYNC_WORKER
+	KBIT_SET(file->st.st_flags, STF_READ);
+	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_READ].lp.Pointer;
+	li->QuadPart = file->st.offset;
+	DWORD bytesRead;
 	BOOL ret = ReadFile(kasync_file_get_handle(file), buf, length, &bytesRead, &file->st.e[OP_READ].lp);
 	if (!ret) {
 		int err = WSAGetLastError();
@@ -364,7 +368,10 @@ bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf
 	}
 	return true;
 #else
-	return false;
+	file->kiocb.length = length;
+	file->kiocb.buf = (char*)buf;
+	file->kiocb.cmd = kf_aio_read;
+	return kasync_file_worker_start(file);
 #endif
 }
 bool iocp_selector_support_sendfile(kselectable* st) {

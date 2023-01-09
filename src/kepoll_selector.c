@@ -57,18 +57,10 @@ static kev_result result_notice_event(KOPAQUE data, void *arg,int got)
 	kepoll_notice_event(ast);
 	return kev_ok;
 }
-void aio_result(kasync_file *file,struct iocb *iocb, long res, long res2)
+static void aio_result(kasync_file *file,struct iocb *iocb, long res, long res2)
 {
-        if (res<=0) {
-        	async_file_event(file,NULL,res);
-            return;
-        }
-        //printf("aio_result res=[%d] iocb=[%p],offset_adjust=[%d]\n",res,iocb,ctx->offset_adjust);
-        int length = res - file->offset_adjust;
-        char *buf = file->buf + file->offset_adjust;
-        async_file_event(file,buf,KGL_MIN(length,file->length));
+	file->st.e[OP_READ].result(file->st.data,file->st.e[OP_READ].arg,kasync_file_adjust_result(file,(int)res));
 }
-
 static kev_result result_aio_event(KOPAQUE data, void *arg,int got)
 {
 	kepoll_aio_selectable *aio_st = (kepoll_aio_selectable *)arg;
@@ -384,19 +376,19 @@ static bool epoll_selector_write(kselector *selector, kselectable *st, result_ca
 	return true;
 }
 
-static bool epoll_selector_sendfile(kselector* selector, kselectable* st, kasync_file* file, int64_t offset, int length, result_callback result, void* arg) {
+static bool epoll_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	assert(st->ssl == NULL);
 #endif
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;
+	kepoll_selector *es = (kepoll_selector *)st->selector->ctx;
 	assert(!KBIT_TEST(st->st_flags, STF_WRITE|STF_SENDFILE));
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	st->e[OP_WRITE].buffer = NULL;
+	st->e[OP_WRITE].buffer = buffer;
 	KBIT_SET(st->st_flags,STF_WRITE|STF_SENDFILE);
 	KBIT_CLR(st->st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->st_flags,STF_WREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
+		kselector_add_list(st->selector,st,KGL_LIST_READY);
 		return true;
 	}
 	if (!KBIT_TEST(st->st_flags,STF_WEV)) {
@@ -406,7 +398,7 @@ static bool epoll_selector_sendfile(kselector* selector, kselectable* st, kasync
 		}
 	}
 	if (st->queue.next==NULL) {
-		kselector_add_list(selector,st,KGL_LIST_RW);
+		kselector_add_list(st->selector,st,KGL_LIST_RW);
 	}
 	return true;
 }
@@ -461,36 +453,35 @@ static int epoll_selector_select(kselector *selector,int tmo) {
 }
 void epoll_selector_aio_open(kselector *selector,kasync_file *aio_file, FILE_HANDLE fd)
 {
-	//kasync_file *aio_file = xmemory_new(kasync_file);
-	//memset(aio_file,0,sizeof(kasync_file));
-	aio_file->fd = fd;
-	aio_file->selector = selector;
-	//return aio_file;
+	aio_file->st.fd = (SOCKET)fd;
+	aio_file->st.selector = selector;
 }
-bool epoll_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool epoll_selector_aio_write(kasync_file *file, result_callback result,const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	katom_inc((void *)&kgl_aio_count);
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	// katom_inc((void *)&kgl_aio_count);
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-	file->length = length;
-	file->offset_adjust = 0;
-	file->length = length;
-	int length2 = kgl_align(length,kgl_aio_align_size);
-	assert(offset == kgl_align(offset,kgl_aio_align_size));
-	assert(buf == (char *)kgl_align_ptr(buf,kgl_aio_align_size));
+	kassert(kfiber_check_file_callback(result));
+	kepoll_selector *es = (kepoll_selector *)file->st.selector->ctx;
+	file->st.e[OP_READ].arg = arg;
+	file->st.e[OP_READ].result = result;
+	file->st.direct_io_offset = 0;
+	if (file->st.direct_io) {
+		file->st.direct_io_orig_length = length;
+		assert(buf == (char *)kgl_align_ptr(buf,kgl_aio_align_size));
+		assert(file->st.offset == kgl_align(file->st.offset, kgl_aio_align_size));
+	}
+#ifdef KF_ASYNC_WORKER
+	file->kiocb.length = length;
+	file->kiocb.buf = (char*)buf;
+	file->kiocb.cmd = kf_aio_write;
+	return kasync_file_worker_start(file);
+#else
 	struct iocb *iocb = &file->iocb;
-
 	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = file->fd;
+	iocb->aio_fildes = file->st.fd;
 	iocb->aio_lio_opcode = IOCB_CMD_PWRITE;
 	iocb->aio_reqprio = 0;
 	iocb->aio_buf = (__u64)(uintptr_t)buf;
-	iocb->aio_nbytes = length2;
-	iocb->aio_offset = offset;
+	iocb->aio_nbytes = length;
+	iocb->aio_offset = _kasync_file_get_adjust_offset(file);
 	iocb->aio_flags = IOCB_FLAG_RESFD;
 	iocb->aio_resfd = es->aio_st.st.fd;
 	iocb->aio_data = (__u64)(uintptr_t)file;
@@ -498,43 +489,50 @@ bool epoll_selector_aio_write(kselector *selector, kasync_file *file, char *buf,
 		return true;
 	}
 	perror("io_submit write");
-	katom_dec((void *)&kgl_aio_count);
 	return false;
-
+#endif
 }
-static bool epoll_selector_support_sendfile(kselector* selector, kselectable* st) {
+static bool epoll_selector_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
 		return false;
 	}
 #endif	
-	return false;
+	return true;
 }
-bool epoll_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool epoll_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	katom_inc((void *)&kgl_aio_count);
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	//katom_inc((void *)&kgl_aio_count);
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-	file->length = length;
-	INT64 offset2 = kgl_align_floor(offset,kgl_aio_align_size);
-	int length2 = kgl_align(length,kgl_aio_align_size);
-	if (length2==0) {
-		length2 = kgl_aio_align_size;
+	kassert(kfiber_check_file_callback(result));
+	kepoll_selector *es = (kepoll_selector *)file->st.selector->ctx;
+	if (file->st.direct_io) {
+		file->st.direct_io_orig_length = length;
+		assert(buf == (char *)kgl_align_ptr(buf,kgl_aio_align_size));
+		int64_t new_offset = kgl_align_floor(file->st.offset,kgl_aio_align_size);
+		int new_length = kgl_align(length,kgl_aio_align_size);
+		if (new_length==0) {
+			new_length = kgl_aio_align_size;			
+		}
+		length = new_length;
+		file->st.direct_io_offset = (uint16_t)(file->st.offset - new_offset);
+	} else {
+		file->st.direct_io_offset = 0;
 	}
-	file->offset_adjust = (int)(offset - offset2);
-	struct iocb *iocb = &file->iocb;
-
+	file->st.e[OP_READ].arg = arg;
+	file->st.e[OP_READ].result = result;
+#ifdef KF_ASYNC_WORKER
+	file->kiocb.length = length;
+	file->kiocb.buf = (char*)buf;
+	file->kiocb.cmd = kf_aio_read;
+	return kasync_file_worker_start(file);
+#else
+	struct iocb *iocb = &file->iocb;	
 	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = file->fd;
+	iocb->aio_fildes = file->st.fd;
 	iocb->aio_lio_opcode = IOCB_CMD_PREAD;
 	iocb->aio_reqprio = 0;
 	iocb->aio_buf = (__u64)(uintptr_t)buf;
-	iocb->aio_nbytes = length2;
-	iocb->aio_offset = offset2;
+	iocb->aio_nbytes = length;
+	iocb->aio_offset = _kasync_file_get_adjust_offset(file);
 	iocb->aio_flags = IOCB_FLAG_RESFD;
 	iocb->aio_resfd = es->aio_st.st.fd;
 	iocb->aio_data = (__u64)(uintptr_t)file;
@@ -543,8 +541,8 @@ bool epoll_selector_aio_read(kselector *selector, kasync_file *file, char *buf, 
 		return true;
 	}
 	perror("io_submit read");
-	katom_dec((void *)&kgl_aio_count);
 	return false;
+#endif
 }
 static kselector_module epoll_selector_module = {
 	"epoll",

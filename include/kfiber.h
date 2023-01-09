@@ -137,7 +137,7 @@ int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc);
 int kfiber_udp_read(kconnection* cn, char *buf,int len);
 //file
 kfiber_file *kfiber_file_open(const char *filename, fileModel model, int kf_flags);
-kfiber_file* kfiber_file_bind(FILE_HANDLE fp, int kf_flags);
+kfiber_file* kfiber_file_bind(FILE_HANDLE fp);
 
 int64_t kfiber_file_size(kfiber_file *fp);
 int kfiber_file_read(kfiber_file *fp, char *buf, int length);
@@ -157,8 +157,8 @@ INLINE bool kfiber_file_write_fully(kfiber_file* fp, const char* buf, int *lengt
 void kfiber_file_close(kfiber_file *fp);
 int kfiber_file_seek(kfiber_file *fp, seekPosion pos, int64_t offset);
 int64_t kfiber_file_tell(kfiber_file *fp);
-#ifdef LINUX_EPOLL
-#define kfiber_file_adjust(file,buf) (const char *)((char *)buf + file->fp.offset_adjust)
+#if defined(O_DIRECT) && defined(LINUX_EPOLL)
+#define kfiber_file_adjust(file,buf) (const char *)(buf + file->st.direct_io_offset)
 #else
 #define kfiber_file_adjust(file,buf) (const char *)(buf)
 #endif

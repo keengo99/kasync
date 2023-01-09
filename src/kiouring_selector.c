@@ -14,6 +14,14 @@
 
 #define URING_COUNT 128
 
+typedef struct {
+	kselectable *st;
+	kasync_file *file;
+	int pipe[2];
+	int refs;
+	int got;
+	bool skip_call_result;
+} iouring_sendfile;
 
 static unsigned URING_MASK;
 typedef struct {
@@ -22,6 +30,40 @@ typedef struct {
 	WSABUF bufs[URING_COUNT][MAX_IOVECT_COUNT];
 	unsigned buf_index;
 } kiouring_selector;
+
+static kev_result iouring_sendfile_result(iouring_sendfile *sf,int got, bool final_result) {
+	if (final_result) {
+		sf->got = got;
+	}
+	sf->refs--;
+	if (sf->refs>0) {
+		return kev_ok;
+	}
+	kev_result ret = kev_destroy;
+	if (!sf->skip_call_result) {
+	 	ret = sf->file->st.e[OP_WRITE].result(sf->st->data, sf->file->st.e[OP_WRITE].arg, sf->got);
+	}
+	if (sf->pipe[0]>0) {
+		close(sf->pipe[0]);
+	}
+	if (sf->pipe[1]>0) {
+		close(sf->pipe[1]);
+	}
+	xfree(sf);
+	return ret;
+}
+static kev_result iouring_sendfile_selectable_result(KOPAQUE data, void *arg,int got) {
+	iouring_sendfile *sf = (iouring_sendfile *)arg;
+	close(sf->pipe[0]);
+	sf->pipe[0] = -1;
+	return iouring_sendfile_result(sf,got,true);
+}
+static kev_result iouring_sendfile_file_result(KOPAQUE data, void *arg,int got) {
+	iouring_sendfile *sf = (iouring_sendfile *)arg;
+	close(sf->pipe[1]);
+	sf->pipe[1] = -1;
+	return iouring_sendfile_result(sf,got,false);
+}
 static int null_buffer(KOPAQUE data, void *arg,LPWSABUF buf,int bc)
 {
 	//never go here;
@@ -245,56 +287,48 @@ void iouring_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_
 	return;
 }
 
-bool iouring_selector_aio_write(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool iouring_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
+	kassert(kfiber_check_file_callback(result));
+	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
 	}
-	katom_inc((void *)&kgl_aio_count);
 	kselectable *st = &file->st;
 	kassert(KBIT_TEST(st->st_flags, STF_WRITE) == 0);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = file;
-	e->result = result_async_file_event;
+	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
 	WSABUF *bufs = kiouring_get_bufs(cs);
-	bufs[0].iov_base = buf;
+	bufs[0].iov_base = (void *)buf;
 	bufs[0].iov_len = length;
-	io_uring_prep_writev(sqe,st->fd,bufs,1,offset);
+	io_uring_prep_writev(sqe,st->fd,bufs,1,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
-	KBIT_SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->st_flags, STF_WRITE);
 	return true;
 }
-bool iouring_selector_aio_read(kselector *selector, kasync_file *file, char *buf, int64_t offset, int length, aio_callback cb, void *arg)
+bool iouring_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(cb));
-	file->buf = buf;
-	file->arg = arg;
-	file->cb = cb;
-	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
+	kassert(kfiber_check_file_callback(result));
+	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
 	}
-	katom_inc((void *)&kgl_aio_count);
 	kselectable *st = &file->st;
 	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = file;
-	e->result = result_async_file_event;
+	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
 	WSABUF *bufs = kiouring_get_bufs(cs);
 	bufs[0].iov_base = buf;
 	bufs[0].iov_len = length;
-	io_uring_prep_readv(sqe,st->fd,bufs,1,offset);
+	io_uring_prep_readv(sqe,st->fd,bufs,1,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
 	KBIT_SET(st->st_flags,STF_READ);
 	return true;
@@ -431,6 +465,78 @@ static int iouring_selector_select(kselector *selector, int tmo)
 	}
 	return iouring_handle_cq(selector,&es->ring,n);
 }
+static bool iouring_selector_support_sendfile(kselectable* st) {
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		return false;
+	}
+#endif	
+	return true;
+}
+
+static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+#ifdef KSOCKET_SSL
+	assert(st->ssl == NULL);
+#endif
+
+
+	kiouring_selector *cs = (kiouring_selector *)st->selector->ctx;
+	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
+	if (sqe==NULL) {
+		return false;
+	}
+
+	
+	iouring_sendfile *sf = (iouring_sendfile *)xmalloc(sizeof(iouring_sendfile));
+	memset(sf,0,sizeof(iouring_sendfile));
+	if (pipe2(sf->pipe,O_CLOEXEC)!=0) {
+		xfree(sf);
+		return false;
+	}
+	
+	
+	WSABUF bufs;
+	buffer(st->data, arg, &bufs, 1);
+	kassert(bufs.iov_len > 0);
+	kasync_file *file = (kasync_file *)bufs.iov_base;
+	sf->st = st;
+	sf->file = file;
+	sf->refs=1;
+
+	kgl_event *e = &file->st.e[OP_WRITE];
+	/* store final result */
+	e->arg = arg;
+	e->result = result;
+	e->st = st;
+	
+	/* splice file to pipe */
+	e = &file->st.e[OP_READ];
+	e->arg = sf;
+	e->result = iouring_sendfile_file_result;
+	e->st = &file->st;
+	io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,bufs.iov_len,0);
+	io_uring_sqe_set_data(sqe, e);
+	KBIT_SET(file->st.st_flags,STF_READ);
+	/* splice pipe to socket */
+	sqe = kiouring_get_seq(&cs->ring);
+	if (sqe==NULL) {
+		sf->skip_call_result = true;
+		return false;
+	}
+	sf->refs++;
+	e = &st->e[OP_WRITE];
+	e->arg = sf;
+	e->result = iouring_sendfile_selectable_result;
+	e->st = st;
+	KBIT_SET(st->st_flags,STF_WRITE);
+	io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,bufs.iov_len,0);
+	io_uring_sqe_set_data(sqe, e);
+
+	if (st->queue.next == NULL) {
+		kselector_add_list(st->selector, st, KGL_LIST_RW);
+	}
+	return true;
+}
 static kselector_module iouring_selector_module = {
 	"iouring",
 	iouring_selector_init,
@@ -451,8 +557,8 @@ static kselector_module iouring_selector_module = {
 	iouring_selector_aio_open,
 	iouring_selector_aio_write,
 	iouring_selector_aio_read,
-	kselector_not_support_sendfile,
-	NULL
+	iouring_selector_support_sendfile,
+	iouring_selector_sendfile
 };
 
 void kiouring_module_init()
