@@ -375,7 +375,3 @@ void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment)
 
 	return p;
 }
-
-void* kgl_sys_malloc(void* arg, size_t size) {
-	return malloc(size);
-}
