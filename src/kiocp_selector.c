@@ -398,7 +398,7 @@ bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_call
 	buffer(st->data, arg, &bufs, 1);
 	kasync_file* file = (kasync_file *)bufs.iov_base;
 	LARGE_INTEGER* li = (LARGE_INTEGER*)&st->e[OP_WRITE].lp.Pointer;
-	li->QuadPart = file->offset;
+	li->QuadPart = file->st.offset;
 	int rc = lpfnTransmitFile(st->fd, kasync_file_get_handle(file), bufs.iov_len, 0, &st->e[OP_WRITE].lp, NULL, 0);
 	if (rc == FALSE) {
 		int err = WSAGetLastError();

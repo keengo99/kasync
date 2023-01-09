@@ -226,11 +226,13 @@ void selectable_read_event(kselectable* st)
 }
 void selectable_write_event(kselectable* st)
 {
+#ifndef KGL_IOCP
 	if (KBIT_TEST(st->st_flags,STF_SENDFILE)) {
 		KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);
 		selectable_event_sendfile(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
 		return;
 	}
+#endif
 	KBIT_CLR(st->st_flags, STF_WRITE | STF_RDHUP);
 	if (KBIT_TEST(st->st_flags, STF_ERR) > 0) {
 		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
@@ -424,6 +426,7 @@ bool selectable_try_read(kselectable* st, result_callback result, buffer_callbac
 #endif
 	return kgl_selector_module.read(st->selector, st, result, buffer, arg);
 }
+#ifndef KGL_IOCP
 kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
 	WSABUF bufs;
 	buffer(st->data,arg,&bufs,1);
@@ -443,6 +446,7 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	}
 	return result(st->data, arg, got);
 }
+#endif
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
 {
 	WSABUF bufs[MAX_IOVECT_COUNT];
