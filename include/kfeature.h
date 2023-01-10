@@ -2,7 +2,6 @@
 #define KGLOBAL_H_99
 #include "kasync_config.h"
 #ifndef _WIN32
-//#include "config.h"
 #define INT64  int64_t
 #define KSOCKET_UNIX
 #define SOCKET  	int
@@ -51,25 +50,19 @@ KBEGIN_DECLS
 #if defined(FREEBSD) || defined(NETBSD) || defined(OPENBSD) || defined(DARWIN)
 #define BSD_OS 1
 #endif
-#ifndef NDEBUG
-#if defined(LINUX) || defined(_WIN32)
-//#define MALLOCDEBUG	1
-#endif
-#endif
 #if defined(LINUX) && !defined(LINUX_IOURING)
 #define LINUX_EPOLL 1
 #endif
 
 #if defined(LINUX_IOURING) || defined(_WIN32)
-//LINUX io_uring and win32 are iocp model
+/* LINUX io_uring and win32 are iocp model */
 #define KGL_IOCP       1
 #endif
-//#define KSOCKET_SSL     1
 #define KSOCKET_IPV6	1
 #define ENABLE_PROXY_PROTOCOL      1
-//#define ENABLE_FIBER    1
 #ifdef KSOCKET_SSL
-#ifdef KGL_IOCP
+#ifdef _WIN32
+/* windows iocp always enable ssl bio */
 #define ENABLE_KSSL_BIO 1
 #endif
 #endif
@@ -95,10 +88,10 @@ KBEGIN_DECLS
 # define unlikely(x) (x)
 #endif
 typedef enum {
-	kev_ok, //selectable in selector event(read/write/next/connect) or timer or by user blocked.
-	kev_fiber_ok, //selectable handle by fiber callback.
-	kev_err,//selectable not in any selector event/timer and not destroy
-	kev_destroy//selectable not in any selector event/timer and destroied by result callback
+	kev_ok, /* selectable in selector event(read/write/next/connect) or timer or by user blocked. */
+	kev_fiber_ok, /* selectable handle by fiber callback. */
+	kev_err,/* selectable not in any selector event/timer and not destroy */
+	kev_destroy /* selectable not in any selector event/timer and destroied by result callback */
 } kev_result;
 
 #define KEV_HANDLED(x) (x!=kev_err)
@@ -158,10 +151,10 @@ typedef enum _seekPosion
 typedef enum _fileModel
 {
 	fileRead,
-	fileWrite,//truncate
+	fileWrite, /*truncate */
 	fileModify,
 	fileReadWrite,
-	fileWriteRead,//truncate
+	fileWriteRead,/* truncate */
 	fileAppend
 } fileModel;
 KEND_DECLS

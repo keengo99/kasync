@@ -282,6 +282,14 @@ static SSL *kconnection_new_ssl(kconnection *c,SSL_CTX *ssl_ctx)
 		SSL_free(ssl);		
 		return NULL;
 	}
+#if defined(LINUX_IOURING) && !defined(ENABLE_KSSL_BIO)
+	/**
+	 *  iouring ssl connection not use ssl_bio must in poll model.
+	 *  and set socket non blocking.
+	 */
+	ksocket_no_block(c->st.fd);
+	KBIT_SET(c->st.st_flags, STF_USEPOLL);
+#endif
 	return ssl;
 }
 bool kconnection_ssl_connect(kconnection *c, SSL_CTX *ssl_ctx, const char *sni_hostname)
@@ -290,6 +298,7 @@ bool kconnection_ssl_connect(kconnection *c, SSL_CTX *ssl_ctx, const char *sni_h
 	if (ssl == NULL) {
 		return false;
 	}
+	
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 	if (sni_hostname) {
 		SSL_set_tlsext_host_name(ssl, sni_hostname);

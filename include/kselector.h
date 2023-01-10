@@ -58,7 +58,6 @@ typedef void (*selector_next)(kselector* selector, KOPAQUE data, result_callback
 typedef void (*selector_aio_open)(kselector* selector, kasync_file* file, FILE_HANDLE fd);
 typedef bool (*selector_aio_write)(kasync_file* file, result_callback result, const char *buf, int length, void* arg);
 typedef bool (*selector_aio_read)(kasync_file* file, result_callback result, char *buf, int length, void* arg);
-typedef bool (*selector_support_sendfile)(kselectable* st);
 typedef bool (*selector_sendfile)(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 /* tmo is millisecond */
 typedef int  (*selector_select)(kselector* selector, int tmo);
@@ -97,20 +96,22 @@ typedef struct
 	selector_listen listen;
 	selector_accept accept;
 	selector_connect connect;
+
 	selector_remove remove;
 	selector_read read;
 	selector_write write;
 	selector_readhup readhup;
 	selector_remove_readhup remove_readhup;
-	selector_recvmsg recvmsg;
+
+	selector_recvmsg recvmsg; /* for udp */
 
 	selector_select select;
 	selector_next next;
 
+	/* aio file */
 	selector_aio_open aio_open;
 	selector_aio_write aio_write;
 	selector_aio_read aio_read;
-	selector_support_sendfile support_sendfile;
 	selector_sendfile sendfile;
 
 } kselector_module;

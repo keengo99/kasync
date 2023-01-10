@@ -411,15 +411,6 @@ static void kqueue_selector_remove(kselector *selector, kselectable *st)
 	kevent(es->kdpfd, changes, ev_count, NULL, 0, NULL);
 	KBIT_CLR(st->st_flags,STF_REV|STF_WEV|STF_ET|STF_RREADY|STF_WREADY);
 }
-
-static bool kqueue_selector_support_sendfile(kselectable *st) {
-#ifdef KSOCKET_SSL
-	if (st->ssl) {
-		return kgl_ssl_support_sendfile(st->ssl);
-	}
-#endif
-	return true;
-}
 static kselector_module kqueue_selector_module = {
 	"kqueue",
 	kqueue_selector_init,
@@ -439,7 +430,6 @@ static kselector_module kqueue_selector_module = {
 	kqueue_selector_aio_open,
 	kqueue_selector_aio_write,
 	kqueue_selector_aio_read,
-	kqueue_selector_support_sendfile,
 	kqueue_selector_sendfile
 };
 void kkqueue_module_init()

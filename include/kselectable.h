@@ -12,10 +12,12 @@
 #define STF_RDHUP       (1<<2)
 #define STF_SENDFILE    (1<<3)
 
+#ifndef KGL_IOCP
 #define STF_REV         (1<<4)
 #define STF_WEV         (1<<5)
-#ifndef KGL_IOCP
 #define STF_ET          (1<<6)
+#else
+#define STF_USEPOLL     (1<<6) /* iouring use for poll model */
 #endif
 #define STF_ERR         (1<<7)
 
@@ -121,10 +123,10 @@ struct kselectable_s
 		};
 	};
 };
-inline KOPAQUE selectable_get_opaque(kselectable* st) {
+INLINE KOPAQUE selectable_get_opaque(kselectable* st) {
 	return st->data;
 }
-inline void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
+INLINE void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
 	st->data = data;
 }
 void selectable_clean(kselectable* st);
@@ -133,7 +135,12 @@ INLINE void selectable_next(kselectable* st, result_callback result, void* arg, 
 	kgl_selector_module.next(st->selector, st->data, result, arg, got);
 }
 INLINE bool selectable_support_sendfile(kselectable* st) {
-	return kgl_selector_module.support_sendfile(st);
+#ifdef KSOCKET_SSL
+	if (st->ssl) {
+		return kgl_ssl_support_sendfile(st->ssl);
+	}
+#endif	
+	return true;
 }
 void selectable_next_read(kselectable* st, result_callback result, void* arg);
 void selectable_next_write(kselectable* st, result_callback result, void* arg);

@@ -495,14 +495,6 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 	return false;
 #endif
 }
-static bool epoll_selector_support_sendfile(kselectable* st) {
-#ifdef KSOCKET_SSL
-	if (st->ssl) {
-		return kgl_ssl_support_sendfile(st->ssl);
-	}
-#endif	
-	return true;
-}
 bool epoll_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
 	kassert(kfiber_check_file_callback(result));
@@ -566,7 +558,6 @@ static kselector_module epoll_selector_module = {
 	epoll_selector_aio_open,
 	epoll_selector_aio_write,
 	epoll_selector_aio_read,
-	epoll_selector_support_sendfile,
 	epoll_selector_sendfile
 };
 void kepoll_module_init() {

@@ -56,7 +56,7 @@ bool kiocp_accept_ex(kserver_selectable *ss)
 }
 static void iocp_selector_bind(kselector *selector, kselectable *st)
 {
-	if (KBIT_TEST(st->st_flags, STF_REV | STF_WEV)) {
+	if (st->selector) {
 		kassert(st->selector == selector);
 		return;
 	}
@@ -67,7 +67,6 @@ static void iocp_selector_bind(kselector *selector, kselectable *st)
 			SetFileCompletionNotificationModes((HANDLE)st->fd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
 		}
 	}
-	KBIT_SET(st->st_flags, STF_REV | STF_WEV);
 }
 static void iocp_selector_init(kselector *selector)
 {
@@ -374,15 +373,6 @@ bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf
 	return kasync_file_worker_start(file);
 #endif
 }
-bool iocp_selector_support_sendfile(kselectable* st) {
-#ifdef KSOCKET_SSL
-	if (st->ssl) {
-		return kgl_ssl_support_sendfile(st->ssl);
-	}
-#endif
-	assert(lpfnTransmitFile);
-	return true;
-}
 bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	assert(st->ssl == NULL);
@@ -498,7 +488,6 @@ static kselector_module iocp_selector_module = {
 	iocp_selector_aio_open,
 	iocp_selector_aio_write,
 	iocp_selector_aio_read,
-	iocp_selector_support_sendfile,
 	iocp_selector_sendfile
 };
 void kiocp_module_init()

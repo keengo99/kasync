@@ -142,7 +142,7 @@ bool kiouring_is_support()
 		return false;
 	}
 	//printf("io_uring last_op=[%d]\n",probe->last_op);
-	if (!io_uring_opcode_supported(probe, IORING_OP_ACCEPT)) {
+	if (!io_uring_opcode_supported(probe, IORING_OP_SPLICE)) {
 		free(probe);
 		return false;
 	}
@@ -223,16 +223,31 @@ static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss,
 }
 static bool iouring_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
+	struct io_uring_sqe *sqe;
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
-	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
-	if (sqe==NULL) {
-		return false;
-	}
 	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = arg;
 	e->result = result;
 	e->st = st;
+	e->buffer = buffer;
+	if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
+		if (KBIT_TEST(st->st_flags,STF_RREADY)) {
+			KBIT_SET(st->st_flags,STF_READ);
+			kselector_add_list(selector, st, KGL_LIST_READY);
+			return true;
+		}
+		sqe = kiouring_get_seq(&cs->ring);
+		if (sqe==NULL) {
+			return false;
+		}
+		io_uring_prep_poll_add(sqe, st->fd, POLLIN);
+		goto prepare_done;
+	}
+	sqe = kiouring_get_seq(&cs->ring);
+	if (sqe==NULL) {
+		return false;
+	}
 	if (buffer) {
 		e->buffer = buffer;
 		WSABUF *bufs = kiouring_get_bufs(cs);
@@ -241,9 +256,10 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 	} else {
 		e->buffer = null_buffer;
 		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
-	}
-	io_uring_sqe_set_data(sqe, e);
+	}	
+prepare_done:
 	KBIT_SET(st->st_flags,STF_READ);
+	io_uring_sqe_set_data(sqe, e);
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -252,16 +268,30 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 
 static bool iouring_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
+	struct io_uring_sqe *sqe;
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
-	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
-	if (sqe==NULL) {
-		return false;
-	}
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = arg;
 	e->result = result;
-	e->st = st;	
-	
+	e->st = st;
+	if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
+		e->buffer = buffer;
+		if (KBIT_TEST(st->st_flags,STF_WREADY)) {
+			KBIT_SET(st->st_flags,STF_WRITE);
+			kselector_add_list(selector, st, KGL_LIST_READY);
+			return true;
+		}
+		sqe = kiouring_get_seq(&cs->ring);
+		if (sqe==NULL) {
+			return false;
+		}
+		io_uring_prep_poll_add(sqe, st->fd, POLLOUT);
+		goto prepare_done;
+	}
+ 	sqe = kiouring_get_seq(&cs->ring);
+	if (sqe==NULL) {
+		return false;
+	}
 	if (buffer) {
 		e->buffer = buffer;
 		WSABUF *bufs = kiouring_get_bufs(cs);
@@ -272,8 +302,9 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 		e->buffer = null_buffer;
 		io_uring_prep_poll_add(sqe, st->fd,POLLOUT);
 	}	
-	io_uring_sqe_set_data(sqe, e);
+prepare_done:
 	KBIT_SET(st->st_flags,STF_WRITE);
+	io_uring_sqe_set_data(sqe, e);	
 	if (st->queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
@@ -411,6 +442,7 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	} else {
 		kselector_remove_list(selector,st);
 	}
+	
 	if (got>0 && e->buffer==null_buffer) {
 		//如果只是检测pollout/pollin事件，成功后，把 got设置为0，使上层接口和epoll/iocp/kqueue等表现一致。
 		got = 0;
@@ -418,11 +450,25 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	if (e == &st->e[OP_READ]) {
 		//printf("handle read event st=[%p]\n", st);
 		kassert(KBIT_TEST(st->st_flags, STF_READ));
+#ifndef ENABLE_KSSL_BIO
+		if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
+			KBIT_SET(st->st_flags,STF_RREADY);
+			kselector_add_list(selector,st,KGL_LIST_READY);
+			return;
+		}
+#endif
 		KBIT_CLR(st->st_flags, STF_READ);
 		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));
 	} else 	if (e == &st->e[OP_WRITE]) {
 		//printf("handle write event st=[%p]\n", st);
 		kassert(KBIT_TEST(st->st_flags, STF_WRITE));
+#ifndef ENABLE_KSSL_BIO
+		if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
+			KBIT_SET(st->st_flags,STF_WREADY);
+			kselector_add_list(selector, st, KGL_LIST_READY);
+			return;
+		}
+#endif
 		KBIT_CLR(st->st_flags, STF_WRITE);
 		kassert(!KBIT_TEST(st->st_flags, STF_WREADY|STF_WREADY2));
 	} else {
@@ -430,7 +476,6 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	}
 	e->result(st->data, e->arg, got);
 	return;
-
 }
 static int iouring_handle_cq(kselector *selector,struct io_uring *ring,int count)
 {
@@ -465,15 +510,6 @@ static int iouring_selector_select(kselector *selector, int tmo)
 	}
 	return iouring_handle_cq(selector,&es->ring,n);
 }
-static bool iouring_selector_support_sendfile(kselectable* st) {
-#ifdef KSOCKET_SSL
-	if (st->ssl) {
-		return kgl_ssl_support_sendfile(st->ssl);
-	}
-#endif	
-	return true;
-}
-
 static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	assert(st->ssl == NULL);
@@ -537,11 +573,18 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 	}
 	return true;
 }
+void iouring_selector_bind(kselector *selector, kselectable *st)
+{
+	st->selector = selector;
+	for (int i=0;i<2;i++) {
+		st->e[i].st = st;
+	}
+}
 static kselector_module iouring_selector_module = {
 	"iouring",
 	iouring_selector_init,
 	iouring_selector_destroy,
-	kselector_default_bind,
+	iouring_selector_bind,
 	iouring_selector_listen,
 	iouring_selector_accept,
 	iouring_selector_connect,
@@ -557,7 +600,6 @@ static kselector_module iouring_selector_module = {
 	iouring_selector_aio_open,
 	iouring_selector_aio_write,
 	iouring_selector_aio_read,
-	iouring_selector_support_sendfile,
 	iouring_selector_sendfile
 };
 
