@@ -230,6 +230,15 @@ static void kconnection_ssl_init(kconnection *c,SSL_CTX *ssl_ctx, SSL *ssl)
 	kassert(c->st.ssl == NULL);
 	c->st.ssl = xmemory_new(kssl_session);
 	memset(c->st.ssl, 0, sizeof(kssl_session));
+#ifndef ENABLE_KSSL_BIO
+#ifdef SSL_OP_ENABLE_KTLS
+	SSL_set_options(ssl,SSL_OP_ENABLE_KTLS);
+#endif
+#ifdef SSL_OP_ENABLE_KTLS_TX_ZEROCOPY_SENDFILE
+	SSL_set_options(ssl,SSL_OP_ENABLE_KTLS_TX_ZEROCOPY_SENDFILE);
+#endif
+#endif
+
 #ifdef ENABLE_KSSL_BIO
 	c->st.ssl->bio[0].bio = BIO_new(BIO_kgl_method());
 	c->st.ssl->bio[1].bio = BIO_new(BIO_kgl_method());
