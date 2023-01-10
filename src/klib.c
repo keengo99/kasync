@@ -1,19 +1,16 @@
 #include <stdlib.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include "klib.h"
 #include "kforwin32.h"
 #include "kfile.h"
 #include "kfiber.h"
 void kgl_msleep(int msec) {
 	kassert(kfiber_is_main());
-#if	defined(OSF)
-	/* DU don't want to sleep in poll when number of descriptors is 0 */
-	usleep(msec * 1000);
-#elif	defined(_WIN32)
+#ifdef _WIN32
 	Sleep(msec);
 #else
-	struct timeval tv;
-	tv.tv_sec = msec / 1000;
-	tv.tv_usec = (msec % 1000) * 1000;
-	select(1, NULL, NULL, NULL, &tv);
+	usleep(msec * 1000);
 #endif
 }
