@@ -40,7 +40,7 @@ kev_result fn(KOPAQUE data, void *arg, int got) { \
 		kserver_selectable_destroy(ss);\
 		return kev_ok;\
 	}\
-	cn->st.selector = kserver_get_perfect_selector(ss);\
+	selectable_bind(&cn->st, kserver_get_perfect_selector(ss));\
 	if (cn->st.selector!=ss->st.selector) {\
 		kgl_selector_module.next(cn->st.selector, data, user_##fn##_callback, cn, got);\
 	} else {\

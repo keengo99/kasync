@@ -139,7 +139,7 @@ bool kserver_selectable_accept(kserver_selectable* ss, void *arg)
 {
 	assert(ss->st.data == ss);
 	assert(ss->st.e[STF_READ].result != NULL);
-	return	kgl_selector_module.accept(ss->st.selector, ss, arg);
+	return	kgl_selector_module.accept(ss, arg);
 }
 kserver_selectable *kserver_selectable_init(kserver *server, SOCKET sockfd)
 {
@@ -200,9 +200,8 @@ static kserver_selectable* kserver_listen_on_selector(kselector *selector, kserv
 		return NULL;
 	}
 	ss->st.data = ss;
-	ss->st.selector = selector;
-	assert(ss->st.selector);
-	kgl_selector_module.listen(ss->st.selector, ss, accept_callback);
+	selectable_bind(&ss->st, selector);
+	kgl_selector_module.listen(ss, accept_callback);
 	return ss;
 }
 kserver_selectable* kserver_listen(kserver* server, int flag, result_callback accept_callback)
@@ -245,7 +244,7 @@ bool kserver_bind(kserver *server, const char *ip, uint16_t port, kgl_ssl_ctx *s
 static kev_result kserver_next_accept(KOPAQUE data, void* arg, int got)
 {
 	kserver_selectable* ss = (kserver_selectable*)arg;
-	if (!kgl_selector_module.accept(kgl_get_tls_selector(), ss, NULL)) {
+	if (!kgl_selector_module.accept(ss, NULL)) {
 		kserver_selectable_destroy(ss);
 	}
 	return kev_ok;
@@ -276,9 +275,8 @@ bool kserver_open_exsit(kserver* server, SOCKET sockfd, result_callback accept_c
 		return false;
 	}
 	ss->st.data = ss;
-	ss->st.selector = kgl_get_tls_selector();
-	assert(ss->st.selector);
-	if (!kgl_selector_module.listen(ss->st.selector, ss, accept_callback)) {
+	selectable_bind(&ss->st, kgl_get_tls_selector());
+	if (!kgl_selector_module.listen(ss, accept_callback)) {
 		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
 		return false;
 	}

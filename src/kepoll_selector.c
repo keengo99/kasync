@@ -180,16 +180,16 @@ static void epoll_selector_next(kselector *selector, KOPAQUE data, result_callba
 	kepoll_notice(&es->notice_st, data, result, arg, got);
 	return;
 }
-static bool epoll_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
+static bool epoll_selector_accept(kserver_selectable* ss, void *arg)
 {
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	struct epoll_event ev;
-	kselectable *st = &ss->st;
+	kselectable* st = &ss->st;
+	kepoll_selector *es = (kepoll_selector *)st->selector->ctx;
+	struct epoll_event ev;	
 	st->e[OP_WRITE].arg = arg;
 	assert(st->e[OP_READ].result == kselector_event_accept);
 	KBIT_SET(st->st_flags,STF_READ);
 	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
+		kselector_add_list(st->selector,st,KGL_LIST_READY);
 		return true;
 	}
 	if (KBIT_TEST(st->st_flags,STF_REV)) {
@@ -205,9 +205,9 @@ static bool epoll_selector_accept(kselector* selector, kserver_selectable* ss, v
 	}	
 	return true;
 }
-static bool epoll_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+static bool epoll_selector_listen(kserver_selectable *ss, result_callback result)
 {
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;	
+	//kepoll_selector *es = (kepoll_selector *)ss->st.selector->ctx;	
 	kselectable *st = &ss->st;
 	st->e[OP_READ].arg = ss;
 	st->e[OP_READ].result = kselector_event_accept;

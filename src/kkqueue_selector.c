@@ -110,17 +110,18 @@ static void kqueue_selector_next(kselector *selector,KOPAQUE data, result_callba
 		perror("notice error");
 	}
 }
-static bool kqueue_selector_accept(kselector *selector, kserver_selectable *ss, void *arg)
+static bool kqueue_selector_accept(kserver_selectable *ss, void *arg)
 {
-	kqueue_selector *es = (kqueue_selector *)selector->ctx;
-	kselectable *st = &ss->st;
+	kselectable* st = &ss->st;
+	kqueue_selector *es = (kqueue_selector *)st->selector->ctx;
+
 	struct kevent changes[2];
-	    int ev_count = 0;
+	int ev_count = 0;
 	st->e[OP_WRITE].arg = arg;
 	assert(st->e[OP_READ].result == kselector_event_accept);
 	KBIT_SET(st->st_flags,STF_READ);
 	if (KBIT_TEST(st->st_flags,STF_RREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
+		kselector_add_list(st->selector,st,KGL_LIST_READY);
 		return true;
 	}
 	if (KBIT_TEST(st->st_flags,STF_REV)) {
@@ -136,9 +137,8 @@ static bool kqueue_selector_accept(kselector *selector, kserver_selectable *ss, 
 	}
 	return true;
 }
-static bool kqueue_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+static bool kqueue_selector_listen(kserver_selectable *ss, result_callback result)
 {
-	kqueue_selector *es = (kqueue_selector *)selector->ctx;
 	kselectable *st = &ss->st;
 	struct kevent changes[2];
     int ev_count = 0;
@@ -149,7 +149,7 @@ static bool kqueue_selector_listen(kselector *selector, kserver_selectable *ss, 
 	st->e[OP_WRITE].arg = NULL;
 	st->e[OP_WRITE].result = result;
     assert(KBIT_TEST(st->st_flags,STF_READ)==0);
-        return true;
+	return true;
 }
 static bool kqueue_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {

@@ -56,16 +56,21 @@ bool kiocp_accept_ex(kserver_selectable *ss)
 }
 static void iocp_selector_bind(kselector *selector, kselectable *st)
 {
+	if (st->selector && !KBIT_TEST(st->st_flags, STF_IOCP_BINDED)) {
+		printf("bug!\n");
+	}
+	assert(st->selector == NULL && !KBIT_TEST(st->st_flags, STF_IOCP_BINDED));
 	if (st->selector) {
 		kassert(st->selector == selector);
 		return;
-	}
-	st->selector = selector;
+	}	
 	if (ksocket_opened(st->fd)) {
 		CreateIoCompletionPort((HANDLE)st->fd, selector->ctx, (ULONG_PTR)st, 0);
 		if (KBIT_TEST(st->st_flags, STF_UDP)) {
 			SetFileCompletionNotificationModes((HANDLE)st->fd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
 		}
+		KBIT_SET(st->st_flags, STF_IOCP_BINDED);
+		st->selector = selector;
 	}
 }
 static void iocp_selector_init(kselector *selector)
@@ -166,7 +171,9 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
-	iocp_selector_bind(selector, st);
+	assert(st->selector == selector);
+	assert(KBIT_TEST(st->st_flags, STF_IOCP_BINDED));
+	//iocp_selector_bind(selector, st);
 	int rc = WSARecv(st->fd, recvBuf, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);
 #ifndef NDEBUG
 	//klog(KLOG_DEBUG,"addSocket st=%p,us=%p,op=%d,rc=%d,err=%d\n",s,us,op,rc,err);
@@ -201,7 +208,8 @@ static bool iocp_selector_write(kselector *selector, kselectable *st, result_cal
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
 	st->e[OP_WRITE].buffer = buffer;
-	iocp_selector_bind(selector, st);
+	assert(st->selector == selector);
+	assert(KBIT_TEST(st->st_flags, STF_IOCP_BINDED));
 	int rc = WSASend(st->fd, recvBuf, bufferCount, &BytesRecv, Flags, &st->e[OP_WRITE].lp, NULL);
 #ifndef NDEBUG
 	//klog(KLOG_DEBUG,"addSocket st=%p,rc=%d\n",st,rc);
@@ -251,32 +259,17 @@ static kev_result iocp_accept_result(KOPAQUE data, void *arg, int got)
 		getpeername(ss->accept_sockfd, (struct sockaddr *)&ss->accept_addr, &ss->addr_len);
 	}
 	return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg, got);
-#if 0
-	kev_result ret = ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg, got);
-	if (!KEV_AVAILABLE(ret)) {
-		return ret;
-	}
-	do {
-		if (ss->server->closed) {
-			kserver_release(ss->server);
-			return kev_destroy;
-		}
-	} while (!kiocp_accept_ex(ss));
-
-	return kev_ok;
-#endif
 }
-static bool iocp_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
+static bool iocp_selector_accept(kserver_selectable* ss, void *arg)
 {
 	ss->st.e[OP_WRITE].arg = arg;
 	return kiocp_accept_ex(ss);
 }
-static bool iocp_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+static bool iocp_selector_listen(kserver_selectable *ss, result_callback result)
 {
-	iocp_selector_bind(selector, &ss->st);
+	assert(KBIT_TEST(ss->st.st_flags, STF_IOCP_BINDED));
 	ss->st.e[OP_READ].arg = ss;
 	ss->st.e[OP_READ].result = iocp_accept_result;
-
 
 	ss->st.e[OP_WRITE].result = result;
 	return true;

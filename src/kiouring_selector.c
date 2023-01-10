@@ -198,14 +198,14 @@ static kev_result iouring_listen_result(KOPAQUE data, void *arg,int got)
 	}
 	return st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg,got);	
 }
-static bool iouring_selector_accept(kselector* selector, kserver_selectable* ss, void *arg)
+static bool iouring_selector_accept(kserver_selectable* ss, void *arg)
 {
 	kselectable *st = &ss->st;
 	st->e[OP_WRITE].arg = arg;
 	kgl_event *e = &st->e[OP_READ];
-	return iouring_add_accept_event(selector,ss,e);
+	return iouring_add_accept_event(st->selector,ss,e);
 }
-static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss, result_callback result)
+static bool iouring_selector_listen(kserver_selectable *ss, result_callback result)
 {
 	//printf("*****listen now\n");	
 	kselectable *st = &ss->st;
@@ -213,8 +213,7 @@ static bool iouring_selector_listen(kselector *selector, kserver_selectable *ss,
 	e->arg = ss;
 	e->result = iouring_listen_result;
 	e->buffer = NULL;
-	e->st = st;
-	
+	e->st = st;	
 	
 	st->e[OP_WRITE].result = result;
 	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);

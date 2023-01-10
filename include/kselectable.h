@@ -17,7 +17,11 @@
 #define STF_WEV         (1<<5)
 #define STF_ET          (1<<6)
 #else
+#ifdef  LINUX_IOURING
 #define STF_USEPOLL     (1<<6) /* iouring use for poll model */
+#elif  _WIN32
+#define STF_IOCP_BINDED (1<<6)
+#endif
 #endif
 #define STF_ERR         (1<<7)
 

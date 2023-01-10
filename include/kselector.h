@@ -36,8 +36,8 @@ typedef kev_result(*aio_callback)(kasync_file* fp, void* arg, char* buf, int len
 
 
 typedef void (*selector_init)(kselector* selector);
-typedef bool (*selector_listen)(kselector* selector, kserver_selectable* st, result_callback result);
-typedef bool (*selector_accept)(kselector* selector, kserver_selectable* st, void* arg);
+typedef bool (*selector_listen)(kserver_selectable* st, result_callback result);
+typedef bool (*selector_accept)(kserver_selectable* st, void* arg);
 typedef void (*selector_bind)(kselector* selector, kselectable* st);
 
 typedef void (*selector_remove)(kselector* selector, kselectable* st);
