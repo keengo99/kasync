@@ -15,6 +15,7 @@ typedef struct {
 } kssl_bio;
 
 void kgl_bio_init_method();
+void kgl_bio_clean_method();
 BIO_METHOD *BIO_kgl_method();
 kev_result result_ssl_bio_read(KOPAQUE data, void *arg, int got);
 int  buffer_ssl_bio_read(KOPAQUE data, void *arg, LPWSABUF buf, int bufCount);

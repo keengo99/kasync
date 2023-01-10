@@ -9,12 +9,7 @@
 #include <malloc.h>
 #endif
 KBEGIN_DECLS
-#ifndef NDEBUG
-#define MAX_TRACEBACK_LEVELS	16
-typedef void* TRACEBACK[MAX_TRACEBACK_LEVELS];
-void kgl_get_stack_trace(TRACEBACK sp);
-void print_stack_trace(TRACEBACK sp);
-#endif
+
 #define xmemory_new(T) (T *)malloc(sizeof(T))
 INLINE void *xmemory_newz(size_t size)
 {

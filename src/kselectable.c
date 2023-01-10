@@ -168,6 +168,8 @@ void selectable_clean(kselectable* st)
 #ifdef KSOCKET_SSL
 	if (st->ssl) {
 		SSL_free(st->ssl->ssl);
+#ifdef ENABLE_KSSL_BIO
+#endif
 		xfree(st->ssl);
 	}
 #endif

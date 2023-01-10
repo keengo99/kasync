@@ -123,7 +123,12 @@ void kgl_bio_init_method()
 	BIO_meth_set_create(kgl_method, kgl_bio_new);
 	BIO_meth_set_destroy(kgl_method, kgl_bio_free);
 }
-
+void kgl_bio_clean_method() {
+	if (kgl_method != NULL) {
+		BIO_meth_free(kgl_method);
+		kgl_method = NULL;
+	}
+}
 kev_result result_ssl_bio_read(KOPAQUE data, void *arg, int got)
 {
 	kssl_bio *ssl_bio = (kssl_bio *)arg;

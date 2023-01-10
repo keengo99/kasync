@@ -32,7 +32,7 @@ void dump_memory_leak(int min,int max) {
 #include<pthread.h>
 #include<execinfo.h>
 typedef void * addr;
-#define MAX_TRACEBACK_LEVELS 32
+#define MAX_TRACEBACK_LEVELS 16
 typedef addr TRACEBACK[MAX_TRACEBACK_LEVELS];
 INLINE int generate_traceback(TRACEBACK tb) {
 	return backtrace(tb,MAX_TRACEBACK_LEVELS);

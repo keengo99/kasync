@@ -118,6 +118,17 @@ void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f f
 	kgl_ssl_create_sni = create_sni;
 	kgl_ssl_free_sni = free_sni;
 }
+void kssl_clean() {
+#ifdef ENABLE_KSSL_BIO
+	kgl_bio_clean_method();
+#endif
+#ifndef OPENSSL_IS_BORINGSSL
+	int locks_num = CRYPTO_num_locks();
+	for (int i = 0; i < locks_num; i++) {
+		kmutex_destroy(&ssl_lock[i]);
+	}
+#endif
+}
 void kssl_init2()
 {
 	SSL_load_error_strings();

@@ -108,6 +108,7 @@ extern kgl_ssl_free_sni_f kgl_ssl_free_sni;
 
 void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
 void kssl_init2();
+void kssl_clean();
 void kssl_set_npn_callback(kgl_ssl_npn_f npn);
 void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni);
 KEND_DECLS

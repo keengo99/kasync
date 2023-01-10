@@ -21,6 +21,11 @@
 #define nNoMansLandSize			4
 
 
+#define MAX_TRACEBACK_LEVELS	16
+typedef void* TRACEBACK[MAX_TRACEBACK_LEVELS];
+void kgl_get_stack_trace(TRACEBACK sp);
+void print_stack_trace(TRACEBACK sp);
+
 
 static HANDLE hProcess = INVALID_HANDLE_VALUE;
 static int bad_memory_count = 0;
