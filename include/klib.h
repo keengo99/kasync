@@ -1,6 +1,7 @@
 #ifndef KLIB_H_99
 #define KLIB_H_99
 #include "kfeature.h"
+#include "kforwin32.h"
 KBEGIN_DECLS
 void kgl_msleep(int msec);
 INLINE bool kgl_is_absolute_path(const char* str) {
@@ -17,6 +18,13 @@ INLINE bool kgl_is_absolute_path(const char* str) {
 	}
 #endif
 	return false;
+}
+INLINE int kgl_get_bufs_size(WSABUF* buf, int bc) {
+	int length = 0;
+	for (int i=0; i<bc; i++) {
+		length += buf[i].iov_len;
+	}
+	return length;
 }
 KEND_DECLS
 #endif

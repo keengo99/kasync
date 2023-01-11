@@ -69,12 +69,13 @@ typedef struct {
 	int chunk_size;
 } krw_buffer;
 
+#if 0
 typedef struct {
 	kbuf *head;
 	char *read_hot;
 	int total_len;
 } kr_buffer;
-
+#endif
 
 typedef struct {
 	char *buf;
@@ -125,10 +126,7 @@ void krw_write_int64(krw_buffer *rw_buffer, int64_t val);
 
 void krw_append(krw_buffer *rw_buffer, kbuf *buf);
 void krw_insert(krw_buffer *rw_buffer, kbuf *buf);
-//kr_buffer
-void kr_init(kr_buffer *r_buffer, kbuf *head, int offset, int total_len, kgl_pool_t *pool);
-int kr_get_read_buffers(kr_buffer *r_buffer, LPWSABUF buffer, int bc);
-bool kr_read_success(kr_buffer *r_buffer, int got);
+kbuf* kbuf_init_read(kbuf* head, int offset, kgl_pool_t* pool);
 void debug_print_buff(kbuf* buf);
 KEND_DECLS
 #endif
