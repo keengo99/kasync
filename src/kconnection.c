@@ -122,7 +122,6 @@ bool kconnection_half_connect(kconnection *c, sockaddr_i *bind_addr, int tproxy_
 }
 kev_result kconnection_connect(kconnection *c,result_callback cb, void *arg)
 {
-	kassert(kfiber_check_result_callback(cb));
 	assert(kselector_is_same_thread(c->st.selector));
 #ifdef KGL_IOCP
 	c->st.e[OP_READ].buffer = kconnection_buffer_addr;
@@ -253,7 +252,6 @@ static void kconnection_ssl_init(kconnection *c,SSL_CTX *ssl_ctx, SSL *ssl)
 }
 kev_result kconnection_ssl_handshake(kconnection *c,result_callback cb, void *arg)
 {	
-	kassert(kfiber_check_result_callback(cb));
 	kconnection_ssl_param *sh = xmemory_new(kconnection_ssl_param);
 	memset(sh, 0, sizeof(kconnection_ssl_param));
 	sh->c = c;
@@ -264,7 +262,6 @@ kev_result kconnection_ssl_handshake(kconnection *c,result_callback cb, void *ar
 }
 kev_result kconnection_ssl_shutdown(kconnection *c, result_callback cb, void *arg)
 {
-	kassert(kfiber_check_result_callback(cb));
 	kconnection_ssl_param *sh = xmemory_new(kconnection_ssl_param);
 	memset(sh, 0, sizeof(kconnection_ssl_param));
 	sh->c = c;

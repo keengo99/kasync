@@ -56,9 +56,6 @@ bool kiocp_accept_ex(kserver_selectable *ss)
 }
 static void iocp_selector_bind(kselector *selector, kselectable *st)
 {
-	if (st->selector && !KBIT_TEST(st->st_flags, STF_IOCP_BINDED)) {
-		printf("bug!\n");
-	}
 	assert(st->selector == NULL && !KBIT_TEST(st->st_flags, STF_IOCP_BINDED));
 	if (st->selector) {
 		kassert(st->selector == selector);
@@ -262,6 +259,7 @@ static kev_result iocp_accept_result(KOPAQUE data, void *arg, int got)
 }
 static bool iocp_selector_accept(kserver_selectable* ss, void *arg)
 {
+	assert(KBIT_TEST(ss->st.st_flags, STF_IOCP_BINDED));
 	ss->st.e[OP_WRITE].arg = arg;
 	return kiocp_accept_ex(ss);
 }
@@ -311,7 +309,6 @@ void iocp_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HAN
 }
 bool iocp_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void* arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	assert(KBIT_TEST(file->st.st_flags,STF_AIO_FILE));
 	assert(KBIT_TEST(file->st.st_flags, STF_WRITE|STF_READ)==0);	
 	file->st.e[OP_WRITE].result = result;
@@ -340,7 +337,6 @@ bool iocp_selector_aio_write(kasync_file *file, result_callback result, const ch
 }
 bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	assert(KBIT_TEST(file->st.st_flags, STF_WRITE | STF_READ) == 0);	
 	file->st.e[OP_READ].result = result;
 	file->st.e[OP_READ].arg = arg;

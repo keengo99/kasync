@@ -458,7 +458,6 @@ void epoll_selector_aio_open(kselector *selector,kasync_file *aio_file, FILE_HAN
 }
 bool epoll_selector_aio_write(kasync_file *file, result_callback result,const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kepoll_selector *es = (kepoll_selector *)file->st.selector->ctx;
 	file->st.direct_io_offset = 0;
 	if (file->st.direct_io) {
@@ -497,7 +496,6 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 }
 bool epoll_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kepoll_selector *es = (kepoll_selector *)file->st.selector->ctx;
 	if (file->st.direct_io) {
 		file->st.direct_io_orig_length = length;

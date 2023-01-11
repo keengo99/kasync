@@ -767,42 +767,6 @@ void kfiber_file_close(kfiber_file * file) {
 	kasync_file_close(file);
 	xfree(file);
 }
-
-bool kfiber_check_result_callback(result_callback cb) {
-	if (kfiber_self() == kfiber_main()) {
-		return true;
-	}
-	if (cb == result_switch_fiber) {
-		return true;
-	}
-	if (cb == result_fiber_exit) {
-		return true;
-	}
-#ifdef KSOCKET_SSL
-	if (cb == result_fiber_ssl_handshake || cb == result_fiber_ssl_shutdown) {
-		return true;
-	}
-#endif
-	return false;
-}
-bool kfiber_check_file_callback(result_callback cb) {
-	if (kfiber_self() == kfiber_main()) {
-		return true;
-	}
-	if (cb == kfiber_file_callback) {
-		return true;
-	}
-	return false;
-}
-bool kfiber_check_addr_callback(kgl_addr_call_back cb) {
-	if (kfiber_self() == kfiber_main()) {
-		return true;
-	}
-	if (cb == kfiber_getaddr_callback) {
-		return true;
-	}
-	return false;
-}
 //chan
 kfiber_chan* kfiber_chan_create(int buf_size) {
 	assert(buf_size >= 0);

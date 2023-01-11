@@ -165,9 +165,5 @@ int64_t kfiber_file_tell(kfiber_file *fp);
 
 //thread call
 int kfiber_thread_call(kfiber_start_func start, void* arg, int argc, int *ret);
-//debug check
-bool kfiber_check_result_callback(result_callback cb);
-bool kfiber_check_file_callback(result_callback cb);
-bool kfiber_check_addr_callback(kgl_addr_call_back cb);
 KEND_DECLS
 #endif

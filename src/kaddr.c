@@ -310,7 +310,6 @@ kgl_addr_node * find_addr_in_tree(const char *hostname, kgl_addr_type addr_type,
 kev_result kgl_find_addr(const char *hostname, kgl_addr_type addr_type, kgl_addr_call_back cb,void *arg, kselector *selector)
 {
 	kassert(addr_tree != NULL);
-	kassert(kfiber_check_addr_callback(cb));
 	kev_result ret;
 	bool create_flag = true;
 	assert(selector);

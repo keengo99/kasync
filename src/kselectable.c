@@ -354,7 +354,6 @@ void selectable_low_event_read(kselectable* st, result_callback result, buffer_c
 #endif
 bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
 {
-	kassert(kfiber_check_result_callback(result));
 	kassert(KBIT_TEST(st->st_flags, STF_WRITE | STF_WREADY2) == 0);
 #ifdef ENABLE_KSSL_BIO
 	if (selectable_is_ssl_handshake(st)) {
@@ -403,7 +402,6 @@ kev_result selectable_write(kselectable* st, result_callback result, buffer_call
 
 bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
 {
-	kassert(kfiber_check_result_callback(result));
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		if (

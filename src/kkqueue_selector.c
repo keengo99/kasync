@@ -330,7 +330,6 @@ void kqueue_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_H
 }
 bool kqueue_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kqueue_selector *es = (kqueue_selector *)file->st.selector->ctx;
 	file->st.e[OP_WRITE].result = result;
 	file->st.e[OP_WRITE].arg = arg;
@@ -361,7 +360,6 @@ bool kqueue_selector_aio_write(kasync_file *file, result_callback result, const 
 }
 bool kqueue_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kqueue_selector *es = (kqueue_selector *)file->st.selector->ctx;
 	file->st.e[OP_READ].result = result;
 	file->st.e[OP_READ].arg = arg;

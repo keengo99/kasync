@@ -319,7 +319,6 @@ void iouring_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_
 
 bool iouring_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
@@ -342,7 +341,6 @@ bool iouring_selector_aio_write(kasync_file *file, result_callback result, const
 }
 bool iouring_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kassert(kfiber_check_file_callback(result));
 	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
