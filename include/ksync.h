@@ -67,6 +67,27 @@ INLINE void kcond_wait(kcond *cond)
 	kmutex_unlock(&cond->mutex);
 #endif
 }
+INLINE bool kcond_try_wait(kcond* cond, int msec) {
+#ifdef _WIN32
+	return WaitForSingleObject(cond, msec) == WAIT_OBJECT_0;
+#else
+	kmutex_lock(&cond->mutex);
+	if (cond->ev) {
+		cond->ev = false;
+		kmutex_unlock(&cond->mutex);
+		return true;
+	}
+	kmutex_unlock(&cond->mutex);
+	return false;
+#if 0
+	pthread_cond_wait(&cond->cond, &cond->mutex);
+	if (cond->auto_reset) {
+		cond->ev = false;
+	}
+	kmutex_unlock(&cond->mutex);
+#endif
+#endif
+}
 INLINE void kcond_notice(kcond *cond)
 {
 #ifdef _WIN32

@@ -94,6 +94,11 @@ typedef enum {
 	kev_destroy /* selectable not in any selector event/timer and destroied by result callback */
 } kev_result;
 
+typedef struct {
+	char* data;
+	size_t len;
+} kgl_str_t;
+
 #define KEV_HANDLED(x) (x!=kev_err)
 #define KEV_AVAILABLE(x) (x!=kev_destroy)
 #ifdef _WIN32

@@ -9,6 +9,7 @@
 #include "kserver.h"
 #include "kfiber_internal.h"
 #include "kaddr.h"
+#include "kbuf.h"
 
 KBEGIN_DECLS
 #define _ST_PAGE_SIZE 4096
@@ -42,6 +43,7 @@ kfiber *kfiber_ref_self(bool thread_safe);
 
 
 int kfiber_join(kfiber *fiber,int *retval);
+int kfiber_try_join(kfiber* fiber, int* retval);
 kev_result kfiber_join2(kfiber *fiber, KOPAQUE data, result_callback notice, void *arg);
 
 int kfiber_exit_callback(KOPAQUE data, result_callback notice, void *arg);
@@ -101,6 +103,42 @@ INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
 	}
 	return true;
 }
+#if 0
+/* length is -1 will write all buf data. */
+INLINE bool kfiber_net_write_buf_full(kconnection* cn, kbuf* buf, int length) {
+
+#define KGL_RQ_WRITE_BUF_COUNT 32
+	WSABUF bufs[KGL_RQ_WRITE_BUF_COUNT];
+	while (buf) {
+		int bc = 0;
+		while (bc < KGL_RQ_WRITE_BUF_COUNT && buf) {
+			if (length == 0) {
+				break;
+			}
+			if (length > 0) {
+				bufs[bc].iov_len = KGL_MIN(length, buf->used);
+				length -= bufs[bc].iov_len;
+			} else {
+				bufs[bc].iov_len = buf->used;
+			}
+			bufs[bc].iov_base = buf->data;
+			buf = buf->next;
+			bc++;
+		}
+		if (bc == 0) {
+			if (length > 0) {
+				return false;
+			}
+			assert(length == 0);
+			return true;
+		}
+		if (!kfiber_net_writev_full(cn, bufs, &bc)) {
+			return false;
+		}
+	}
+	return true;
+}
+#endif
 INLINE bool kfiber_net_write_full(kconnection *cn, const char *buf, int *len)
 {
 	while (*len > 0) {

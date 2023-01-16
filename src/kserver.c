@@ -292,6 +292,7 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 	if (KBIT_TEST(server->flags, KGL_SERVER_START)) {
 		return false;
 	}
+	int selector_count = get_selector_count();
 	if (!is_server_supported_multi_selectable()) {
 		kserver_selectable *ss = kserver_listen_on_selector(get_perfect_selector(), server, flag, accept_callback);
 		if (ss != NULL) {
@@ -299,9 +300,8 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 			result = true;
 			kserver_selectable_start(ss);
 		}
-		return result;
+		goto done;
 	}
-	int selector_count = get_selector_count();
 	for (i = 0; i < selector_count; i++) {
 		kserver_selectable* ss = kserver_listen_on_selector(get_selector_by_index(i), server, flag, accept_callback);
 		if (ss != NULL) {
@@ -310,6 +310,10 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 			kserver_selectable_start(ss);
 		}
 	}
+done:
+	char ips[MAXIPLEN];
+	ksocket_sockaddr_ip((sockaddr_i*)&server->addr, ips, MAXIPLEN);
+	klog(KLOG_ERR, "listen server on %s:%d [%s]\n", ips, ksocket_addr_port((sockaddr_i*)&server->addr), result ? "success" : "failed");
 	return result;
 }
 static void kserver_free(kserver *server) {
@@ -358,7 +362,7 @@ void kserver_selectable_destroy(kserver_selectable *ss)
 #ifdef ACCEPT_SOCKET_SHUTDOWN_NO_EVENT
 	if(katom_get((void *)&ss->hold_by_next_shutdown_refs)>0) {
 		//hold by next_shutdown
-		printf("hold by next_shutdown st=[%p]\n",ss);
+		//printf("hold by next_shutdown st=[%p]\n",ss);
 		return;
 	}
 #endif

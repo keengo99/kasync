@@ -48,7 +48,8 @@ typedef struct _kfiber_cond kfiber_cond;
 
 typedef struct _kfiber_cond_function {
 	int (*notice)(kfiber_cond* fc,int got);
-	int (*wait)(kfiber_cond* fc);
+	int (*wait)(kfiber_cond* fc, int *got);
+	int (*try_wait)(kfiber_cond* fc,int* got);
 	kev_result(*wait_callback)(kfiber_cond* fc, KOPAQUE data, result_callback notice, void* arg);
 	void (*release)(kfiber_cond* fc);
 } kfiber_cond_function;

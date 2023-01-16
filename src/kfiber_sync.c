@@ -259,7 +259,7 @@ int kfiber_cond_notice(kfiber_cond* fc,int got)
 	kfiber_wakeup_all_waiter(waiter,got);
 	return 0;
 }
-int kfiber_cond_wait_ts_ar(kfiber_cond* fc)
+int kfiber_cond_wait_ts_ar(kfiber_cond* fc, int *got)
 {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
@@ -268,40 +268,101 @@ int kfiber_cond_wait_ts_ar(kfiber_cond* fc)
 	if (fc->ev > 0) {
 		fc->ev--;
 		kmutex_unlock(&fcs->lock);
+		if (got) {
+			*got = fiber->retval;
+		}
 		return 0;
 	}
 	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
 	kmutex_unlock(&fcs->lock);
 	__kfiber_wait(fiber, &fiber);
+	if (got) {
+		*got = fiber->retval;
+	}
+	return 0;
+}
+int kfiber_cond_try_wait_ts_ar(kfiber_cond* fc, int* got) {
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
+	kmutex_lock(&fcs->lock);
+	if (fc->ev > 0) {
+		fc->ev--;
+		kmutex_unlock(&fcs->lock);
+		if (got) {
+			*got = fiber->retval;
+		}
+		return 0;
+	}
+	kmutex_unlock(&fcs->lock);
+	return -1;
+}
+int kfiber_cond_try_wait_ar(kfiber_cond* fc, int* got) {
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	if (fc->ev > 0) {
+		fc->ev--;
+		if (got) {
+			*got = fiber->retval;
+		}
+		return 0;
+	}
+	return -1;
+}
+int kfiber_cond_wait_ar(kfiber_cond* fc, int *got)
+{
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	if (fc->ev > 0) {
+		fc->ev--;
+		if (got) {
+			*got = fiber->retval;
+		}
+		return 0;
+	}
+	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	__kfiber_wait(fiber, &fiber);
+	if (got) {
+		*got = fiber->retval;
+	}
+	return 0;
+}
+int kfiber_cond_wait_ts(kfiber_cond* fc, int *got)
+{
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
+	kmutex_lock(&fcs->lock);
+	if (fc->ev > 0) {
+		if (got) {
+			*got = fiber->retval;
+		}
+		kmutex_unlock(&fcs->lock);
+		return 0;
+	}
+	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	kmutex_unlock(&fcs->lock);
+	__kfiber_wait(fiber, &fiber);
+	if (got) {
+		*got = fiber->retval;
+	}
 	return 0;
 }
 
-int kfiber_cond_wait_ar(kfiber_cond* fc)
-{
-	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
-	if (fc->ev > 0) {
-		fc->ev--;
-		return 0;
-	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
-	__kfiber_wait(fiber, &fiber);
-	return 0;
-}
-int kfiber_cond_wait_ts(kfiber_cond* fc)
-{
+int kfiber_cond_try_wait_ts(kfiber_cond* fc, int* got) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
 	if (fc->ev > 0) {
+		if (got) {
+			*got = fiber->retval;
+		}
 		kmutex_unlock(&fcs->lock);
 		return 0;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
 	kmutex_unlock(&fcs->lock);
-	__kfiber_wait(fiber, &fiber);
-	return 0;
+	return -1;
 }
 int kfiber_cond_notice_sync(kfiber_cond* fc, int got)
 {
@@ -310,23 +371,54 @@ int kfiber_cond_notice_sync(kfiber_cond* fc, int got)
 	kcond_notice(sync->sync_cond);
 	return 0;
 }
-int kfiber_cond_wait_sync(kfiber_cond* fc)
+int kfiber_cond_wait_sync(kfiber_cond* fc, int *got)
 {
 	assert(kfiber_self() == NULL);
 	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
 	kcond_wait(sync->sync_cond);
+	if (got) {
+		*got = sync->got;
+	}
 	return 0;
 }
-int kfiber_cond_wait(kfiber_cond* fc)
+int kfiber_cond_try_wait_sync(kfiber_cond* fc, int* got) {
+	assert(kfiber_self() == NULL);
+	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
+	if (!kcond_try_wait(sync->sync_cond, 0)) {
+		return -1;
+	}
+	if (got) {
+		*got = sync->got;
+	}
+	return 0;
+}
+int kfiber_cond_wait(kfiber_cond* fc, int *got)
 {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	if (fc->ev > 0) {
+		if (got) {
+			*got = fiber->retval;
+		}
 		return 0;
 	}
 	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
 	__kfiber_wait(fiber, &fiber);
+	if (got) {
+		*got = fiber->retval;
+	}
 	return 0;
+}
+int kfiber_cond_try_wait(kfiber_cond* fc, int* got) {
+	kfiber* fiber = kfiber_self();
+	CHECK_FIBER(fiber);
+	if (fc->ev > 0) {
+		if (got) {
+			*got = fiber->retval;
+		}
+		return 0;
+	}
+	return -1;
 }
 void kfiber_cond_destroy(kfiber_cond* fc)
 {
@@ -349,30 +441,35 @@ void kfiber_cond_destroy_sync(kfiber_cond* fc)
 static kfiber_cond_function kfiber_cond_single_thread_auto_reset = {
 	kfiber_cond_notice_ar,
 	kfiber_cond_wait_ar,
+	kfiber_cond_try_wait_ar,
 	kfiber_cond_wait_callback_ar,
 	kfiber_cond_destroy
 };
 static kfiber_cond_function kfiber_cond_single_thread = {
 	kfiber_cond_notice,
 	kfiber_cond_wait,
+	kfiber_cond_try_wait,
 	kfiber_cond_wait_callback,
 	kfiber_cond_destroy
 };
 static kfiber_cond_function kfiber_cond_thread_auto_reset = {
 	kfiber_cond_notice_ts_ar,
 	kfiber_cond_wait_ts_ar,
+	kfiber_cond_try_wait_ts_ar,
 	kfiber_cond_wait_callback_ts_ar,
 	kfiber_cond_destroy_ts
 };
 static kfiber_cond_function kfiber_cond_thread_safe = {
 	kfiber_cond_notice_ts,
 	kfiber_cond_wait_ts,
+	kfiber_cond_try_wait_ts,
 	kfiber_cond_wait_callback_ts,
 	kfiber_cond_destroy_ts
 };
 static kfiber_cond_function kfiber_cond_thread_sync = {
 	kfiber_cond_notice_sync,
 	kfiber_cond_wait_sync,
+	kfiber_cond_try_wait_sync,
 	NULL,
 	kfiber_cond_destroy_sync
 };

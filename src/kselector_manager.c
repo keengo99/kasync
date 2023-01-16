@@ -245,9 +245,12 @@ void selector_manager_init(unsigned  size, bool register_thread_timer)
 			break;
 		}
 		if (kgl_selector_count > (int)size) {
-			kgl_selector_count--;
+			kgl_selector_count/=2;
 			break;
 		}
+	}
+	if (kgl_selector_count == 0) {
+		kgl_selector_count = 1;
 	}
 	kgl_selector_hash = kgl_selector_count - 1;
 	kgl_selectors = (kselector **)xmalloc(sizeof(kselector *)*kgl_selector_count);

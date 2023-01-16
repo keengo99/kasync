@@ -436,13 +436,29 @@ kfiber* kfiber_ref_self(bool thread_safe) {
 	katom_inc((void*)&fiber->ref);
 	return fiber;
 }
+int kfiber_try_join(kfiber* fiber,int* retval) {
+	assert(fiber->close_cond);
+	if (fiber->close_cond == NULL) {
+		kfiber_release(fiber);
+		return -1;
+	}
+	if (fiber->close_cond->f->try_wait(fiber->close_cond, retval) != 0) {
+		kfiber_release(fiber);
+		return -1;
+	}
+	if (retval) {
+		*retval = fiber->retval;
+	}
+	kfiber_release(fiber);
+	return 0;
+}
 int kfiber_join(kfiber * fiber, int* retval) {
 	assert(fiber->close_cond);
 	if (fiber->close_cond == NULL) {
 		kfiber_release(fiber);
 		return -1;
 	}
-	if (fiber->close_cond->f->wait(fiber->close_cond) != 0) {
+	if (fiber->close_cond->f->wait(fiber->close_cond, retval) != 0) {
 		kfiber_release(fiber);
 		return -1;
 	}

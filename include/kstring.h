@@ -7,10 +7,6 @@
 #include "kmalloc.h"
 
 KBEGIN_DECLS
-typedef struct {
-	char *data;
-	size_t len;
-} kgl_str_t;
 
 typedef struct {
 	volatile int32_t refs;
