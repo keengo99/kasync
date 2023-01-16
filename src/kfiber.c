@@ -439,11 +439,9 @@ kfiber* kfiber_ref_self(bool thread_safe) {
 int kfiber_try_join(kfiber* fiber,int* retval) {
 	assert(fiber->close_cond);
 	if (fiber->close_cond == NULL) {
-		kfiber_release(fiber);
 		return -1;
 	}
 	if (fiber->close_cond->f->try_wait(fiber->close_cond, retval) != 0) {
-		kfiber_release(fiber);
 		return -1;
 	}
 	if (retval) {
@@ -456,11 +454,11 @@ int kfiber_join(kfiber * fiber, int* retval) {
 	assert(fiber->close_cond);
 	if (fiber->close_cond == NULL) {
 		kfiber_release(fiber);
-		return -1;
+		return 0;
 	}
 	if (fiber->close_cond->f->wait(fiber->close_cond, retval) != 0) {
 		kfiber_release(fiber);
-		return -1;
+		return 0;
 	}
 	if (retval) {
 		*retval = fiber->retval;
