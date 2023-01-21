@@ -11,7 +11,7 @@
 #define WIN32_LEAN_AND_MEAN 1
 #endif
 #define HAVE_SOCKLEN_T 1
-#pragma warning(disable: 4290 4996 4819 26812)
+#pragma warning(disable: 4290 4996 4819 26812 )
 #endif
 #ifdef  __cplusplus
 	#define KBEGIN_DECLS  extern "C" {
@@ -98,6 +98,14 @@ typedef struct {
 	char* data;
 	size_t len;
 } kgl_str_t;
+
+#ifdef _WIN32
+#pragma warning(disable : 4200)
+#endif
+typedef struct {
+	size_t len;
+	char data[0];
+} kgl_len_str_t;
 
 #define KEV_HANDLED(x) (x!=kev_err)
 #define KEV_AVAILABLE(x) (x!=kev_destroy)
