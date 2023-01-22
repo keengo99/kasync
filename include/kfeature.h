@@ -43,6 +43,7 @@ typedef unsigned __int64    uint64_t;
 #define true				1
 #define false				0
 #else
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #endif
