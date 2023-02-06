@@ -58,7 +58,7 @@ struct krb_node *rbtree_insert2(struct krb_tree *rb, void *key, int *new_flag, c
 void rbtree_iterator(struct krb_tree *rb, iteratorbt iterator, void *arg);
 void rbtree_remove(struct krb_tree *rb, struct krb_node *node);
 void rbtree_remove2(struct krb_tree *rb, struct krb_node *node, free_node fn);
-void rbtree_test();
+//void rbtree_test();
 
 /////////////////////////////////////////////////////////////
 INLINE void rb_link_node(struct krb_node * node, struct krb_node * parent, struct krb_node ** rb_link)

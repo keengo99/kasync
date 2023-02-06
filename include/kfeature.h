@@ -100,6 +100,12 @@ typedef struct {
 	size_t len;
 } kgl_str_t;
 
+typedef struct {
+	const char* data;
+	volatile int32_t ref;
+	int  len;
+} kgl_ref_str_t;
+
 #ifdef _WIN32
 #pragma warning(disable : 4200)
 #endif

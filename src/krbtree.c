@@ -603,7 +603,6 @@ struct krb_node *rbtree_insert(struct krb_tree *rb, void *key, int *new_flag, co
 		}
 	}
 	struct krb_node *node = (struct krb_node *)xmalloc(sizeof(struct krb_node));
-	node->data = key;
 	rb_link_node(node, parent, n);
 	rb_insert_color(node, &rb->root);
 	*new_flag = 1;
@@ -652,6 +651,8 @@ void rbtree_iterator(struct krb_tree *rb, iteratorbt iterator, void *arg)
 		}
 	}
 }
+
+#if 0
 iterator_ret int_iterator(void *data, void *argv)
 {
 	int *n = (int *)data;
@@ -659,9 +660,8 @@ iterator_ret int_iterator(void *data, void *argv)
 	xfree(n);
 	return iterator_remove_continue;
 }
-int int_comp(void *k, void *k2)
-{
-	return *(int *)k - *(int *)k2;
+int int_comp(void* k, void* k2) {
+	return *(int*)k - *(int*)k2;
 }
 void rbtree_test()
 {
@@ -681,3 +681,4 @@ void rbtree_test()
 	rbtree_iterator(rb, int_iterator, NULL);
 	kassert(rb->root.rb_node == NULL);
 }
+#endif

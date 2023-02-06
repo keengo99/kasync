@@ -180,7 +180,7 @@ kfiber_file* kfiber_file_bind(FILE_HANDLE fp);
 int64_t kfiber_file_size(kfiber_file *fp);
 int kfiber_file_read(kfiber_file *fp, char *buf, int length);
 int kfiber_file_write(kfiber_file *fp, const char *buf, int length);
-INLINE bool kfiber_file_write_fully(kfiber_file* fp, const char* buf, int *length)
+INLINE bool kfiber_file_write_full(kfiber_file* fp, const char* buf, int *length)
 {
 	while (*length > 0) {
 		int got = kfiber_file_write(fp, buf, *length);
@@ -189,6 +189,17 @@ INLINE bool kfiber_file_write_fully(kfiber_file* fp, const char* buf, int *lengt
 		}
 		*length -= got;
 		buf += got;
+	}
+	return true;
+}
+INLINE bool kfiber_file_read_full(kfiber_file* file, char* buf, int *length) {
+	while (*length > 0) {
+		int got = kfiber_file_read(file, buf, *length);
+		if (got <= 0) {
+			return false;
+		}
+			*length -= got;
+			buf += got;
 	}
 	return true;
 }
