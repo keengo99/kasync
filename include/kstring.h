@@ -41,17 +41,14 @@ INLINE void kstring_release(kgl_ref_str_t* s) {
 	}
 }
 INLINE kgl_ref_str_t* kstring_from(const char* str) {
-	if (str && *str) {
+	if (str) {
 		int len = (int)strlen(str);
 		return convert_refs_string(kgl_strndup(str, len), len);
 	}
 	return NULL;
 }
 INLINE kgl_ref_str_t* kstring_from2(const char* str, size_t len) {
-	if (len > 0) {
-		return convert_refs_string(kgl_strndup(str, len), (int)len);
-	}
-	return NULL;
+	return convert_refs_string(kgl_strndup(str, len), (int)len);
 }
 KEND_DECLS
 #endif
