@@ -102,8 +102,9 @@ typedef struct {
 
 typedef struct {
 	const char* data;
-	volatile int32_t ref;
-	int  len;
+	volatile  uint32_t ref;
+	uint16_t  id;
+	uint16_t  len;
 } kgl_ref_str_t;
 
 #ifdef _WIN32

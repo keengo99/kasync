@@ -17,11 +17,12 @@ typedef kgl_ref_str_t kgl_refs_string;
 #define kgl_str_null(str)   (str)->len = 0; (str)->data = NULL
 
 
-INLINE kgl_ref_str_t* convert_refs_string(char* str, int len) {
+INLINE kgl_ref_str_t* convert_refs_string(char* str, size_t len) {
 	kgl_ref_str_t* s = xmemory_new(kgl_ref_str_t);
 	s->ref = 1;
+	s->id = 0;
 	s->data = str;
-	s->len = len;
+	s->len = (uint16_t)len;
 	return s;
 }
 INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
@@ -42,13 +43,13 @@ INLINE void kstring_release(kgl_ref_str_t* s) {
 }
 INLINE kgl_ref_str_t* kstring_from(const char* str) {
 	if (str) {
-		int len = (int)strlen(str);
+		size_t len = strlen(str);
 		return convert_refs_string(kgl_strndup(str, len), len);
 	}
 	return NULL;
 }
 INLINE kgl_ref_str_t* kstring_from2(const char* str, size_t len) {
-	return convert_refs_string(kgl_strndup(str, len), (int)len);
+	return convert_refs_string(kgl_strndup(str, len), len);
 }
 KEND_DECLS
 #endif
