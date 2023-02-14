@@ -358,8 +358,13 @@ void kselector_add_block_queue(kselector *selector, kgl_block_queue *brq)
 	}
 	kassert(selector->block_first == rb_first(&selector->block));
 }
-void kselector_add_timer(kselector *selector, result_callback result, void *arg, int msec, KOPAQUE data)
+int kselector_add_timer(kselector *selector, result_callback result, void *arg, int msec, KOPAQUE data)
 {
+#ifdef MALLOCDEBUG
+	if (selector->shutdown) {
+		return -1;
+	}
+#endif
 	kgl_block_queue *brq = (kgl_block_queue *)xmalloc(sizeof(kgl_block_queue));
 	memset(brq, 0, sizeof(kgl_block_queue));
 	brq->active_msec = kgl_current_msec + msec;
@@ -367,6 +372,7 @@ void kselector_add_timer(kselector *selector, result_callback result, void *arg,
 	brq->arg = arg;
 	brq->data = data;
 	kselector_add_block_queue(selector, brq);
+	return 0;
 }
 void kselector_default_bind(kselector *selector, kselectable *st)
 {

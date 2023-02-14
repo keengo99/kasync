@@ -469,7 +469,10 @@ int kfiber_join(kfiber * fiber, int* retval) {
 int kfiber_msleep(int msec) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
-	kselector_add_timer(kgl_get_tls_selector(), result_switch_fiber, fiber, msec, NULL);
+	int result = kselector_add_timer(kgl_get_tls_selector(), result_switch_fiber, fiber, msec, NULL);
+	if (result != 0) {
+		return result;
+	}
 	__kfiber_wait(fiber, NULL);
 	return 0;
 }
