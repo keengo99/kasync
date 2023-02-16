@@ -1,5 +1,6 @@
 #ifndef KASYNC_FILE_H_99
 #define KASYNC_FILE_H_99
+#include <assert.h>
 #include "kselectable.h"
 #include "kfeature.h"
 #include "kfile.h"
