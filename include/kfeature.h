@@ -14,17 +14,17 @@
 #pragma warning(disable: 4290 4996 4819 26812 )
 #endif
 #ifdef  __cplusplus
-	#define KBEGIN_DECLS  extern "C" {
-	#define KEND_DECLS    }
-	#define	INLINE	inline
+#define KBEGIN_DECLS  extern "C" {
+#define KEND_DECLS    }
+#define	INLINE	inline
 #else
-	#define KBEGIN_DECLS
-	#define KEND_DECLS
-	#ifdef _WIN32
-	#define INLINE __forceinline
-	#else
-	#define INLINE	inline __attribute__((always_inline))
-	#endif
+#define KBEGIN_DECLS
+#define KEND_DECLS
+#ifdef _WIN32
+#define INLINE __forceinline
+#else
+#define INLINE	inline __attribute__((always_inline))
+#endif
 #endif
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
@@ -88,29 +88,37 @@ KBEGIN_DECLS
 # define likely(x)   (x)
 # define unlikely(x) (x)
 #endif
-typedef enum {
+typedef enum
+{
 	kev_ok, /* selectable in selector event(read/write/next/connect) or timer or by user blocked. */
 	kev_fiber_ok, /* selectable handle by fiber callback. */
 	kev_err,/* selectable not in any selector event/timer and not destroy */
 	kev_destroy /* selectable not in any selector event/timer and destroied by result callback */
 } kev_result;
 
-typedef struct {
+typedef struct
+{
 	char* data;
 	size_t len;
 } kgl_str_t;
 
-typedef struct {
+typedef struct
+{
 	const char* data;
 	volatile  uint32_t ref;
-	uint16_t  id;
+	union
+	{
+		uint16_t  id;
+		uint16_t  flags;
+	};
 	uint16_t  len;
 } kgl_ref_str_t;
 
 #ifdef _WIN32
 #pragma warning(disable : 4200)
 #endif
-typedef struct {
+typedef struct
+{
 	size_t len;
 	char data[0];
 } kgl_len_str_t;
@@ -118,15 +126,15 @@ typedef struct {
 #define KEV_HANDLED(x) (x!=kev_err)
 #define KEV_AVAILABLE(x) (x!=kev_destroy)
 #ifdef _WIN32
-	#ifndef iovec
-		#define iovec          _WSABUF
-		#define iov_base       buf
-		#define iov_len        len
-	#endif
+#ifndef iovec
+#define iovec          _WSABUF
+#define iov_base       buf
+#define iov_len        len
+#endif
 #else
 #include <netdb.h>
 typedef struct iovec WSABUF;
-typedef WSABUF * LPWSABUF;
+typedef WSABUF* LPWSABUF;
 #endif
 
 #if defined _WIN32 || defined __CYGWIN__
@@ -143,17 +151,18 @@ typedef WSABUF * LPWSABUF;
 #define ST_ERR_TIME_OUT    -2
 #define ST_ERR_RESOLV      -3
 typedef volatile int32_t kcountable_t;
-typedef struct {
+typedef struct
+{
 	struct addrinfo* addr;
 	kcountable_t refs;
 } kgl_addr;
 
 typedef kev_result(*kgl_addr_call_back)(void* arg, kgl_addr* addr);
 
-typedef void * KOPAQUE;
-typedef kev_result(*result_callback)(KOPAQUE data, void *arg, int got);
-typedef int (*buffer_callback)(KOPAQUE data, void *arg, struct iovec *buf, int bc);
-typedef void(*kgl_cleanup_f) (void *data);
+typedef void* KOPAQUE;
+typedef kev_result(*result_callback)(KOPAQUE data, void* arg, int got);
+typedef int (*buffer_callback)(KOPAQUE data, void* arg, struct iovec* buf, int bc);
+typedef void(*kgl_cleanup_f) (void* data);
 #define kgl_expand_string(str)  (char *)str ,sizeof(str) - 1
 #define _KS                    kgl_expand_string
 #define KFILE_TEMP_MODEL       1

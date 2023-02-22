@@ -1,6 +1,7 @@
 #ifndef KSTRING_H_99
 #define KSTRING_H_99
 #include <stdlib.h>
+#include <assert.h>
 #include "kfeature.h"
 #include "kforwin32.h"
 #include "katom.h"
@@ -25,6 +26,9 @@ INLINE kgl_ref_str_t* convert_refs_string(char* str, size_t len) {
 	s->len = (uint16_t)len;
 	return s;
 }
+INLINE uint32_t kstring_get_ref(kgl_ref_str_t* s) {
+	return katom_get((void*)&s->ref);
+}
 INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
 	if (!s) {
 		return NULL;
@@ -32,10 +36,14 @@ INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
 	katom_inc((void*)&s->ref);
 	return s;
 }
+INLINE kgl_ref_str_t* kstring_clone(kgl_ref_str_t* s) {
+	return convert_refs_string(kgl_strndup(s->data, s->len), s->len);
+}
 INLINE void kstring_release(kgl_ref_str_t* s) {
 	if (!s) {
 		return;
 	}
+	assert(katom_get((void*)&s->ref) < 0xfffffff);
 	if (katom_dec((void*)&s->ref) == 0) {
 		xfree((void*)s->data);
 		xfree(s);
