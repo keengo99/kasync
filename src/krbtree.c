@@ -11,25 +11,25 @@
 #define rb_is_black(r) rb_color(r)
 #define rb_set_red(r)  do { (r)->rb_parent_color &= ~1; } while (0)
 #define rb_set_black(r)  do { (r)->rb_parent_color |= 1; } while (0)
-int rbtree_string_cmp(void *key1, void *key2)
+int rbtree_string_cmp(const void *key1, const void *key2)
 {
 	const char **str1 = (const char **)key1;
 	const char **str2 = (const char **)key2;
 	return strcmp(*str1, *str2);
 }
-int rbtree_string_case_cmp(void *key1, void *key2)
+int rbtree_string_case_cmp(const void *key1, const void *key2)
 {
 	const char **str1 = (const char **)key1;
 	const char **str2 = (const char **)key2;
 	return strcasecmp(*str1, *str2);
 }
-int rbtree_file_cmp(void *key1, void *key2)
+int rbtree_file_cmp(const void *key1, const void *key2)
 {
 	const char **str1 = (const char **)key1;
 	const char **str2 = (const char **)key2;
 	return filecmp(*str1, *str2);
 }
-int rbtree_int_cmp(void *key1, void *key2)
+int rbtree_int_cmp(const void *key1, const void *key2)
 {
 	int *k1 = (int *)key1;
 	int *k2 = (int *)key2;
@@ -520,7 +520,7 @@ void rbtree_destroy(struct krb_tree *rb)
 	xfree(rb);
 }
 
-struct krb_node *rbtree_find2(struct krb_tree *rb, void *key, comprbt c, int *result)
+struct krb_node *rbtree_find2(const struct krb_tree *rb, const void *key, comprbt c, int *result)
 {
 
 	struct krb_node *node = rb->root.rb_node;
@@ -537,7 +537,7 @@ struct krb_node *rbtree_find2(struct krb_tree *rb, void *key, comprbt c, int *re
 	}
 	return last_node;
 }
-struct krb_node *rbtree_find_cover(struct krb_tree *rb, void *key, comprbt c)
+struct krb_node *rbtree_find_cover(const struct krb_tree *rb, void *key, comprbt c)
 {
 	struct krb_node *node = rb->root.rb_node;
 	while (node) {
@@ -562,7 +562,7 @@ struct krb_node *rbtree_find_cover(struct krb_tree *rb, void *key, comprbt c)
 	}
 	return NULL;
 }
-struct krb_node *rbtree_find(struct krb_tree *rb, void *key, comprbt c)
+struct krb_node *rbtree_find(const struct krb_tree *rb, const void *key, comprbt c)
 {
 	struct krb_node *node = rb->root.rb_node;
 	while (node) {
@@ -587,7 +587,7 @@ void rbtree_remove2(struct krb_tree *rb, struct krb_node *node, free_node fn)
 	fn(node);
 }
 
-struct krb_node *rbtree_insert(struct krb_tree *rb, void *key, int *new_flag, comprbt c)
+struct krb_node *rbtree_insert(struct krb_tree *rb, const void *key, int *new_flag, comprbt c)
 {
 	struct krb_node **n = &(rb->root.rb_node), *parent = NULL;
 	while (*n) {
@@ -608,7 +608,7 @@ struct krb_node *rbtree_insert(struct krb_tree *rb, void *key, int *new_flag, co
 	*new_flag = 1;
 	return node;
 }
-struct krb_node *rbtree_insert2(struct krb_tree *rb, void *key, int *new_flag, comprbt c, new_node nn)
+struct krb_node *rbtree_insert2(struct krb_tree *rb, const void *key, int *new_flag, comprbt c, new_node nn)
 {
 	struct krb_node **n = &(rb->root.rb_node), *parent = NULL;
 	while (*n) {
@@ -624,7 +624,6 @@ struct krb_node *rbtree_insert2(struct krb_tree *rb, void *key, int *new_flag, c
 		}
 	}
 	struct krb_node *node = nn();
-	node->data = key;
 	rb_link_node(node, parent, n);
 	rb_insert_color(node, &rb->root);
 	*new_flag = 1;

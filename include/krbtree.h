@@ -3,11 +3,11 @@
 #include "kfeature.h"
 #include <stdlib.h>
 KBEGIN_DECLS
-typedef int(*comprbt) (void *key1, void *key2);
-int rbtree_int_cmp(void *key1, void *key2);
-int rbtree_string_cmp(void *key1, void *key2);
-int rbtree_string_case_cmp(void *key1, void *key2);
-int rbtree_file_cmp(void *key1, void *key2);
+typedef int(*comprbt) (const void *key1, const void *key2);
+int rbtree_int_cmp(const void *key1, const void *key2);
+int rbtree_string_cmp(const void *key1, const void *key2);
+int rbtree_string_case_cmp(const void *key1, const void *key2);
+int rbtree_file_cmp(const void *key1, const void *key2);
 typedef enum
 {
 	iterator_continue,
@@ -43,18 +43,18 @@ extern struct krb_node *rb_prev(const struct krb_node *);
 extern struct krb_node *rb_first(const struct krb_root *);
 extern struct krb_node *rb_last(const struct krb_root *);
 
-INLINE bool rbtree_is_empty(struct krb_tree *rb)
+INLINE bool rbtree_is_empty(const struct krb_tree *rb)
 {
 	return rb->root.rb_node == NULL;
 }
 void rbtree_init(struct krb_tree *rb);
 struct krb_tree *rbtree_create();
 void rbtree_destroy(struct krb_tree *rb);
-struct krb_node *rbtree_find(struct krb_tree *rb, void *key, comprbt c);
-struct krb_node *rbtree_find2(struct krb_tree *rb, void *key, comprbt c, int *result);
-struct krb_node *rbtree_find_cover(struct krb_tree *rb, void *key, comprbt c);
-struct krb_node *rbtree_insert(struct krb_tree *rb, void *key, int *new_flag, comprbt c);
-struct krb_node *rbtree_insert2(struct krb_tree *rb, void *key, int *new_flag, comprbt c, new_node nn);
+struct krb_node *rbtree_find(const struct krb_tree *rb, const void *key, comprbt c);
+struct krb_node *rbtree_find2(const struct krb_tree *rb, const void *key, comprbt c, int *result);
+struct krb_node *rbtree_find_cover(const struct krb_tree *rb, const void *key, comprbt c);
+struct krb_node *rbtree_insert(struct krb_tree *rb, const void *key, int *new_flag, comprbt c);
+struct krb_node *rbtree_insert2(struct krb_tree *rb, const void *key, int *new_flag, comprbt c, new_node nn);
 void rbtree_iterator(struct krb_tree *rb, iteratorbt iterator, void *arg);
 void rbtree_remove(struct krb_tree *rb, struct krb_node *node);
 void rbtree_remove2(struct krb_tree *rb, struct krb_node *node, free_node fn);

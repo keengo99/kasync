@@ -89,9 +89,9 @@ void kgl_addr_release(kgl_addr *addr)
 		xfree(addr);
 	}
 }
-static int addr_key_cmp(void *k1, void *k2) {
-	kgl_addr_key *node1 = (kgl_addr_key *)k1;
-	kgl_addr_key *node2 = (kgl_addr_key *)k2;
+static int addr_key_cmp(const void *k1, const void *k2) {
+	const kgl_addr_key *node1 = (const kgl_addr_key *)k1;
+	const kgl_addr_key *node2 = (const kgl_addr_key *)k2;
 	if (node1->addr_type < node2->addr_type) {
 		return -1;
 	}
@@ -273,7 +273,7 @@ kgl_addr_node * find_addr_in_tree(const char *hostname, kgl_addr_type addr_type,
 	if (*create_flag) {
 		node = rbtree_insert(addr_tree, (void *)&key, &new_flag, addr_key_cmp);
 	} else {
-		node = rbtree_find(addr_tree, (void *)&key, addr_key_cmp);
+		node = rbtree_find(addr_tree, (const void *)&key, addr_key_cmp);
 	}
 	kgl_addr_node *cn = NULL;
 	if (node && !new_flag) {
