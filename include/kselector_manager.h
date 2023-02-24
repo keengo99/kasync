@@ -5,7 +5,8 @@
 #include "kserver.h"
 KBEGIN_DECLS
 int get_selector_count();
-void selector_manager_init(unsigned  size,bool register_thread_timer);
+void selector_manager_init(int size,bool register_thread_timer);
+bool selector_manager_grow(int new_size);
 void selector_manager_on_ready(result_callback cb, void *arg);
 int selector_manager_thread_init(result_callback cb, void *arg);
 void selector_manager_add_timer(result_callback timer,void *arg, int msec, KOPAQUE data);

@@ -227,7 +227,49 @@ int selector_manager_thread_init(result_callback call_back, void *arg)
 	selector_manager_add_callback(&thread_init, call_back, arg);
 	return 0;
 }
-void selector_manager_init(unsigned  size, bool register_thread_timer)
+static int kgl_pow2(int size, int max_bits=7) {
+	int result = 0;
+	for (int i = 0; i < max_bits; i++) {
+		result = (1 << i);
+		if (result == (int)size) {
+			break;
+		}
+		if (result > (int)size) {
+			result /= 2;
+			break;
+		}
+	}
+	if (result == 0) {
+		result = 1;
+	}
+	return result;
+}
+bool selector_manager_grow(int  new_size) {
+	if (!kgl_selector_module.name) {
+		fprintf(stderr, "call selector_manager_init first.\n");
+		return false;
+	}
+	new_size = kgl_pow2(new_size);
+	if (new_size <= kgl_selector_count) {
+		return false;
+	}
+	if (kgl_selector_count > 1 || pthread_self() != kgl_selectors[0]->thread_id) {
+		fprintf(stderr, "grow not safe..\n");
+		return false;
+	}
+	if (!kgl_realloc((void**)&kgl_selectors, sizeof(kselector*) * new_size)) {
+		return false;
+	}
+	for (int i = kgl_selector_count; i < new_size; i++) {
+		kgl_selectors[i] = kselector_new(NULL);
+		kgl_selectors[i]->sid = i;
+		kselector_start(kgl_selectors[i]);
+	}
+	kgl_selector_count = new_size;
+	kgl_selector_hash = kgl_selector_count - 1;
+	return true;
+}
+void selector_manager_init(int  size, bool register_thread_timer)
 {
 	if (kgl_selector_module.name == NULL) {
 		kselector_update_time();
@@ -238,23 +280,10 @@ void selector_manager_init(unsigned  size, bool register_thread_timer)
 			abort();
 		}
 	}
-	int i;
-	for (i = 0; i < 7; i++) {
-		kgl_selector_count = (1 << i);
-		if (kgl_selector_count == (int)size) {
-			break;
-		}
-		if (kgl_selector_count > (int)size) {
-			kgl_selector_count/=2;
-			break;
-		}
-	}
-	if (kgl_selector_count == 0) {
-		kgl_selector_count = 1;
-	}
+	kgl_selector_count = kgl_pow2(size);
 	kgl_selector_hash = kgl_selector_count - 1;
 	kgl_selectors = (kselector **)xmalloc(sizeof(kselector *)*kgl_selector_count);
-	for (i = 0; i < kgl_selector_count; i++) {
+	for (int i = 0; i < kgl_selector_count; i++) {
 		kgl_selectors[i] = kselector_new(NULL);
 		if (i == 0) {
 			kgl_selectors[i]->utm = 1;
@@ -278,8 +307,7 @@ static void selector_set_time_out(int time_out_index, int msec)
 	if (msec <= 0) {
 		msec = 60000;
 	}
-	int i;
-	for (i = 0; i < kgl_selector_count; i++) {
+	for (int i = 0; i < kgl_selector_count; i++) {
 		kgl_selectors[i]->timeout[time_out_index] = msec;
 	}
 }
@@ -290,7 +318,6 @@ void selector_manager_set_timeout(int connect_tmo_sec, int rw_tmo_sec)
 	}
 	selector_set_time_out(KGL_LIST_CONNECT, connect_tmo_sec * 1000);
 	selector_set_time_out(KGL_LIST_RW, rw_tmo_sec * 1000);
-
 }
 
 void selector_manager_on_ready(result_callback call_back, void *arg)
