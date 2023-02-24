@@ -537,7 +537,7 @@ struct krb_node *rbtree_find2(const struct krb_tree *rb, const void *key, comprb
 	}
 	return last_node;
 }
-struct krb_node *rbtree_find_cover(const struct krb_tree *rb, void *key, comprbt c)
+struct krb_node *rbtree_find_cover(const struct krb_tree *rb, const void *key, comprbt c)
 {
 	struct krb_node *node = rb->root.rb_node;
 	while (node) {
