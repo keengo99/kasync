@@ -104,14 +104,9 @@ typedef struct
 
 typedef struct
 {
-	const char* data;
+	char* data;
+	uint32_t  len;
 	volatile  uint32_t ref;
-	union
-	{
-		uint16_t  id;
-		uint16_t  flags;
-	};
-	uint16_t  len;
 } kgl_ref_str_t;
 
 #ifdef _WIN32

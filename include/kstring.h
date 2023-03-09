@@ -21,12 +21,11 @@ typedef kgl_ref_str_t kgl_refs_string;
 INLINE kgl_ref_str_t* convert_refs_string(char* str, size_t len) {
 	kgl_ref_str_t* s = xmemory_new(kgl_ref_str_t);
 	s->ref = 1;
-	s->id = 0;
 	s->data = str;
-	s->len = (uint16_t)len;
+	s->len = (uint32_t)len;
 	return s;
 }
-INLINE uint32_t kstring_get_ref(kgl_ref_str_t* s) {
+INLINE uint32_t kstring_get_ref(const kgl_ref_str_t* s) {
 	return katom_get((void*)&s->ref);
 }
 INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
@@ -36,16 +35,16 @@ INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
 	katom_inc((void*)&s->ref);
 	return s;
 }
-INLINE kgl_ref_str_t* kstring_clone(kgl_ref_str_t* s) {
-	return convert_refs_string(kgl_strndup(s->data, s->len), s->len);
-}
+
 INLINE void kstring_release(kgl_ref_str_t* s) {
 	if (!s) {
 		return;
 	}
 	assert(katom_get((void*)&s->ref) < 0xfffffff);
 	if (katom_dec((void*)&s->ref) == 0) {
-		xfree((void*)s->data);
+		if (s->data) {
+			xfree((void*)s->data);
+		}
 		xfree(s);
 	}
 }
@@ -59,5 +58,13 @@ INLINE kgl_ref_str_t* kstring_from(const char* str) {
 INLINE kgl_ref_str_t* kstring_from2(const char* str, size_t len) {
 	return convert_refs_string(kgl_strndup(str, len), len);
 }
+#if 0
+INLINE kgl_ref_str_t* kstring_clone(const kgl_ref_str_t* s) {
+	if (s->data) {
+		return kstring_from2(s->data, s->len);
+	}
+	return convert_refs_string(NULL, 0);
+}
+#endif
 KEND_DECLS
 #endif

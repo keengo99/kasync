@@ -1,9 +1,37 @@
 #ifndef MSOCKET_LIST_H
 #define MSOCKET_LIST_H
+#include "kfeature.h"
 #ifndef _WIN32
 #include <stddef.h>
 #endif
 KBEGIN_DECLS
+typedef struct kgl_forward_list_s kgl_forward_list;
+struct kgl_forward_list_s
+{
+    kgl_forward_list* next;
+};
+INLINE void kforward_list_init(kgl_forward_list* list) {
+    list->next = list;
+}
+INLINE bool kforward_list_empty(kgl_forward_list* list) {
+    return list->next == list;
+}
+INLINE void kforward_list_append(kgl_forward_list* list, kgl_forward_list *item) {
+    item->next = list->next;
+    list->next = item;
+}
+INLINE bool kfoward_list_remove(kgl_forward_list* list, kgl_forward_list* item) {
+    kgl_forward_list* pos = list;
+    while (pos->next != list) {
+        if (pos->next == item) {
+            pos->next = item->next;
+            return true;
+        }
+        pos = pos->next;
+    }
+    return false;
+}
+
 typedef struct kgl_list_s kgl_list;
 struct kgl_list_s {
 	kgl_list  *prev;
