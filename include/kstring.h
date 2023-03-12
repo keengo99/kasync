@@ -10,14 +10,16 @@
 KBEGIN_DECLS
 typedef kgl_ref_str_t kgl_refs_string;
 
-#define kgl_string2(str)		{(char *)str, 1,sizeof(str)-1}
+#define kgl_string2(str,len) {(char *)str, len}
 #define kgl_string(str)     { (char *)str,sizeof(str) - 1 }
 #define kgl_null_string     {  NULL,0 }
 #define kgl_str_set(str, text) \
     (str)->len = sizeof(text) - 1; (str)->data = (char *) text
 #define kgl_str_null(str)   (str)->len = 0; (str)->data = NULL
 
-
+INLINE size_t kgl_len_str_size(size_t len) {
+	return sizeof(kgl_len_str_t) + len + 1;
+}
 INLINE kgl_ref_str_t* convert_refs_string(char* str, size_t len) {
 	kgl_ref_str_t* s = xmemory_new(kgl_ref_str_t);
 	s->ref = 1;
