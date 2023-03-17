@@ -30,12 +30,12 @@ INLINE kgl_ref_str_t* convert_refs_string(char* str, size_t len) {
 INLINE uint32_t kstring_get_ref(const kgl_ref_str_t* s) {
 	return katom_get((void*)&s->ref);
 }
-INLINE kgl_ref_str_t* kstring_refs(kgl_ref_str_t* s) {
+INLINE kgl_ref_str_t* kstring_refs(const kgl_ref_str_t* s) {
 	if (!s) {
 		return NULL;
 	}
 	katom_inc((void*)&s->ref);
-	return s;
+	return (kgl_ref_str_t *)s;
 }
 
 INLINE void kstring_release(kgl_ref_str_t* s) {
