@@ -377,9 +377,6 @@ static bool epoll_selector_write(kselector *selector, kselectable *st, result_ca
 }
 
 static bool epoll_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
-#ifdef KSOCKET_SSL
-	assert(st->ssl == NULL);
-#endif
 	kepoll_selector *es = (kepoll_selector *)st->selector->ctx;
 	assert(!KBIT_TEST(st->st_flags, STF_WRITE|STF_SENDFILE));
 	st->e[OP_WRITE].arg = arg;

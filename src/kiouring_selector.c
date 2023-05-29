@@ -508,26 +508,17 @@ static int iouring_selector_select(kselector *selector, int tmo)
 	return iouring_handle_cq(selector,&es->ring,n);
 }
 static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
-#ifdef KSOCKET_SSL
-	assert(st->ssl == NULL);
-#endif
-
-
 	kiouring_selector *cs = (kiouring_selector *)st->selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
 	}
-
-	
 	iouring_sendfile *sf = (iouring_sendfile *)xmalloc(sizeof(iouring_sendfile));
 	memset(sf,0,sizeof(iouring_sendfile));
 	if (pipe2(sf->pipe,O_CLOEXEC)!=0) {
 		xfree(sf);
 		return false;
 	}
-	
-	
 	WSABUF bufs;
 	buffer(st->data, arg, &bufs, 1);
 	kassert(bufs.iov_len > 0);
