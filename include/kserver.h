@@ -77,7 +77,7 @@ struct kserver_selectable_s{
 };
 struct kserver_s {
 	kcountable_t refs;
-	uint32_t flags;
+	volatile uint32_t flags;
 	kserver_free_opaque  free_opaque;
 	KOPAQUE data;
 	kgl_list ss;

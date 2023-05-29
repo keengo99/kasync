@@ -261,7 +261,12 @@ static bool iocp_selector_accept(kserver_selectable* ss, void *arg)
 {
 	assert(KBIT_TEST(ss->st.st_flags, STF_IOCP_BINDED));
 	ss->st.e[OP_WRITE].arg = arg;
-	return kiocp_accept_ex(ss);
+	do {
+		if (!KBIT_TEST(ss->server->flags, KGL_SERVER_START)) {
+			return false;
+		}
+	} while (!kiocp_accept_ex(ss));
+	return true;
 }
 static bool iocp_selector_listen(kserver_selectable *ss, result_callback result)
 {
