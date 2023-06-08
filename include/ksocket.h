@@ -261,7 +261,15 @@ INLINE void ksocket_block(SOCKET sockfd) {
 	ioctl(sockfd, FIONBIO, &iMode);
 #endif
 }
-
+INLINE bool ksocket_is_block(SOCKET sockfd) {
+#ifdef _WIN32
+	/* todo get sockfd is blocking */
+	return false;
+#else
+	int flags = fcntl(sockfd, F_GETFL, 0);
+	return (flags & O_NONBLOCK) > 0;
+#endif
+}
 void ksocket_startup();
 void ksocket_library_startup();
 void ksocket_clean();

@@ -280,6 +280,7 @@ bool kserver_open_exsit(kserver* server, SOCKET sockfd, result_callback accept_c
 		klog(KLOG_NOTICE, "error [%s:%d]\n", __FILE__, __LINE__);
 		return false;
 	}
+	KBIT_SET(server->flags, KGL_SERVER_START);
 	kserver_selectable_start(ss);
 	return true;
 }
