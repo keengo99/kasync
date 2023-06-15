@@ -59,12 +59,11 @@ struct _kfiber_chan
 	kfiber_chan_data* last;
 	kfiber_waiter* reciver;
 	kfiber_waiter* sender;
+	volatile int32_t ref;
+	int32_t closed;
 	volatile int buf_size;
 	volatile int buf_limit;
-	int closed;
 };
-
-
 
 static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
 	if (same_thread) {
@@ -284,6 +283,13 @@ kev_result result_switch_fiber(KOPAQUE data, void* arg, int got) {
 	return kev_fiber_ok;
 }
 #define result_fiber_accept result_switch_fiber
+void kfiber_wakeup_ts(kfiber* fiber, void* obj, int retval) {
+	if (fiber->selector == kgl_get_tls_selector()) {
+		kfiber_wakeup(fiber, obj, retval);
+		return;
+	}
+	kgl_selector_module.next(fiber->selector, obj, result_switch_fiber, fiber, retval);
+}
 void kfiber_wakeup2(kselector * selector, kfiber * fiber, void* obj, int retval) {
 	if (selector == kgl_get_tls_selector()) {
 		kfiber_wakeup(fiber, obj, retval);
@@ -789,6 +795,7 @@ kfiber_chan* kfiber_chan_create(int buf_size) {
 	assert(buf_size >= 0);
 	kfiber_chan* ch = (kfiber_chan*)xmemory_newz(sizeof(kfiber_chan));
 	ch->buf_limit = buf_size;
+	ch->ref = 1;
 	return ch;
 }
 int kfiber_chan_send(kfiber_chan * ch, void* data, int len) {
@@ -862,11 +869,17 @@ int kfiber_chan_shutdown(kfiber_chan * ch) {
 	ch->closed = 1;
 	return 0;
 }
+kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch) {
+	katom_inc((void*)&ch->ref);
+	return ch;
+}
 int kfiber_chan_close(kfiber_chan * ch) {
-	assert(ch->reciver == NULL && ch->sender == NULL);
-	assert(ch->head == NULL && ch->last == NULL);
-	assert(ch->buf_size == 0);
-	xfree(ch);
+	if (katom_dec((void*)&ch->ref) == 0) {
+		assert(ch->reciver == NULL && ch->sender == NULL);
+		assert(ch->head == NULL && ch->last == NULL);
+		assert(ch->buf_size == 0);
+		xfree(ch);
+	}
 	return 0;
 }
 KTHREAD_FUNCTION _kfiber_worker_thread(void* arg) {

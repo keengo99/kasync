@@ -50,7 +50,7 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void *arg);
 bool kfiber_is_main();
 int kfiber_msleep(int msec);
 void kfiber_wakeup(kfiber *fiber,void *obj, int retval);
-void kfiber_wakeup2(kselector *selector, kfiber *fiber, void *obj,  int retval);
+void kfiber_wakeup_ts(kfiber* fiber, void* obj, int retval);
 int kfiber_wait(void *obj);
 int __kfiber_wait(kfiber *fiber, void* obj);
 
@@ -59,6 +59,7 @@ kfiber_chan *kfiber_chan_create(int buf_size);
 int kfiber_chan_send(kfiber_chan *ch, void *data, int len);
 int kfiber_chan_recv(kfiber_chan *ch, void **data);
 int kfiber_chan_shutdown(kfiber_chan *ch);
+kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch);
 int kfiber_chan_close(kfiber_chan *ch);
 
 //socket
