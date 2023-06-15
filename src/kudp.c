@@ -27,7 +27,7 @@ bool kudp_add_multicast(kconnection* uc, const char* group)
 }
 int kudp_get_recvaddr(kconnection *uc, struct sockaddr *addr)
 {
-	if (!KBIT_TEST(uc->st.st_flags,STF_UDP) || uc->udp == NULL) {
+	if (!KBIT_TEST(uc->st.base.st_flags,STF_UDP) || uc->udp == NULL) {
 		return -1;
 	}
 	struct cmsghdr *msg = (struct cmsghdr *)(uc->udp->pktinfo);
@@ -68,7 +68,7 @@ kconnection* kudp_new2(int flags, kselector* st)
 		domain = PF_INET6;
 	}
 	kconnection* uc = kconnection_internal_new();
-	KBIT_SET(uc->st.st_flags, STF_UDP);
+	KBIT_SET(uc->st.base.st_flags, STF_UDP);
 	if ((uc->st.fd = ksocket_new_udp(domain,flags)) == INVALID_SOCKET) {
 		kconnection_destroy(uc);
 		return NULL;
@@ -99,7 +99,7 @@ kev_result kudp_recv_from(kconnection*uc, result_callback result, buffer_callbac
 {
 	KASYNC_IO_RESULT got;
 retry:
-	got = kgl_selector_module.recvmsg(uc->st.selector, &uc->st, result, buffer, arg);
+	got = kgl_selector_module.recvmsg(uc->st.base.selector, &uc->st, result, buffer, arg);
 	switch (got) {
 		case KASYNC_IO_PENDING:
 			return kev_ok;
@@ -107,7 +107,7 @@ retry:
 			goto retry;
 		case KASYNC_IO_ERR_SYS:
 		default:
-			kgl_selector_module.next(uc->st.selector, uc->st.data, result, arg, got);
+			kgl_selector_module.next(uc->st.base.selector, uc->st.data, result, arg, got);
 			return kev_ok;
 	}
 }

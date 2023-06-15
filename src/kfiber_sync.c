@@ -43,7 +43,7 @@ kev_result kfiber_mutex_lock2(kfiber_mutex* mutex, KOPAQUE data, result_callback
 		kgl_selector_module.next(kgl_get_tls_selector(), data, notice, arg, 0);
 		return kev_ok;
 	}
-	kfiber_add_waiter(&mutex->waiter, kgl_get_tls_selector(), data, notice, arg);
+	kfiber_add_ev_waiter(&mutex->waiter, kgl_get_tls_selector(), data, notice, arg);
 	kmutex_unlock(&mutex->lock);
 	return kev_ok;
 }
@@ -104,7 +104,7 @@ int __kfiber_mutex_lock(kfiber* fiber, kfiber_mutex* mutex, int max)
 		kmutex_unlock(&mutex->lock);
 		return 0;
 	}
-	kfiber_add_waiter(&mutex->waiter, kgl_get_tls_selector(), mutex, result_switch_fiber, fiber);
+	kfiber_add_waiter(&mutex->waiter, fiber, mutex);// kgl_get_tls_selector(), mutex, result_switch_fiber, fiber);
 	kmutex_unlock(&mutex->lock);
 	__kfiber_wait(fiber, mutex);
 	return 0;
@@ -138,7 +138,6 @@ int kfiber_mutex_unlock(kfiber_mutex* mutex)
 	mutex->waiter = waiter->next;
 	kmutex_unlock(&mutex->lock);
 	kfiber_wakeup_waiter(waiter,0);
-	xfree(waiter);
 	return 0;
 }
 void kfiber_mutex_destroy(kfiber_mutex* mutex)
@@ -148,15 +147,21 @@ void kfiber_mutex_destroy(kfiber_mutex* mutex)
 	free(mutex);
 }
 
-void kfiber_add_waiter(kfiber_waiter** head, kselector* selector, KOPAQUE data, result_callback notice, void* arg)
+void kfiber_add_ev_waiter(kfiber_waiter** head, kselector* selector, KOPAQUE data, result_callback notice, void* arg)
 {
-	kfiber_waiter* waiter = (kfiber_waiter*)xmemory_newz(sizeof(kfiber_waiter));
-	waiter->data = data;
-	waiter->selector = selector;
-	waiter->next = *head;
-	waiter->notice = notice;
+	kfiber_event_waiter* waiter = (kfiber_event_waiter*)xmemory_newz(sizeof(kfiber_event_waiter));
+	waiter->base.selector = selector;
+	waiter->base.next = *head;
+	waiter->base.wait_obj = data;
+	waiter->result = notice;
 	waiter->arg = arg;
-	*head = waiter;
+	*head = &waiter->base;
+}
+void kfiber_add_waiter(kfiber_waiter** head, kfiber* fiber, KOPAQUE data)
+{
+	fiber->base.wait_obj = data;
+	fiber->base.next = *head;
+	*head = &fiber->base;
 }
 kev_result kfiber_cond_wait_callback_ar(kfiber_cond* fc, KOPAQUE data, result_callback notice, void* arg)
 {
@@ -166,7 +171,7 @@ kev_result kfiber_cond_wait_callback_ar(kfiber_cond* fc, KOPAQUE data, result_ca
 		return kev_ok;
 
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
+	kfiber_add_ev_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
 	return kev_ok;
 }
 kev_result kfiber_cond_wait_callback(kfiber_cond * fc, KOPAQUE data, result_callback notice, void* arg)
@@ -175,7 +180,7 @@ kev_result kfiber_cond_wait_callback(kfiber_cond * fc, KOPAQUE data, result_call
 		kgl_selector_module.next(kgl_get_tls_selector(), data, notice, arg, 0);
 		return kev_ok;		
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
+	kfiber_add_ev_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
 	return kev_ok;
 }
 kev_result kfiber_cond_wait_callback_ts_ar(kfiber_cond* fc, KOPAQUE data, result_callback notice, void* arg)
@@ -189,7 +194,7 @@ kev_result kfiber_cond_wait_callback_ts_ar(kfiber_cond* fc, KOPAQUE data, result
 		return kev_ok;
 
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
+	kfiber_add_ev_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
 	kmutex_unlock(&fcs->lock);
 	return kev_ok;
 }
@@ -202,7 +207,7 @@ kev_result kfiber_cond_wait_callback_ts(kfiber_cond* fc, KOPAQUE data, result_ca
 		kgl_selector_module.next(kgl_get_tls_selector(), data, notice, arg, 0);
 		return kev_ok;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
+	kfiber_add_ev_waiter(&fc->waiter, kgl_get_tls_selector(), data, notice, arg);
 	kmutex_unlock(&fcs->lock);
 	return kev_ok;
 }
@@ -215,7 +220,6 @@ int kfiber_cond_notice_ts_ar(kfiber_cond* fc,int got)
 		fc->waiter = waiter->next;
 		kmutex_unlock(&fcs->lock);
 		kfiber_wakeup_waiter(waiter,got);
-		xfree(waiter);
 	} else {
 		fc->ev++;
 		kmutex_unlock(&fcs->lock);
@@ -228,7 +232,6 @@ int kfiber_cond_notice_ar(kfiber_cond* fc,int got)
 	if (waiter) {
 		fc->waiter = waiter->next;
 		kfiber_wakeup_waiter(waiter,got);
-		xfree(waiter);
 	} else {
 		fc->ev++;
 	}
@@ -242,12 +245,7 @@ int kfiber_cond_notice_ts(kfiber_cond* fc,int got)
 	kfiber_waiter* waiter = fc->waiter;
 	fc->waiter = NULL;
 	kmutex_unlock(&fcs->lock);
-	while (waiter) {
-		kfiber_waiter* next = waiter->next;
-		kfiber_wakeup_waiter(waiter,got);
-		xfree(waiter);
-		waiter = next;
-	}
+	kfiber_wakeup_all_waiter(waiter, got);	
 	return 0;
 }
 
@@ -273,9 +271,9 @@ int kfiber_cond_wait_ts_ar(kfiber_cond* fc, int *got)
 		}
 		return 0;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	kfiber_add_waiter(&fc->waiter, fiber, fc);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
 	kmutex_unlock(&fcs->lock);
-	__kfiber_wait(fiber, &fiber);
+	__kfiber_wait(fiber, fc);
 	if (got) {
 		*got = fiber->retval;
 	}
@@ -320,7 +318,7 @@ int kfiber_cond_wait_ar(kfiber_cond* fc, int *got)
 		}
 		return 0;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	kfiber_add_waiter(&fc->waiter, fiber, &fiber);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
 	__kfiber_wait(fiber, &fiber);
 	if (got) {
 		*got = fiber->retval;
@@ -340,7 +338,7 @@ int kfiber_cond_wait_ts(kfiber_cond* fc, int *got)
 		kmutex_unlock(&fcs->lock);
 		return 0;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	kfiber_add_waiter(&fc->waiter, fiber, &fiber);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
 	kmutex_unlock(&fcs->lock);
 	__kfiber_wait(fiber, &fiber);
 	if (got) {
@@ -402,7 +400,7 @@ int kfiber_cond_wait(kfiber_cond* fc, int *got)
 		}
 		return 0;
 	}
-	kfiber_add_waiter(&fc->waiter, kgl_get_tls_selector(), &fiber, result_switch_fiber, fiber);
+	kfiber_add_waiter(&fc->waiter, fiber, &fiber);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
 	__kfiber_wait(fiber, &fiber);
 	if (got) {
 		*got = fiber->retval;
@@ -517,7 +515,7 @@ int kfiber_rwlock_rlock(kfiber_rwlock* mutex)
 	kmutex_lock(&mutex->lock);
 	if (mutex->cnt < 0 || mutex->writer) {
 		/* write lock is held or has write waiter*/
-		kfiber_add_waiter(&mutex->reader, fiber->selector, &fiber, result_switch_fiber, fiber);
+		kfiber_add_waiter(&mutex->reader, fiber, &fiber);// fiber->base.selector, & fiber, result_switch_fiber, fiber);
 		kmutex_unlock(&mutex->lock);
 		return __kfiber_wait(fiber, &fiber);
 	}
@@ -532,7 +530,7 @@ int kfiber_rwlock_wlock(kfiber_rwlock* mutex)
 	CHECK_FIBER(fiber);
 	kmutex_lock(&mutex->lock);
 	if (mutex->cnt != 0) {
-		kfiber_add_waiter(&mutex->writer, fiber->selector, &fiber, result_switch_fiber, fiber);
+		kfiber_add_waiter(&mutex->writer, fiber, &fiber);// fiber->base.selector, & fiber, result_switch_fiber, fiber);
 		kmutex_unlock(&mutex->lock);
 		return __kfiber_wait(fiber, &fiber);
 	}
@@ -548,7 +546,6 @@ INLINE int __kfiber_rwlock_try_wakeup_writer(kfiber_rwlock* mutex)
 		mutex->writer = writer->next;
 		kmutex_unlock(&mutex->lock);
 		kfiber_wakeup_waiter(writer,0);
-		xfree(writer);
 		return 0;
 	}
 	kmutex_unlock(&mutex->lock);
@@ -581,7 +578,6 @@ int kfiber_rwlock_wunlock(kfiber_rwlock* mutex)
 			mutex->cnt++;
 			kfiber_waiter* next = waiter->next;
 			kfiber_wakeup_waiter(waiter,0);
-			xfree(waiter);
 			waiter = next;
 		}
 		kmutex_unlock(&mutex->lock);

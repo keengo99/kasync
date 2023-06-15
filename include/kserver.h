@@ -34,15 +34,15 @@ static kev_result user_##fn##_callback(KOPAQUE data, void *arg, int got);\
 kev_result fn(KOPAQUE data, void *arg, int got) { \
 	assert(arg==NULL);\
 	kserver_selectable *ss = (kserver_selectable *)data;\
-	assert(ss->st.selector == kgl_get_tls_selector());\
+	assert(ss->st.base.selector == kgl_get_tls_selector());\
 	kconnection *cn = accept_result_new_connection(data,got);\
 	if (cn==NULL) {\
 		kserver_selectable_destroy(ss);\
 		return kev_ok;\
 	}\
 	selectable_bind(&cn->st, kserver_get_perfect_selector(ss));\
-	if (cn->st.selector!=ss->st.selector) {\
-		kgl_selector_module.next(cn->st.selector, data, user_##fn##_callback, cn, got);\
+	if (cn->st.base.selector!=ss->st.base.selector) {\
+		kgl_selector_module.next(cn->st.base.selector, data, user_##fn##_callback, cn, got);\
 	} else {\
 		user_##fn##_callback(data, cn, got);\
 	}\

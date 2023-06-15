@@ -2,7 +2,6 @@
 #define KCOROUTINE_H
 #include "kfeature.h"
 #include "ksync.h"
-#include "kselectable.h"
 #include "ksocket.h"
 #include "kasync_file.h"
 #include "kconnection.h"
@@ -53,6 +52,30 @@ void kfiber_wakeup(kfiber *fiber,void *obj, int retval);
 void kfiber_wakeup_ts(kfiber* fiber, void* obj, int retval);
 int kfiber_wait(void *obj);
 int __kfiber_wait(kfiber *fiber, void* obj);
+
+INLINE void kfiber_wakeup_waiter(kfiber_waiter* waiter, int got) {
+	if (waiter->st_flags == STF_FIBER) {
+		kfiber* fiber = kgl_list_data(waiter, kfiber, base);
+#ifndef NDEBUG
+		fiber->base.next = NULL;
+#endif
+		kfiber_wakeup_ts(fiber, fiber->base.wait_obj, got);
+		return;
+	}
+	assert(waiter->st_flags == 0);
+	kfiber_event_waiter* ev_waiter = kgl_list_data(waiter, kfiber_event_waiter, base);
+	kgl_selector_module.next(waiter->selector, ev_waiter->base.wait_obj, ev_waiter->result, ev_waiter->arg, got);
+	xfree(ev_waiter);
+}
+INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter, int got) {
+	while (waiter) {
+		kfiber_waiter* next = waiter->next;
+		kfiber_wakeup_waiter(waiter, got);
+		waiter = next;
+	}
+}
+void kfiber_add_ev_waiter(kfiber_waiter** head, kselector* selector, KOPAQUE data, result_callback notice, void* arg);
+void kfiber_add_waiter(kfiber_waiter** head, kfiber* fiber, KOPAQUE data);
 
 //chan
 kfiber_chan *kfiber_chan_create(int buf_size);

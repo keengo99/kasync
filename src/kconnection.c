@@ -77,7 +77,7 @@ void kconnection_real_destroy(kconnection *c)
 	}
 #endif
 	if (c->server) {
-		if (KBIT_TEST(c->st.st_flags,STF_UDP)) {
+		if (KBIT_TEST(c->st.base.st_flags,STF_UDP)) {
 			xfree(c->udp);
 		} else {
 			kserver_release(c->server);
@@ -102,7 +102,7 @@ kev_result kconnection_destroy(kconnection *c)
 #ifdef KSOCKET_SSL
 	if (kconnection_is_ssl_handshake(c) && !c->st.ssl->shutdown) {
 		c->st.data = NULL;
-		if (!KBIT_TEST(c->st.st_flags, STF_ERR)) {
+		if (!KBIT_TEST(c->st.base.st_flags, STF_ERR)) {
 			return kselectable_ssl_shutdown(&c->st, result_ssl_shutdown, c);
 		}
 	}
@@ -122,12 +122,12 @@ bool kconnection_half_connect(kconnection *c, sockaddr_i *bind_addr, int tproxy_
 }
 kev_result kconnection_connect(kconnection *c,result_callback cb, void *arg)
 {
-	assert(kselector_is_same_thread(c->st.selector));
+	assert(kselector_is_same_thread(c->st.base.selector));
 #ifdef KGL_IOCP
 	c->st.e[OP_READ].buffer = kconnection_buffer_addr;
 	c->st.e[OP_READ].arg = &c->st;
 #endif
-	if (!kgl_selector_module.connect(c->st.selector, &c->st, cb, arg)) {
+	if (!kgl_selector_module.connect(c->st.base.selector, &c->st, cb, arg)) {
 		return cb(c->st.data, arg, -1);
 	}
 	return kev_ok;
@@ -285,7 +285,7 @@ static SSL *kconnection_new_ssl(kconnection *c,SSL_CTX *ssl_ctx)
 	 *  and set socket non blocking.
 	 */
 	ksocket_no_block(c->st.fd);
-	KBIT_SET(c->st.st_flags, STF_USEPOLL);
+	KBIT_SET(c->st.base.st_flags, STF_USEPOLL);
 #endif
 	return ssl;
 }

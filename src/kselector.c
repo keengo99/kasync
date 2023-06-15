@@ -28,12 +28,9 @@ struct kselector_tick_s
 typedef union _kgl_ready_event {
 	kselectable st;
 	kfiber fiber;
-	struct {
-		kgl_list queue;
-		kselector* selector;
-		uint16_t st_flags;
-	};
-}kgl_ready_event;
+	kgl_base_selectable base;
+} kgl_ready_event;
+
 #ifdef WIN32
 static inline int gettimeofday(struct timeval *tp, void *tzp)
 {
@@ -57,10 +54,10 @@ static inline int gettimeofday(struct timeval *tp, void *tzp)
 void kselector_add_fiber_ready(kselector* selector, kfiber* fiber)
 {
 	kassert(kselector_is_same_thread(selector));
-	kassert(fiber->selector == selector);
-	kassert(fiber->queue.next == NULL);
+	kassert(fiber->base.selector == selector);
+	kassert(fiber->base.queue.next == NULL);
 	selector->count++;
-	klist_append(&selector->list[KGL_LIST_READY], &fiber->queue);
+	klist_append(&selector->list[KGL_LIST_READY], &fiber->base.queue);
 }
 static kev_result next_adjust_time(KOPAQUE data, void *arg, int got)
 {
@@ -136,28 +133,28 @@ void kselector_add_list(kselector *selector, kselectable *st, int list)
 		assert(false);
 	}
 	kassert(kselector_is_same_thread(selector));
-	st->tmo_left = st->tmo;
-	kassert(st->selector == selector);
+	st->base.tmo_left = st->base.tmo;
+	kassert(st->base.selector == selector);
 	if (list!=KGL_LIST_READY) { 
 		st->active_msec = kgl_current_msec;
 	}
 	kassert(list >= 0 && list < KGL_LIST_COUNT);
-	if (st->queue.next) {
-		klist_remove(&st->queue);
+	if (st->base.queue.next) {
+		klist_remove(&st->base.queue);
 	} else {
 		selector->count++;
 	}
-	klist_append(&selector->list[list], &st->queue);
+	klist_append(&selector->list[list], &st->base.queue);
 }
 void kselector_remove_list(kselector *selector, kselectable *st)
 {
 	kassert(kselector_is_same_thread(selector));
-	kassert(st->selector == selector);
-	if (st->queue.next == NULL) {
+	kassert(st->base.selector == selector);
+	if (st->base.queue.next == NULL) {
 		return;
 	}
-	klist_remove(&st->queue);
-	memset(&st->queue, 0, sizeof(st->queue));
+	klist_remove(&st->base.queue);
+	memset(&st->base.queue, 0, sizeof(st->base.queue));
 	kassert(selector->count > 0);
 	selector->count--;
 }
@@ -179,7 +176,7 @@ void kselector_adjust_time(kselector *selector, int64_t diff_time)
 	for (int i = 0; i <= KGL_LIST_RW; i++) {
 		kgl_list *pos;
 		klist_foreach (pos, &selector->list[i]) {
-			kselectable *st = kgl_list_data(pos, kselectable, queue);
+			kselectable *st = kgl_list_data(pos, kselectable, base.queue);
 			st->active_msec += diff_time;
 		}
 	}
@@ -215,21 +212,21 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			if (l == &selector->list[i]) {
 				break;
 			}
-			kselectable *rq = kgl_list_data(l, kselectable, queue);
-			kassert(rq->selector == selector);
+			kselectable *st = kgl_list_data(l, kselectable, base.queue);
+			kassert(st->base.selector == selector);
 #ifdef MALLOCDEBUG
 			if (selector->shutdown) {
 				selectable_shutdown(rq);
 			}
 #endif
-			if ((kgl_current_msec - rq->active_msec) < (time_t)selector->timeout[i]) {
+			if ((kgl_current_msec - st->active_msec) < (time_t)selector->timeout[i]) {
 				break;
 			}
 			klist_remove(l);
 			memset(l, 0, sizeof(kgl_list));
-			if (rq->tmo_left > 0) {
-				rq->tmo_left--;
-				rq->active_msec = kgl_current_msec;
+			if (st->base.tmo_left > 0) {
+				st->base.tmo_left--;
+				st->active_msec = kgl_current_msec;
 				klist_append(&selector->list[i], l);
 				continue;
 			}
@@ -238,18 +235,18 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			//klog(KLOG_DEBUG, "request timeout st=%p\n", (kselectable *)rq);
 #endif
 			kassert(selector->count > 0);
-			if (KBIT_TEST(rq->st_flags, STF_RTIME_OUT) && KBIT_TEST(rq->st_flags,STF_READ)>0) {
+			if (KBIT_TEST(st->base.st_flags, STF_RTIME_OUT) && KBIT_TEST(st->base.st_flags,STF_READ)>0) {
 				//set read time out
 				klist_append(&selector->list[i], l);
-				rq->active_msec = kgl_current_msec;
-				kassert(rq->e[OP_READ].result);
-				rq->e[OP_READ].result(rq->data, rq->e[OP_READ].arg, ST_ERR_TIME_OUT);
+				st->active_msec = kgl_current_msec;
+				kassert(st->e[OP_READ].result);
+				st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_TIME_OUT);
 				continue;
 			}
 			selector->count--;
-			selectable_shutdown(rq);
+			selectable_shutdown(st);
 #ifdef _WIN32
-			ksocket_cancel(rq->fd);
+			ksocket_cancel(st->fd);
 #endif
 		}
 	}
@@ -295,17 +292,17 @@ int kselector_check_timeout(kselector *selector,int event_number)
 		if (l == &selector->list[KGL_LIST_READY]) {
 			break;
 		}
-		kgl_ready_event* ready_ev = kgl_list_data(l, kgl_ready_event, queue);
+		kgl_ready_event* ready_ev = (kgl_ready_event *)kgl_list_data(l, kgl_base_selectable, queue);
 		//printf("ready ev st=[%p] fd=[%d]\n",ready_ev, ready_ev->st.fd);
-		kassert(ready_ev->selector == selector);
+		kassert(ready_ev->base.selector == selector);
 		klist_remove(l);
 		memset(l, 0, sizeof(kgl_list));
 		selector->count--;
-		if (ready_ev->st_flags == STF_FIBER) {
+		if (ready_ev->base.st_flags == STF_FIBER) {
 			ready_ev->fiber.cb(ready_ev, ready_ev->fiber.arg, ready_ev->fiber.retval);
 			continue;
 		}
-		uint16_t st_flags = ready_ev->st.st_flags;
+		uint16_t st_flags = ready_ev->st.base.st_flags;
 		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
 			assert(!KBIT_TEST(st_flags,STF_UDP));
 #if 0
@@ -331,7 +328,7 @@ int kselector_check_timeout(kselector *selector,int event_number)
 #ifdef STF_ET
 			KBIT_TEST(st_flags, STF_ET) &&
 #endif
-			ready_ev->queue.next == NULL) {
+			ready_ev->base.queue.next == NULL) {
 			kselector_add_list(selector, &ready_ev->st, KGL_LIST_RW);
 		}
 	}
@@ -376,7 +373,7 @@ int kselector_add_timer(kselector *selector, result_callback result, void *arg, 
 }
 void kselector_default_bind(kselector *selector, kselectable *st)
 {
-	st->selector = selector;
+	st->base.selector = selector;
 }
 bool kselector_default_readhup(kselector *selector, kselectable *st, result_callback result,  void *arg)
 {

@@ -111,13 +111,13 @@ static bool kiouring_add_event(struct io_uring *ring,kselectable *st,uint16_t ev
 		if (!kiouring_add_poll(ring,st,&st->e[OP_READ],POLLIN)) {
 			return false;
 		}
-		KBIT_SET(st->st_flags,STF_READ);
+		KBIT_SET(st->base.st_flags,STF_READ);
 	}
 	if (KBIT_TEST(ev,STF_WRITE)) {		
 		if (!kiouring_add_poll(ring,st,&st->e[OP_WRITE],POLLOUT)) {
 			return false;
 		}
-		KBIT_SET(st->st_flags,STF_WRITE);
+		KBIT_SET(st->base.st_flags,STF_WRITE);
 	}
 	return true;
 }
@@ -181,7 +181,7 @@ static bool iouring_add_accept_event(kselector *selector,kserver_selectable *ss,
 	if (sqe==NULL) {
 		return false;
 	}
-	KBIT_SET(ss->st.st_flags,STF_READ);
+	KBIT_SET(ss->st.base.st_flags,STF_READ);
 	ss->addr_len = (socklen_t)ksocket_addr_len(&ss->accept_addr);
 	io_uring_prep_accept(sqe, e->st->fd,(struct sockaddr *)&ss->accept_addr,&ss->addr_len,SOCK_CLOEXEC);
 	io_uring_sqe_set_data(sqe, e);
@@ -203,7 +203,7 @@ static bool iouring_selector_accept(kserver_selectable* ss, void *arg)
 	kselectable *st = &ss->st;
 	st->e[OP_WRITE].arg = arg;
 	kgl_event *e = &st->e[OP_READ];
-	return iouring_add_accept_event(st->selector,ss,e);
+	return iouring_add_accept_event(st->base.selector,ss,e);
 }
 static bool iouring_selector_listen(kserver_selectable *ss, result_callback result)
 {
@@ -216,7 +216,7 @@ static bool iouring_selector_listen(kserver_selectable *ss, result_callback resu
 	e->st = st;	
 	
 	st->e[OP_WRITE].result = result;
-	KBIT_CLR(st->st_flags,STF_WRITE|STF_RDHUP);
+	KBIT_CLR(st->base.st_flags,STF_WRITE|STF_RDHUP);
 	return true;
 	//return iouring_add_accept_event(selector,ss,e);
 }
@@ -224,15 +224,15 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 {
 	struct io_uring_sqe *sqe;
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
-	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
+	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = arg;
 	e->result = result;
 	e->st = st;
 	e->buffer = buffer;
-	if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
-		if (KBIT_TEST(st->st_flags,STF_RREADY)) {
-			KBIT_SET(st->st_flags,STF_READ);
+	if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
+		if (KBIT_TEST(st->base.st_flags,STF_RREADY)) {
+			KBIT_SET(st->base.st_flags,STF_READ);
 			kselector_add_list(selector, st, KGL_LIST_READY);
 			return true;
 		}
@@ -257,9 +257,9 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
 	}	
 prepare_done:
-	KBIT_SET(st->st_flags,STF_READ);
+	KBIT_SET(st->base.st_flags,STF_READ);
 	io_uring_sqe_set_data(sqe, e);
-	if (st->queue.next == NULL) {
+	if (st->base.queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
 	return true;
@@ -273,10 +273,10 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 	e->arg = arg;
 	e->result = result;
 	e->st = st;
-	if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
+	if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
 		e->buffer = buffer;
-		if (KBIT_TEST(st->st_flags,STF_WREADY)) {
-			KBIT_SET(st->st_flags,STF_WRITE);
+		if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
+			KBIT_SET(st->base.st_flags,STF_WRITE);
 			kselector_add_list(selector, st, KGL_LIST_READY);
 			return true;
 		}
@@ -302,9 +302,9 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 		io_uring_prep_poll_add(sqe, st->fd,POLLOUT);
 	}	
 prepare_done:
-	KBIT_SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->base.st_flags,STF_WRITE);
 	io_uring_sqe_set_data(sqe, e);	
-	if (st->queue.next == NULL) {
+	if (st->base.queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
 	return true;
@@ -313,19 +313,19 @@ prepare_done:
 void iouring_selector_aio_open(kselector *selector, kasync_file *aio_file, FILE_HANDLE fd)
 {
 	aio_file->st.fd = (SOCKET)fd;
-	aio_file->st.selector = selector;
+	aio_file->st.base.selector = selector;
 	return;
 }
 
 bool iouring_selector_aio_write(kasync_file *file, result_callback result, const char *buf, int length, void *arg)
 {
-	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
+	kiouring_selector *cs = (kiouring_selector *)file->st.base.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
 	}
 	kselectable *st = &file->st;
-	kassert(KBIT_TEST(st->st_flags, STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE) == 0);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = file;
 	e->result = result;
@@ -336,18 +336,18 @@ bool iouring_selector_aio_write(kasync_file *file, result_callback result, const
 	bufs[0].iov_len = length;
 	io_uring_prep_writev(sqe,st->fd,bufs,1,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
-	KBIT_SET(st->st_flags, STF_WRITE);
+	KBIT_SET(st->base.st_flags, STF_WRITE);
 	return true;
 }
 bool iouring_selector_aio_read(kasync_file *file, result_callback result, char *buf, int length, void *arg)
 {
-	kiouring_selector *cs = (kiouring_selector *)file->st.selector->ctx;
+	kiouring_selector *cs = (kiouring_selector *)file->st.base.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
 	}
 	kselectable *st = &file->st;
-	kassert(KBIT_TEST(st->st_flags, STF_READ) == 0);	
+	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);	
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = file;
 	e->result = result;
@@ -358,13 +358,13 @@ bool iouring_selector_aio_read(kasync_file *file, result_callback result, char *
 	bufs[0].iov_len = length;
 	io_uring_prep_readv(sqe,st->fd,bufs,1,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
-	KBIT_SET(st->st_flags,STF_READ);
+	KBIT_SET(st->base.st_flags,STF_READ);
 	return true;
 }
 static bool iouring_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {
 	//printf("connection st=[%p]\n", st);
-	kassert(KBIT_TEST(st->st_flags, STF_WRITE) == 0);
+	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE) == 0);
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
@@ -372,7 +372,7 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	}
 	WSABUF addr_buf;
 	st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &addr_buf, 1);
-	KBIT_SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->base.st_flags,STF_WRITE);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = arg;
 	e->result = result;
@@ -386,30 +386,30 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 static KASYNC_IO_RESULT iouring_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
-	assert(KBIT_TEST(st->st_flags,STF_READ)==0);
+	assert(KBIT_TEST(st->base.st_flags,STF_READ)==0);
 	struct io_uring_sqe *sqe;
 	kgl_event *e = &st->e[OP_READ];
 	e->arg = arg;
 	e->result = result;
 	e->st = st;
 	e->buffer = buffer;
-	assert(KBIT_TEST(st->st_flags,STF_UDP));
+	assert(KBIT_TEST(st->base.st_flags,STF_UDP));
 	int got = selectable_recvmsg(st);
 	if (got>=0) {
 		return got;
 	}
 	switch (errno) {
 	case EAGAIN:
-		KBIT_SET(st->st_flags,STF_READ);
+		KBIT_SET(st->base.st_flags,STF_READ);
 		e->buffer = null_buffer;
 		sqe = kiouring_get_seq(&cs->ring);
 		if (sqe==NULL) {
-			KBIT_CLR(st->st_flags,STF_READ);
+			KBIT_CLR(st->base.st_flags,STF_READ);
 			return KASYNC_IO_ERR_SYS;
 		}
 		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
 		io_uring_sqe_set_data(sqe, e);
-		if (st->queue.next==NULL) {
+		if (st->base.queue.next==NULL) {
 			kselector_add_list(selector,st,KGL_LIST_RW);
 		}
 		return KASYNC_IO_PENDING;
@@ -431,9 +431,9 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	//printf("st=[%p] got=[%d],flags=[%d]\n",e,got,flags);
 	kselectable *st = e->st;
 	kassert(st);
-	if (KBIT_TEST(st->st_flags, STF_READ | STF_WRITE) == (STF_READ | STF_WRITE)) {
+	if (KBIT_TEST(st->base.st_flags, STF_READ | STF_WRITE) == (STF_READ | STF_WRITE)) {
 		//reset active_msec
-		if (!KBIT_TEST(st->st_flags, STF_RREADY2 | STF_WREADY2)) {
+		if (!KBIT_TEST(st->base.st_flags, STF_RREADY2 | STF_WREADY2)) {
 			kselector_add_list(selector, st, KGL_LIST_RW);
 		}
 	} else {
@@ -446,28 +446,28 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	}
 	if (e == &st->e[OP_READ]) {
 		//printf("handle read event st=[%p]\n", st);
-		kassert(KBIT_TEST(st->st_flags, STF_READ));
+		kassert(KBIT_TEST(st->base.st_flags, STF_READ));
 #ifndef ENABLE_KSSL_BIO
-		if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
-			KBIT_SET(st->st_flags,STF_RREADY);
+		if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
+			KBIT_SET(st->base.st_flags,STF_RREADY);
 			kselector_add_list(selector,st,KGL_LIST_READY);
 			return;
 		}
 #endif
-		KBIT_CLR(st->st_flags, STF_READ);
-		kassert(!KBIT_TEST(st->st_flags, STF_RREADY|STF_RREADY2));
+		KBIT_CLR(st->base.st_flags, STF_READ);
+		kassert(!KBIT_TEST(st->base.st_flags, STF_RREADY|STF_RREADY2));
 	} else 	if (e == &st->e[OP_WRITE]) {
 		//printf("handle write event st=[%p]\n", st);
-		kassert(KBIT_TEST(st->st_flags, STF_WRITE));
+		kassert(KBIT_TEST(st->base.st_flags, STF_WRITE));
 #ifndef ENABLE_KSSL_BIO
-		if (KBIT_TEST(st->st_flags, STF_USEPOLL)) {
-			KBIT_SET(st->st_flags,STF_WREADY);
+		if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
+			KBIT_SET(st->base.st_flags,STF_WREADY);
 			kselector_add_list(selector, st, KGL_LIST_READY);
 			return;
 		}
 #endif
-		KBIT_CLR(st->st_flags, STF_WRITE);
-		kassert(!KBIT_TEST(st->st_flags, STF_WREADY|STF_WREADY2));
+		KBIT_CLR(st->base.st_flags, STF_WRITE);
+		kassert(!KBIT_TEST(st->base.st_flags, STF_WREADY|STF_WREADY2));
 	} else {
 		kassert(false);
 	}
@@ -508,7 +508,7 @@ static int iouring_selector_select(kselector *selector, int tmo)
 	return iouring_handle_cq(selector,&es->ring,n);
 }
 static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
-	kiouring_selector *cs = (kiouring_selector *)st->selector->ctx;
+	kiouring_selector *cs = (kiouring_selector *)st->base.selector->ctx;
 	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
 		return false;
@@ -540,7 +540,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 	e->st = &file->st;
 	io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,bufs.iov_len,0);
 	io_uring_sqe_set_data(sqe, e);
-	KBIT_SET(file->st.st_flags,STF_READ);
+	KBIT_SET(file->st.base.st_flags,STF_READ);
 	/* splice pipe to socket */
 	sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
@@ -552,18 +552,18 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 	e->arg = sf;
 	e->result = iouring_sendfile_selectable_result;
 	e->st = st;
-	KBIT_SET(st->st_flags,STF_WRITE);
+	KBIT_SET(st->base.st_flags,STF_WRITE);
 	io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,bufs.iov_len,0);
 	io_uring_sqe_set_data(sqe, e);
 
-	if (st->queue.next == NULL) {
-		kselector_add_list(st->selector, st, KGL_LIST_RW);
+	if (st->base.queue.next == NULL) {
+		kselector_add_list(st->base.selector, st, KGL_LIST_RW);
 	}
 	return true;
 }
 void iouring_selector_bind(kselector *selector, kselectable *st)
 {
-	st->selector = selector;
+	st->base.selector = selector;
 	for (int i=0;i<2;i++) {
 		st->e[i].st = st;
 	}

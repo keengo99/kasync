@@ -54,7 +54,7 @@ kev_result kasync_file_worker_callback(void* data, int msec) {
 		assert(false);
 		break;
 	}
-	kgl_selector_module.next(file->st.selector, kasync_file_get_opaque(file), file->st.e[op].result, file->st.e[op].arg, kasync_file_adjust_result(file,(int)ret));
+	kgl_selector_module.next(file->st.base.selector, kasync_file_get_opaque(file), file->st.e[op].result, file->st.e[op].arg, kasync_file_adjust_result(file,(int)ret));
 	return kev_ok;
 }
 

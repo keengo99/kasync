@@ -33,10 +33,10 @@ kev_result kselector_event_accept(KOPAQUE data, void *arg,int got)
 		//printf("ksocket_accept=[%d]\n",sockfd);
 		return ss->st.e[OP_WRITE].result(data, ss->st.e[OP_WRITE].arg,(int)sockfd);
 	}
-	if (errno==EAGAIN && !KBIT_TEST(ss->st.st_flags,STF_ERR)) {
+	if (errno==EAGAIN && !KBIT_TEST(ss->st.base.st_flags,STF_ERR)) {
 		//printf("try again\n");
-		assert(!KBIT_TEST(ss->st.st_flags, STF_RREADY2));
-		KBIT_CLR(ss->st.st_flags,STF_RREADY);
+		assert(!KBIT_TEST(ss->st.base.st_flags, STF_RREADY2));
+		KBIT_CLR(ss->st.base.st_flags,STF_RREADY);
 		if (kgl_selector_module.accept(ss, ss->st.e[OP_WRITE].arg)) {
 			return kev_ok;
 		}
@@ -64,7 +64,7 @@ static SOCKET kserver_get_socket(kserver_selectable* ss, int got)
 }
 kselector* kserver_get_perfect_selector(kserver_selectable* ss) {
 	if (is_server_multi_selectable(ss->server)) {
-		return ss->st.selector;
+		return ss->st.base.selector;
 	}
 	return get_perfect_selector();
 }
@@ -251,7 +251,7 @@ static kev_result kserver_next_accept(KOPAQUE data, void* arg, int got)
 }
 static void kserver_selectable_start(kserver_selectable* ss) {
 
-	if (ss->st.selector == kgl_get_tls_selector()) {
+	if (ss->st.base.selector == kgl_get_tls_selector()) {
 		kserver_next_accept(NULL, ss, 0);
 	} else {
 		selectable_next(&ss->st, kserver_next_accept, ss, 0);
@@ -377,14 +377,14 @@ kev_result kserver_selectable_next_shutdown(KOPAQUE data, void *arg,int got)
 	//printf("next_shutdown arg=[%p] st=[%p] fd=[%d]\n",arg, &ss->st,ss->st.fd);
 	int32_t refs = katom_dec((void *)&ss->hold_by_next_shutdown_refs);
 	assert(refs==0);
-	KBIT_SET(ss->st.st_flags,STF_RREADY|STF_ERR);
+	KBIT_SET(ss->st.base.st_flags,STF_RREADY|STF_ERR);
 	if (!ksocket_opened(ss->st.fd)) {
 		//already close
 		kserver_selectable_destroy(ss);
 		return kev_ok;
 	}
 	selectable_shutdown(&ss->st);
-	kselector_add_list(ss->st.selector,&ss->st,KGL_LIST_READY);
+	kselector_add_list(ss->st.base.selector,&ss->st,KGL_LIST_READY);
 	return kev_ok;
 }
 #endif

@@ -57,7 +57,7 @@ INLINE void kasync_file_close(kasync_file* fp) {
 	kfclose(kasync_file_get_handle(fp));
 }
 INLINE kselector* kasync_file_get_selector(kasync_file* fp) {
-	return fp->st.selector;
+	return fp->st.base.selector;
 }
 INLINE void kasync_file_bind_opaque(kasync_file* fp, KOPAQUE data) {
 	fp->st.data = data;

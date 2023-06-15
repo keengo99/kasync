@@ -1,6 +1,7 @@
 #ifndef KFIBER_INTERNAL_H
 #define KFIBER_INTERNAL_H
 #include "kselector.h"
+#include "kselectable.h"
 #ifdef _WIN32
 #define kfiber_context void*
 #else
@@ -43,8 +44,8 @@ KBEGIN_DECLS
 
 typedef struct _kfiber_mutex kfiber_mutex;
 typedef struct _kfiber_rwlock kfiber_rwlock;
-typedef struct _kfiber_waiter kfiber_waiter;
 typedef struct _kfiber_cond kfiber_cond;
+typedef kgl_base_selectable  kfiber_waiter;
 
 typedef struct _kfiber_cond_function {
 	int (*notice)(kfiber_cond* fc,int got);
@@ -59,25 +60,15 @@ struct _kfiber_cond {
 	kfiber_waiter* waiter;
 	volatile int32_t ev;
 };
-
-struct _kfiber_waiter {
-	kselector* selector;
-	result_callback notice;
-	KOPAQUE data;
+typedef struct _kfiber_event_waiter {
+	kgl_base_selectable base;
+	result_callback result;
 	void* arg;
-	kfiber_waiter* next;
-};
+} kfiber_event_waiter;
+
 struct _kfiber {
-	kgl_list queue;
-	kselector* selector;
-	uint16_t st_flags;//always set STF_FIBER
-	/////////以上三个必须和kselectable相同
+	kgl_base_selectable base;	/* must at begin */
 	uint16_t stk_page;
-	union {
-		volatile int start_arg;
-		volatile int retval;
-	};
-	volatile int32_t ref;
 	volatile uint8_t start_called;
 #ifndef NDEBUG
 	union {
@@ -88,7 +79,10 @@ struct _kfiber {
 		uint8_t wait_notice_flag;
 	};
 #endif
-	uint16_t reserve;
+	union {
+		volatile int start_arg;
+		volatile int retval;
+	};
 	void *wait_code;//wait/wakeup be same.
 	//when a fiber exit/wait/yield will switch back to switch_from
 	//when a fiber wakeup will set self to target fiber->switch_from
@@ -111,17 +105,7 @@ struct _kfiber {
 	kfiber_context ctx;
 };
 
-#define kfiber_wakeup_waiter(waiter,got) kgl_selector_module.next(waiter->selector, waiter->data, waiter->notice, waiter->arg, got)
-INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter,int got)
-{
-	while (waiter) {
-		kfiber_waiter* next = waiter->next;
-		kfiber_wakeup_waiter(waiter,got);
-		free(waiter);
-		waiter = next;
-	}
-}
-void kfiber_add_waiter(kfiber_waiter** head, kselector* selector, KOPAQUE data, result_callback notice, void* arg);
+
 kev_result result_switch_fiber(KOPAQUE data, void* arg, int got);
 bool is_main_fiber(kfiber* fiber);
 KEND_DECLS

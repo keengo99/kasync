@@ -94,14 +94,33 @@ typedef struct
 #endif
 } kgl_event;
 
+typedef struct kgl_base_selectable_s kgl_base_selectable;
+
+struct kgl_base_selectable_s {
+	union {
+		kgl_list queue;
+		struct {
+			/* used by kfiber waiter */
+			KOPAQUE wait_obj;
+			kgl_base_selectable* next;
+		};
+	};
+	kselector* selector;
+	uint32_t st_flags;
+	union {
+		struct {
+			/* used by kselectable */
+			uint16_t tmo_left;
+			uint16_t tmo;
+		};
+		/* used by kfiber */
+		volatile uint32_t ref;
+	};
+};
+
 struct kselectable_s
 {
-	kgl_list queue;
-	kselector* selector;
-	uint16_t st_flags;
-	/* same as kfiber */
-	uint8_t tmo_left;
-	uint8_t tmo;
+	kgl_base_selectable base;/* must at begin */
 	SOCKET fd;
 #ifdef RQ_LEAK_DEBUG
 	kgl_list queue_edge;
@@ -136,7 +155,7 @@ INLINE void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
 void selectable_clean(kselectable* st);
 bool selectable_remove(kselectable* st);
 INLINE void selectable_next(kselectable* st, result_callback result, void* arg, int got) {
-	kgl_selector_module.next(st->selector, st->data, result, arg, got);
+	kgl_selector_module.next(st->base.selector, st->data, result, arg, got);
 }
 INLINE bool selectable_support_sendfile(kselectable* st) {
 #ifdef KSOCKET_SSL
@@ -159,13 +178,13 @@ void selectable_remove_readhup(kselectable* st);
 
 void selectable_shutdown(kselectable* st);
 INLINE void selectable_clear_flags(kselectable* st, uint16_t flags) {
-	KBIT_CLR(st->st_flags, flags);
+	KBIT_CLR(st->base.st_flags, flags);
 }
 INLINE void selectable_bind(kselectable* st, kselector* selector) {
 	kgl_selector_module.bind(selector, st);
 }
 INLINE bool is_selectable(kselectable* st, uint16_t flags) {
-	return KBIT_TEST(st->st_flags, flags) > 0;
+	return KBIT_TEST(st->base.st_flags, flags) > 0;
 }
 INLINE bool selectable_is_locked(kselectable* st) {
 	return is_selectable(st, STF_LOCK);
