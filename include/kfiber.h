@@ -15,7 +15,6 @@ KBEGIN_DECLS
 
 
 typedef kasync_file kfiber_file;
-typedef struct _kfiber_chan kfiber_chan;
 
 
 //init
@@ -53,19 +52,23 @@ void kfiber_wakeup_ts(kfiber* fiber, void* obj, int retval);
 int kfiber_wait(void *obj);
 int __kfiber_wait(kfiber *fiber, void* obj);
 
-INLINE void kfiber_wakeup_waiter(kfiber_waiter* waiter, int got) {
+INLINE void _kfiber_wakeup_waiter(kfiber_waiter* waiter, void *obj, int got) {
 	if (waiter->st_flags == STF_FIBER) {
 		kfiber* fiber = kgl_list_data(waiter, kfiber, base);
 #ifndef NDEBUG
 		fiber->base.next = NULL;
 #endif
-		kfiber_wakeup_ts(fiber, fiber->base.wait_obj, got);
+		kfiber_wakeup_ts(fiber, obj, got);
 		return;
 	}
 	assert(waiter->st_flags == 0);
 	kfiber_event_waiter* ev_waiter = kgl_list_data(waiter, kfiber_event_waiter, base);
-	kgl_selector_module.next(waiter->selector, ev_waiter->base.wait_obj, ev_waiter->result, ev_waiter->arg, got);
+	kgl_selector_module.next(waiter->selector, obj, ev_waiter->result, ev_waiter->arg, got);
 	xfree(ev_waiter);
+}
+
+INLINE void kfiber_wakeup_waiter(kfiber_waiter* waiter, int got) {
+	_kfiber_wakeup_waiter(waiter, waiter->wait_obj, got);
 }
 INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter, int got) {
 	while (waiter) {
@@ -76,14 +79,6 @@ INLINE void kfiber_wakeup_all_waiter(kfiber_waiter* waiter, int got) {
 }
 void kfiber_add_ev_waiter(kfiber_waiter** head, kselector* selector, KOPAQUE data, result_callback notice, void* arg);
 void kfiber_add_waiter(kfiber_waiter** head, kfiber* fiber, KOPAQUE data);
-
-//chan
-kfiber_chan *kfiber_chan_create(int buf_size);
-int kfiber_chan_send(kfiber_chan *ch, void *data, int len);
-int kfiber_chan_recv(kfiber_chan *ch, void **data);
-int kfiber_chan_shutdown(kfiber_chan *ch);
-kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch);
-int kfiber_chan_close(kfiber_chan *ch);
 
 //socket
 #define kfiber_net_open kconnection_new

@@ -56,19 +56,19 @@ bool kiocp_accept_ex(kserver_selectable *ss)
 }
 static void iocp_selector_bind(kselector *selector, kselectable *st)
 {
-	assert(st->base.selector == NULL && !KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
-	if (st->base.selector) {
+	assert(!KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
+	if (KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED)) {
 		kassert(st->base.selector == selector);
 		return;
-	}	
+	}
 	if (ksocket_opened(st->fd)) {
 		CreateIoCompletionPort((HANDLE)st->fd, selector->ctx, (ULONG_PTR)st, 0);
 		if (KBIT_TEST(st->base.st_flags, STF_UDP)) {
 			SetFileCompletionNotificationModes((HANDLE)st->fd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
 		}
 		KBIT_SET(st->base.st_flags, STF_IOCP_BINDED);
-		st->base.selector = selector;
 	}
+	st->base.selector = selector;
 }
 static void iocp_selector_init(kselector *selector)
 {

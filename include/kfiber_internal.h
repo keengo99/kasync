@@ -45,6 +45,7 @@ KBEGIN_DECLS
 typedef struct _kfiber_mutex kfiber_mutex;
 typedef struct _kfiber_rwlock kfiber_rwlock;
 typedef struct _kfiber_cond kfiber_cond;
+typedef struct _kfiber_chan kfiber_chan;
 typedef kgl_base_selectable  kfiber_waiter;
 
 typedef struct _kfiber_cond_function {
@@ -66,6 +67,13 @@ typedef struct _kfiber_event_waiter {
 	void* arg;
 } kfiber_event_waiter;
 
+struct _kfiber_chan {
+	kfiber_waiter* waiter;
+	volatile uint32_t ref;
+	int8_t wait_flag;
+	volatile uint8_t closed;
+};
+
 struct _kfiber {
 	kgl_base_selectable base;	/* must at begin */
 	uint16_t stk_page;
@@ -83,7 +91,9 @@ struct _kfiber {
 		volatile int start_arg;
 		volatile int retval;
 	};
+#ifndef NDEBUG
 	void *wait_code;//wait/wakeup be same.
+#endif
 	//when a fiber exit/wait/yield will switch back to switch_from
 	//when a fiber wakeup will set self to target fiber->switch_from
 	kfiber * switch_from;
@@ -104,8 +114,6 @@ struct _kfiber {
 #endif
 	kfiber_context ctx;
 };
-
-
 kev_result result_switch_fiber(KOPAQUE data, void* arg, int got);
 bool is_main_fiber(kfiber* fiber);
 KEND_DECLS

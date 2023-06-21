@@ -45,25 +45,6 @@ static volatile int32_t fiber_count = 0;
 
 pthread_key_t kgl_main_fiber_key;
 pthread_key_t kgl_current_fiber_key;
-typedef struct _kfiber_chan_data kfiber_chan_data;
-struct _kfiber_chan_data
-{
-	void* data;
-	int len;
-	kfiber_chan_data* next;
-};
-
-struct _kfiber_chan
-{
-	kfiber_chan_data* head;
-	kfiber_chan_data* last;
-	kfiber_waiter* reciver;
-	kfiber_waiter* sender;
-	volatile int32_t ref;
-	int32_t closed;
-	volatile int buf_size;
-	volatile int buf_limit;
-};
 
 static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
 	if (same_thread) {
@@ -789,96 +770,6 @@ int64_t kfiber_file_tell(kfiber_file * file) {
 void kfiber_file_close(kfiber_file * file) {
 	kasync_file_close(file);
 	xfree(file);
-}
-//chan
-kfiber_chan* kfiber_chan_create(int buf_size) {
-	assert(buf_size >= 0);
-	kfiber_chan* ch = (kfiber_chan*)xmemory_newz(sizeof(kfiber_chan));
-	ch->buf_limit = buf_size;
-	ch->ref = 1;
-	return ch;
-}
-int kfiber_chan_send(kfiber_chan * ch, void* data, int len) {
-	kfiber* fiber = kfiber_self();
-	assert(fiber);
-	CHECK_FIBER(fiber);
-	if (ch->closed) {
-		return -1;
-	}
-	kfiber_chan_data* ch_data = xmemory_new(kfiber_chan_data);
-	ch_data->data = data;
-	ch_data->len = len;
-	ch_data->next = NULL;
-	ch->buf_size += len;
-	if (ch->last) {
-		ch->last->next = ch_data;
-	} else {
-		ch->head = ch_data;
-	}
-	ch->last = ch_data;
-	if (ch->reciver) {
-		//waitup all receiver
-		kfiber_waiter* waiter = ch->reciver;
-		ch->reciver = NULL;
-		while (waiter) {
-			kfiber_waiter* next = waiter->next;
-			kfiber_wakeup_waiter(waiter, 0);
-			waiter = next;
-		}
-	}
-	while (ch->buf_size > ch->buf_limit) {
-		kfiber_add_waiter(&ch->sender, fiber, &fiber);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
-		__kfiber_wait(fiber, &fiber);
-	}
-	return 0;
-}
-int kfiber_chan_recv(kfiber_chan * ch, void** data) {
-	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
-	for (;;) {
-		if (ch->head) {
-			*data = ch->head->data;
-			int len = ch->head->len;
-			ch->head = ch->head->next;
-			if (ch->head == NULL) {
-				ch->last = NULL;
-			}
-			ch->buf_size -= len;
-			if (ch->sender && ch->buf_size <= ch->buf_limit) {
-				kfiber_waiter* waiter = ch->sender;
-				ch->sender = NULL;
-				while (waiter) {
-					kfiber_waiter* next = waiter->next;
-					kfiber_wakeup_waiter(waiter, 0);
-					waiter = next;
-				}
-			}
-			return len;
-		}
-		if (ch->closed) {
-			*data = NULL;
-			return 0;
-		}
-		kfiber_add_waiter(&ch->reciver, fiber, &fiber);// kgl_get_tls_selector(), & fiber, result_switch_fiber, fiber);
-		__kfiber_wait(fiber, &fiber);
-	}
-}
-int kfiber_chan_shutdown(kfiber_chan * ch) {
-	ch->closed = 1;
-	return 0;
-}
-kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch) {
-	katom_inc((void*)&ch->ref);
-	return ch;
-}
-int kfiber_chan_close(kfiber_chan * ch) {
-	if (katom_dec((void*)&ch->ref) == 0) {
-		assert(ch->reciver == NULL && ch->sender == NULL);
-		assert(ch->head == NULL && ch->last == NULL);
-		assert(ch->buf_size == 0);
-		xfree(ch);
-	}
-	return 0;
 }
 KTHREAD_FUNCTION _kfiber_worker_thread(void* arg) {
 	kfiber* fiber = (kfiber*)arg;

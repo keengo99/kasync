@@ -2,6 +2,9 @@
 #include "ksync.h"
 #include "kfiber_internal.h"
 #include "kfiber.h"
+#define KFIBER_CHAN_NO_WAITER   0
+#define KFIBER_CHAN_RECV_WAITER 1
+#define KFIBER_CHAN_SEND_WAITER 2
 
 typedef struct _kfiber_cond_ts kfiber_cond_ts;
 typedef struct _kfiber_cond_sync kfiber_cond_sync;
@@ -592,4 +595,135 @@ void kfiber_rwlock_destroy(kfiber_rwlock* mutex)
 	assert(mutex->writer == NULL);
 	kmutex_destroy(&mutex->lock);
 	xfree(mutex);
+}
+//chan
+void kfiber_chan_wakeup(kfiber_chan* ch, kfiber_waiter* waiter, int got) {
+	_kfiber_wakeup_waiter(waiter, ch, got);
+}
+kfiber_chan* kfiber_chan_create() {
+	kfiber_chan* ch = (kfiber_chan*)xmemory_newz(sizeof(kfiber_chan));
+	ch->ref = 1;
+	return ch;
+}
+int kfiber_chan_send(kfiber_chan* ch, KOPAQUE data) {
+	kfiber* fiber = kfiber_self();
+	assert(fiber);
+	CHECK_FIBER(fiber);
+	if (ch->closed) {
+		return -1;
+	}
+	switch (ch->wait_flag) {
+	case KFIBER_CHAN_NO_WAITER:
+		ch->wait_flag = KFIBER_CHAN_SEND_WAITER;
+		assert(ch->waiter == NULL);
+		kfiber_add_waiter(&ch->waiter, fiber, data);
+		return __kfiber_wait(fiber, ch);
+	case KFIBER_CHAN_SEND_WAITER:
+		assert(ch->waiter != NULL);
+		assert(ch->waiter->selector == fiber->base.selector);
+		kfiber_add_waiter(&ch->waiter, fiber, data);
+		return __kfiber_wait(fiber, ch);
+	case KFIBER_CHAN_RECV_WAITER: {
+		assert(ch->waiter != NULL);
+		assert(ch->waiter->selector == fiber->base.selector);
+		kfiber_waiter* waiter = ch->waiter;
+		ch->waiter = waiter->next;
+		if (ch->waiter == NULL) {
+			ch->wait_flag = KFIBER_CHAN_NO_WAITER;
+		}
+		waiter->wait_obj = data;
+		kfiber_chan_wakeup(ch, waiter, 0);
+		return 0;
+	}
+	default:
+		assert(false);
+		return -1;
+	}
+}
+int kfiber_chan_recv(kfiber_chan* ch, KOPAQUE* data, kfiber_waiter** sender) {
+	kfiber* fiber = kfiber_self();
+	int retval;
+	CHECK_FIBER(fiber);
+	switch (ch->wait_flag) {
+	case KFIBER_CHAN_NO_WAITER:
+		assert(ch->waiter == NULL);
+		if (ch->closed) {
+			return -1;
+		}
+		ch->wait_flag = KFIBER_CHAN_RECV_WAITER;
+		kfiber_add_waiter(&ch->waiter, fiber, NULL);
+		retval = __kfiber_wait(fiber, ch);
+		*data = fiber->base.wait_obj;
+		if (sender) {
+			*sender = NULL;
+		}
+		return retval;
+	case KFIBER_CHAN_RECV_WAITER:
+		assert(ch->waiter != NULL);
+		assert(ch->waiter->selector == fiber->base.selector);
+		if (ch->closed) {
+			return -1;
+		}
+		kfiber_add_waiter(&ch->waiter, fiber, NULL);
+		retval = __kfiber_wait(fiber, ch);
+		*data = fiber->base.wait_obj;
+		if (sender) {
+			*sender = NULL;
+		}
+		return retval;
+	case KFIBER_CHAN_SEND_WAITER: {
+		assert(ch->waiter != NULL);
+		assert(ch->waiter->selector == fiber->base.selector);
+		kfiber_waiter* waiter = ch->waiter;
+		ch->waiter = waiter->next;
+		if (ch->waiter == NULL) {
+			ch->wait_flag = KFIBER_CHAN_NO_WAITER;
+		}
+		*data = waiter->wait_obj;
+		if (sender) {
+			*sender = waiter;
+		} else {
+			kfiber_chan_wakeup(ch, waiter, 0);
+		}
+		return 0;
+	}
+	default:
+		assert(false);
+		return -1;
+	}
+	return 0;
+}
+int kfiber_chan_close(kfiber_chan* ch) {
+	if (ch->closed) {
+		//already closed;
+		return 0;
+	}
+	ch->closed = 1;
+	if (ch->wait_flag == KFIBER_CHAN_RECV_WAITER) {
+		assert(ch->waiter != NULL);
+		assert(ch->waiter->selector == kfiber_self()->base.selector);
+		kfiber_waiter* waiter = ch->waiter;
+		ch->waiter = NULL;
+		while (waiter) {
+			kfiber_waiter* next = waiter->next;
+			waiter->wait_obj = NULL;
+			kfiber_chan_wakeup(ch, waiter, -1);
+			waiter = next;
+		}
+	}
+	return 0;
+}
+kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch) {
+	katom_inc((void*)&ch->ref);
+	return ch;
+}
+int kfiber_chan_get_ref(kfiber_chan* ch) {
+	return (int)katom_get((void*)&ch->ref);
+}
+int kfiber_chan_release(kfiber_chan* ch) {
+	if (katom_dec((void*)&ch->ref) == 0) {
+		assert(ch->waiter == NULL);
+		xfree(ch);
+	}
+	return 0;
 }

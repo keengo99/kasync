@@ -27,5 +27,16 @@ void kfiber_rwlock_destroy(kfiber_rwlock* mutex);
 kfiber_cond* kfiber_cond_init(bool auto_reset);
 kfiber_cond* kfiber_cond_init_ts(bool auto_reset);
 kfiber_cond* kfiber_cond_init_sync(bool auto_reset);
+
+//kfiber chan
+/* NOT support thread safe */
+kfiber_chan* kfiber_chan_create();
+int kfiber_chan_send(kfiber_chan* ch, KOPAQUE data);
+int kfiber_chan_recv(kfiber_chan* ch, KOPAQUE* data, kfiber_waiter **sender);
+int kfiber_chan_close(kfiber_chan* ch);
+kfiber_chan* kfiber_chan_add_ref(kfiber_chan* ch);
+void kfiber_chan_wakeup(kfiber_chan* ch, kfiber_waiter* waiter, int got);
+int kfiber_chan_get_ref(kfiber_chan* ch);
+int kfiber_chan_release(kfiber_chan* ch);
 KEND_DECLS
 #endif
