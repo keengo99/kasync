@@ -696,20 +696,19 @@ int kfiber_chan_recv(kfiber_chan* ch, KOPAQUE* data, kfiber_waiter** sender) {
 int kfiber_chan_close(kfiber_chan* ch) {
 	if (ch->closed) {
 		//already closed;
+		assert(ch->waiter == NULL);
 		return 0;
 	}
 	ch->closed = 1;
-	if (ch->wait_flag == KFIBER_CHAN_RECV_WAITER) {
-		assert(ch->waiter != NULL);
-		assert(ch->waiter->selector == kfiber_self()->base.selector);
-		kfiber_waiter* waiter = ch->waiter;
-		ch->waiter = NULL;
-		while (waiter) {
-			kfiber_waiter* next = waiter->next;
-			waiter->wait_obj = NULL;
-			kfiber_chan_wakeup(ch, waiter, -1);
-			waiter = next;
-		}
+	kfiber_waiter* waiter = ch->waiter;
+	ch->waiter = NULL;
+	ch->wait_flag = KFIBER_CHAN_NO_WAITER;
+	while (waiter) {
+		assert(waiter->selector == kfiber_self()->base.selector);
+		kfiber_waiter* next = waiter->next;
+		waiter->wait_obj = NULL;
+		kfiber_chan_wakeup(ch, waiter, -1);
+		waiter = next;
 	}
 	return 0;
 }
