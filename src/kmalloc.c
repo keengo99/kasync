@@ -8,8 +8,7 @@ size_t kgl_aio_align_size = 512;
 #define KGL_ALIGNMENT   sizeof(unsigned long)    /* platform word */
 #endif
 
-static void* kgl_palloc_block(kgl_pool_t* pool, size_t size)
-{
+static void* kgl_palloc_block(kgl_pool_t* pool, size_t size) {
 	char* m;
 	size_t       psize;
 	kgl_pool_t* p, * n;
@@ -42,8 +41,7 @@ static void* kgl_palloc_block(kgl_pool_t* pool, size_t size)
 	return m;
 }
 
-static INLINE void* kgl_palloc_small(kgl_pool_t* pool, size_t size, size_t align)
-{
+static INLINE void* kgl_palloc_small(kgl_pool_t* pool, size_t size, size_t align) {
 	char* m;
 	kgl_pool_t* p;
 
@@ -70,8 +68,7 @@ static INLINE void* kgl_palloc_small(kgl_pool_t* pool, size_t size, size_t align
 }
 
 
-static void* kgl_palloc_large(kgl_pool_t* pool, size_t size)
-{
+static void* kgl_palloc_large(kgl_pool_t* pool, size_t size) {
 	void* p;
 	uintptr_t         n;
 	kgl_pool_large_t* large;
@@ -107,8 +104,7 @@ static void* kgl_palloc_large(kgl_pool_t* pool, size_t size)
 }
 
 
-kgl_pool_t* kgl_create_pool(size_t size)
-{
+kgl_pool_t* kgl_create_pool(size_t size) {
 	kgl_pool_t* p;
 
 	p = (kgl_pool_t*)kgl_memalign(KGL_POOL_ALIGNMENT, size);
@@ -129,11 +125,10 @@ kgl_pool_t* kgl_create_pool(size_t size)
 	p->large = NULL;
 	return p;
 }
-void kgl_destroy_pool(kgl_pool_t* pool)
-{
+void kgl_destroy_pool(kgl_pool_t* pool) {
 	kgl_pool_t* p, * n;
 	kgl_pool_large_t* l;
-	kgl_pool_cleanup_t* c;
+	kgl_cleanup_t* c;
 	for (c = pool->cleanup; c; c = c->next) {
 		if (c->handler) {
 			c->handler(c->data);
@@ -153,8 +148,7 @@ void kgl_destroy_pool(kgl_pool_t* pool)
 		}
 	}
 }
-void kgl_reset_pool(kgl_pool_t* pool)
-{
+void kgl_reset_pool(kgl_pool_t* pool) {
 	kgl_pool_t* p;
 	kgl_pool_large_t* l;
 
@@ -172,8 +166,7 @@ void kgl_reset_pool(kgl_pool_t* pool)
 	pool->current = pool;
 	pool->large = NULL;
 }
-void* kgl_palloc(kgl_pool_t* pool, size_t size)
-{
+void* kgl_palloc(kgl_pool_t* pool, size_t size) {
 #if !(KGL_DEBUG_PALLOC)
 	if (size <= pool->max) {
 		return kgl_palloc_small(pool, size, 1);
@@ -184,8 +177,7 @@ void* kgl_palloc(kgl_pool_t* pool, size_t size)
 }
 
 
-void* kgl_pnalloc(kgl_pool_t* pool, size_t size)
-{
+void* kgl_pnalloc(kgl_pool_t* pool, size_t size) {
 #if !(KGL_DEBUG_PALLOC)
 	if (size <= pool->max) {
 		return kgl_palloc_small(pool, size, 0);
@@ -193,31 +185,33 @@ void* kgl_pnalloc(kgl_pool_t* pool, size_t size)
 #endif
 	return kgl_palloc_large(pool, size);
 }
-kgl_pool_cleanup_t* kgl_pool_cleanup_add(kgl_pool_t* p, size_t size)
-{
-	kgl_pool_cleanup_t* c = (kgl_pool_cleanup_t*)kgl_palloc(p, sizeof(kgl_pool_cleanup_t));
+void* kgl_cleanup_get_data(kgl_cleanup_t* c) {
+	return c->data;
+}
+void kgl_cleanup_set_data(kgl_cleanup_t* c, void* data) {
+	c->data = data;
+}
+kgl_cleanup_t* kgl_cleanup_insert(kgl_pool_t* p, kgl_cleanup_f handler) {
+	kgl_cleanup_t* c;
+	for (c = p->cleanup; c != NULL; c = c->next) {
+		if (c->handler == handler) {
+			return c;
+		}
+	}
+	return kgl_cleanup_add(p, handler, NULL);
+}
+kgl_cleanup_t* kgl_cleanup_add(kgl_pool_t* p, kgl_cleanup_f handler, void* data) {
+	kgl_cleanup_t* c = (kgl_cleanup_t*)kgl_palloc(p, sizeof(kgl_cleanup_t));
 	if (c == NULL) {
 		return NULL;
 	}
-
-	if (size) {
-		c->data = kgl_palloc(p, size);
-		if (c->data == NULL) {
-			return NULL;
-		}
-	} else {
-		c->data = NULL;
-	}
-
-	c->handler = NULL;
+	c->data = data;
+	c->handler = handler;
 	c->next = p->cleanup;
-
 	p->cleanup = c;
-
 	return c;
 }
-bool kgl_pfree(kgl_pool_t* pool, void* p)
-{
+bool kgl_pfree(kgl_pool_t* pool, void* p) {
 	kgl_pool_large_t* l;
 
 	for (l = pool->large; l; l = l->next) {
@@ -231,8 +225,7 @@ bool kgl_pfree(kgl_pool_t* pool, void* p)
 
 	return false;
 }
-kgl_array_t* kgl_array_create(kgl_pool_t* p, size_t n, size_t size)
-{
+kgl_array_t* kgl_array_create(kgl_pool_t* p, size_t n, size_t size) {
 	kgl_array_t* a;
 
 	a = (kgl_array_t*)kgl_palloc(p, sizeof(kgl_array_t));
@@ -247,8 +240,7 @@ kgl_array_t* kgl_array_create(kgl_pool_t* p, size_t n, size_t size)
 	return a;
 }
 
-void kgl_array_destroy(kgl_array_t* a)
-{
+void kgl_array_destroy(kgl_array_t* a) {
 	kgl_pool_t* p;
 
 	p = a->pool;
@@ -263,8 +255,7 @@ void kgl_array_destroy(kgl_array_t* a)
 }
 
 
-void* kgl_array_push(kgl_array_t* a)
-{
+void* kgl_array_push(kgl_array_t* a) {
 	void* elt, * new_elt;
 	size_t       size;
 	kgl_pool_t* p;
@@ -308,8 +299,7 @@ void* kgl_array_push(kgl_array_t* a)
 }
 
 
-void* kgl_array_push_n(kgl_array_t* a, size_t n)
-{
+void* kgl_array_push_n(kgl_array_t* a, size_t n) {
 	void* elt, * new_elt;
 	size_t       size;
 	size_t   nalloc;
@@ -354,8 +344,7 @@ void* kgl_array_push_n(kgl_array_t* a, size_t n)
 
 	return elt;
 }
-void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment)
-{
+void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment) {
 	void* p;
 	kgl_pool_large_t* large;
 

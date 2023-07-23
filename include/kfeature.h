@@ -158,6 +158,7 @@ typedef void* KOPAQUE;
 typedef kev_result(*result_callback)(KOPAQUE data, void* arg, int got);
 typedef int (*buffer_callback)(KOPAQUE data, void* arg, struct iovec* buf, int bc);
 typedef void(*kgl_cleanup_f) (void* data);
+typedef struct kgl_cleanup_s kgl_cleanup_t;
 #define kgl_expand_string(str)  (char *)str ,sizeof(str) - 1
 #define _KS                    kgl_expand_string
 #define KFILE_TEMP_MODEL       1

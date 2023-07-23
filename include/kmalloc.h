@@ -61,14 +61,12 @@ INLINE void *kgl_memalign(size_t alignment, size_t size) {
 #endif
 
 typedef struct kgl_pool_s kgl_pool_t;
-typedef struct kgl_pool_cleanup_s kgl_pool_cleanup_t;
 typedef struct kgl_pool_large_s kgl_pool_large_t;
 
-
-struct kgl_pool_cleanup_s {
+struct kgl_cleanup_s {
 	kgl_cleanup_f handler;
 	void *data;
-	kgl_pool_cleanup_t *next;
+	kgl_cleanup_t *next;
 };
 typedef struct {
 	char               *last;
@@ -86,7 +84,7 @@ struct kgl_pool_s {
 	size_t                max;
 	kgl_pool_t           *current;
 	kgl_pool_large_t     *large;
-	kgl_pool_cleanup_t   *cleanup;
+	kgl_cleanup_t        *cleanup;
 };
 
 extern unsigned kgl_pagesize;
@@ -101,14 +99,17 @@ extern unsigned kgl_pagesize;
 
 kgl_pool_t *kgl_create_pool(size_t size);
 void kgl_destroy_pool(kgl_pool_t *pool);
-//指针对齐分配内存
+/* align alloc */
 void *kgl_palloc(kgl_pool_t *pool, size_t size);
-//不对齐分配内存
+/* not align alloc */
 void *kgl_pnalloc(kgl_pool_t *pool, size_t size);
 void* kgl_pmemalign(kgl_pool_t* pool, size_t size, size_t alignment);
 bool kgl_pfree(kgl_pool_t *pool, void *p);
-kgl_pool_cleanup_t *kgl_pool_cleanup_add(kgl_pool_t *pool, size_t size);
-
+kgl_cleanup_t *kgl_cleanup_add(kgl_pool_t *pool, kgl_cleanup_f handler, void* data);
+/* if found old handler return it.else create a new */
+kgl_cleanup_t* kgl_cleanup_insert(kgl_pool_t* pool, kgl_cleanup_f handler);
+void* kgl_cleanup_get_data(kgl_cleanup_t* c);
+void kgl_cleanup_set_data(kgl_cleanup_t* c, void* data);
 typedef void* (*kgl_malloc)(void* arg, size_t size);
 INLINE void* kgl_sys_malloc(void* arg, size_t size) {
 	return xmalloc(size);
