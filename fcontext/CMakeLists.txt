@@ -177,7 +177,7 @@ if(BOOST_CONTEXT_IMPLEMENTATION STREQUAL "fcontext")
   endif()
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set_property(SOURCE ${ASM_SOURCES} APPEND PROPERTY COMPILE_OPTIONS "-x" "assembler-with-cpp")
+    #set_property(SOURCE ${ASM_SOURCES} APPEND PROPERTY COMPILE_OPTIONS "-x" "assembler-with-cpp")
   endif()
 else()
   

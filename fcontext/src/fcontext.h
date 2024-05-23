@@ -25,7 +25,7 @@ typedef struct {
     void* data;
 } transfer_t;
 transfer_t BOOST_CONTEXT_CALLDECL jump_fcontext(fcontext_t const to, void* vp);
-fcontext_t BOOST_CONTEXT_CALLDECL make_fcontext(void* sp, size_t size, void (*fn)(transfer_t));
+fcontext_t BOOST_CONTEXT_CALLDECL make_fcontext(void* sp, unsigned size, void (*fn)(transfer_t));
 transfer_t BOOST_CONTEXT_CALLDECL ontop_fcontext(fcontext_t const to, void* vp, transfer_t(*fn)(transfer_t));
 
 #ifdef  __cplusplus
