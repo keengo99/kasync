@@ -485,7 +485,7 @@ static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* user
 	return size;
 }
 
-static X509* kgl_ssl_load_certificate(char** err, const kgl_str_t* cert,STACK_OF(X509)** chain) {
+static X509* kgl_ssl_load_certificate(char** err, const kgl_ref_str_t* cert,STACK_OF(X509)** chain) {
 	BIO* bio;
 	X509* x509, * temp;
 	u_long   n;
@@ -560,7 +560,7 @@ static X509* kgl_ssl_load_certificate(char** err, const kgl_str_t* cert,STACK_OF
 
 	return x509;
 }
-static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_str_t* key, const kgl_array_t* passwords) {
+static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_ref_str_t* key, const kgl_array_t* passwords) {
 	BIO* bio;
 	EVP_PKEY* pkey;
 	kgl_str_t* pwd;
@@ -660,7 +660,7 @@ static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_str_t* key, 
 	return pkey;
 }
 
-int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_str_t* cert, const kgl_str_t* key, const kgl_array_t* passwords) {
+int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_str_t* key, const kgl_array_t* passwords) {
 	char* err;
 	X509* x509;
 	EVP_PKEY* pkey;
@@ -796,7 +796,7 @@ bool kgl_ssl_ctx_load_cert_key(SSL_CTX *ctx,const char *cert_file, const char *k
 	}
 	return kgl_ssl_session_id_context(ctx, cert_file);
 }
-SSL_CTX* kgl_ssl_ctx_new_server2(kgl_str_t* cert_buffer, kgl_str_t* key_buffer, const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
+SSL_CTX* kgl_ssl_ctx_new_server2(const kgl_ref_str_t* cert_buffer, const kgl_ref_str_t* key_buffer, const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
 	SSL_CTX* ctx = kgl_ssl_ctx_new(ssl_ctx_data);
 	if (ctx == NULL) {
 		fprintf(stderr, "cann't init_ctx\n");

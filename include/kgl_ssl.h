@@ -53,7 +53,7 @@ typedef struct
 bool kgl_ssl_support_sendfile(kssl_session *ssl);
 void kgl_ssl_ctx_set_early_data(SSL_CTX* ssl_ctx, bool early_data);
 bool kgl_ssl_ctx_load_cert_key(SSL_CTX* ssl_ctx, const char* cert_file, const char* key_file);
-SSL_CTX* kgl_ssl_ctx_new_server2(const kgl_str_t* cert, const kgl_str_t* key, const char* ca_path, const char* ca_file, void* ssl_ctx_data);
+SSL_CTX* kgl_ssl_ctx_new_server2(const kgl_ref_str_t* cert, const kgl_ref_str_t* key, const char* ca_path, const char* ca_file, void* ssl_ctx_data);
 SSL_CTX* kgl_ssl_ctx_new_server(const char* cert_file, const char* key_file, const char* ca_path, const char* ca_file, void* ssl_ctx_data);
 SSL_CTX* kgl_ssl_ctx_new_client(const char* ca_path, const char* ca_file, void* ssl_ctx_data);
 
