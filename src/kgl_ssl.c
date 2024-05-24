@@ -485,7 +485,7 @@ static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* user
 	return size;
 }
 
-static X509* kgl_ssl_load_certificate(char** err, kgl_str_t* cert,STACK_OF(X509)** chain) {
+static X509* kgl_ssl_load_certificate(char** err, const kgl_str_t* cert,STACK_OF(X509)** chain) {
 	BIO* bio;
 	X509* x509, * temp;
 	u_long   n;
