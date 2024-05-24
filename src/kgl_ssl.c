@@ -665,7 +665,7 @@ int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_s
 	X509* x509;
 	EVP_PKEY* pkey;
 	STACK_OF(X509)* chain = NULL;
-	if (!cert) {
+	if (!cert || *cert->data=='\0') {
 		cert = key;
 	}
 	x509 = kgl_ssl_load_certificate(&err, cert, &chain);
