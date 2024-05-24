@@ -10,7 +10,7 @@ KFIBER_FUNCTION(kfiber_server_test)
 {
 	kconnection *cn = (kconnection *)arg;
 #ifdef KSOCKET_SSL
-    if (cn->server->ssl) {
+    if (cn->server->ssl_ctx) {
         assert(0 == kfiber_ssl_handshake(cn));
     }
 #endif

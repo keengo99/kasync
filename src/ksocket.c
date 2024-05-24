@@ -12,7 +12,7 @@ LPFN_WSARECVMSG lpfnWsaRecvMsg = NULL;
 LPFN_WSASENDMSG lpfnWsaSendMsg = NULL;
 LPFN_TRANSMITFILE lpfnTransmitFile = NULL;
 
-RIO_EXTENSION_FUNCTION_TABLE kgl_rio = {};
+RIO_EXTENSION_FUNCTION_TABLE kgl_rio;
 #else
 #include <poll.h>
 #endif
@@ -26,33 +26,44 @@ void ksocket_library_startup() {
 #ifdef _WIN32
 	SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	DWORD dwBytes;
-	GUID m_guid = WSAID_CONNECTEX;
-	int dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnConnectEx, sizeof(lpfnConnectEx), &dwBytes, NULL, NULL);
-	if (lpfnConnectEx == NULL) {
-		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+	int dwErr;
+	{
+		GUID m_guid = WSAID_CONNECTEX;
+		dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnConnectEx, sizeof(lpfnConnectEx), &dwBytes, NULL, NULL);
+		if (lpfnConnectEx == NULL) {
+			//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+		}
 	}
-	m_guid = WSAID_ACCEPTEX;
-	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnAcceptEx, sizeof(lpfnAcceptEx), &dwBytes, NULL, NULL);
-	if (lpfnAcceptEx == NULL) {
-		//klog(KLOG_ERR,"Cann't find AcceptEx function\n");
+	{
+		GUID m_guid = WSAID_ACCEPTEX;
+		dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnAcceptEx, sizeof(lpfnAcceptEx), &dwBytes, NULL, NULL);
+		if (lpfnAcceptEx == NULL) {
+			//klog(KLOG_ERR,"Cann't find AcceptEx function\n");
+		}
 	}
-	m_guid = WSAID_WSARECVMSG;
-	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnWsaRecvMsg, sizeof(lpfnWsaRecvMsg), &dwBytes, NULL, NULL);
-	if (lpfnWsaRecvMsg == NULL) {
-		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+	{
+		GUID m_guid = WSAID_WSARECVMSG;
+		dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnWsaRecvMsg, sizeof(lpfnWsaRecvMsg), &dwBytes, NULL, NULL);
+		if (lpfnWsaRecvMsg == NULL) {
+			//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+		}
 	}
-	m_guid = WSAID_WSASENDMSG;
-	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnWsaSendMsg, sizeof(lpfnWsaSendMsg), &dwBytes, NULL, NULL);
-	if (lpfnWsaSendMsg == NULL) {
-		//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+	{
+		GUID m_guid = WSAID_WSASENDMSG;
+		dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnWsaSendMsg, sizeof(lpfnWsaSendMsg), &dwBytes, NULL, NULL);
+		if (lpfnWsaSendMsg == NULL) {
+			//klog(KLOG_ERR,"Cann't find ConnectEx function\n");
+		}
 	}
-	m_guid = WSAID_TRANSMITFILE;
-	dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnTransmitFile, sizeof(lpfnTransmitFile), &dwBytes, NULL, NULL);
-
-
-	m_guid = WSAID_MULTIPLE_RIO;
-	dwErr = WSAIoctl(sock, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &kgl_rio, sizeof(kgl_rio), &dwBytes, NULL, NULL);
-
+	{
+		GUID m_guid = WSAID_TRANSMITFILE;
+		dwErr = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &lpfnTransmitFile, sizeof(lpfnTransmitFile), &dwBytes, NULL, NULL);
+	}
+	{
+		GUID m_guid = WSAID_MULTIPLE_RIO;
+		memset(&kgl_rio, 0, sizeof(kgl_rio));
+		dwErr = WSAIoctl(sock, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &m_guid, sizeof(m_guid), &kgl_rio, sizeof(kgl_rio), &dwBytes, NULL, NULL);
+	}
 	closesocket(sock);
 	//windows vista开始才有CancelIoEx,所以要用动态
 	pCancelIoEx = (fCancelIoEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "CancelIoEx");

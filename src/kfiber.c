@@ -484,6 +484,9 @@ int kfiber_net_listen(kserver * server, int flag, kserver_selectable * *ss) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
 	*ss = kserver_listen(server, flag, result_fiber_accept);
+	if (*ss) {
+		KBIT_SET(server->flags, KGL_SERVER_START);
+	}
 	return 0;
 }
 int kfiber_net_accept(kserver_selectable * ss, kconnection * *c) {
@@ -491,7 +494,7 @@ int kfiber_net_accept(kserver_selectable * ss, kconnection * *c) {
 	CHECK_FIBER(fiber);
 	assert(ss->st.base.selector == kgl_get_tls_selector());
 	fiber->retval = -1;
-	if (!KBIT_TEST(ss->server->flags, KGL_SERVER_START) || !kserver_selectable_accept(ss, fiber)) {
+	if (!kserver_selectable_accept(ss, fiber)) {
 		return -1;
 	}
 	assert(ss->st.data == ss);
@@ -499,7 +502,7 @@ int kfiber_net_accept(kserver_selectable * ss, kconnection * *c) {
 	__kfiber_wait(fiber, (void*)ss->st.data);
 	*c = accept_result_new_connection(ss, fiber->retval);
 	if (*c) {
-		(*c)->st.base.selector = ss->st.base.selector;
+		selectable_bind(&(*c)->st, ss->st.base.selector);
 	}
 	return 0;
 }

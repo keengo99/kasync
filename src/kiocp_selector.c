@@ -169,6 +169,9 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 	st->e[OP_READ].result = result;
 	st->e[OP_READ].buffer = buffer;
 	assert(st->base.selector == selector);
+	if (!KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED)) {
+		assert(false);
+	}
 	assert(KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
 	//iocp_selector_bind(selector, st);
 	int rc = WSARecv(st->fd, recvBuf, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);

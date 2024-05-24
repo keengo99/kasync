@@ -2,6 +2,7 @@
 #include "kselector_manager.h"
 #include "ktest.h"
 #include "kfiber.h"
+#include "kstring.h"
 #ifdef KSOCKET_SSL
 void kfiber_client_connect_ssl(kserver* server)
 {
@@ -46,8 +47,7 @@ TEST(ssl, https_client) {
 	kfiber_net_close(cn);
 }
 TEST(ssl, server_ssl) {
-	SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_server_from_memory(
-		"-----BEGIN CERTIFICATE-----\n\
+	kgl_str_t cert_data = kgl_string("data:-----BEGIN CERTIFICATE-----\n\
 MIIDETCCAfkCFGqw5HR92Ds5slo2Pfq8z3Bxdo1iMA0GCSqGSIb3DQEBCwUAMEUx\n\
 CzAJBgNVBAYTAkNOMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRl\n\
 cm5ldCBXaWRnaXRzIFB0eSBMdGQwHhcNMjIwMjIyMDMyMDM4WhcNMjMwMjIyMDMy\n\
@@ -65,8 +65,8 @@ BgX7FBXWVJN/5DHru5sgsAA4UQLKF9/zh6IlWgtH5qJ3K6jx8JY90R9QMX1gJnJX\n\
 ppspxmzNu2IPbg7wui6LAg0ETslp4ablsbeP8ew9lKQCR3ZbCunpiyn8FbGl8pAY\n\
 lf+S1EJI0uY6kqmt3zmRTpv5ysIm7NLdcPdUYIquK0ceOr69LGni80g5r6vsGAWC\n\
 ze3XUTzbzWM1/+07065mw7bYgl/U\n\
------END CERTIFICATE-----",
-"-----BEGIN RSA PRIVATE KEY-----\n\
+-----END CERTIFICATE-----\n");
+	kgl_str_t key_data = kgl_string("data:-----BEGIN RSA PRIVATE KEY-----\n\
 MIIEpgIBAAKCAQEA4fPjieRPLf83Hgevm8x39KmfuJ5eVH/r5lPw9uBBC8VOdeqI\n\
 Qdq96Cmi9VHdKvDxpEYoeQ5fkLqQzX/DKOWOPHpj+Wgp5C7c81fEHlSvMhKlQUbE\n\
 7XkonEsBkdtJ6FrLufTsagfJ6BTTGgp8vRn6JpGEPecC7OLL/DTQsJxwdgmVdpXr\n\
@@ -92,7 +92,8 @@ xFrfmjRbkIY728KrLlLdvez4BMNMP1EvSxaQ5r5M4gqX1GzEAaNUCh4EiSMo3epA\n\
 GS7Hggh7AoGBALFfnYEL0BtqGL9Sm7pLk1smtQ5F1T4mR3VsPnBZED1+513b/54V\n\
 mBktbUKiCi0n5NrLYQFnSLMAmGtn8stH+rSmB9pvk/YlSXbtRhmoeltO+WOx8i+4\n\
 7raWgb152Nm97jiGKEb/AmEPj13m7Inu0XLfWdQI4ScpRNVeNqclzVhT\n\
------END RSA PRIVATE KEY-----", NULL, NULL, NULL);
+-----END RSA PRIVATE KEY-----\n");
+SSL_CTX* ssl_ctx = kgl_ssl_ctx_new_server2(&cert_data, &key_data, NULL, NULL, NULL);
 	ASSERT_FALSE(ssl_ctx == NULL);
 	kserver* server = kserver_init();
 	kgl_ssl_ctx* ctx2 = kgl_new_ssl_ctx(ssl_ctx);

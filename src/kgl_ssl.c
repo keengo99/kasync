@@ -466,6 +466,276 @@ void kgl_ssl_ctx_set_early_data(SSL_CTX *ssl_ctx,bool early_data)
 #endif
 }
 
+static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* userdata) {
+	kgl_str_t * pwd = (kgl_str_t *)userdata;
+	if (rwflag) {
+		klog(KLOG_WARNING, "kgl_ssl_password_callback() is called for encryption");
+		return 0;
+	}
+	if (pwd == NULL) {
+		return 0;
+	}
+
+	if (pwd->len > (size_t)size) {
+		klog(KLOG_ERR, "password is truncated to %d bytes", size);
+	} else {
+		size = (int)pwd->len;
+	}
+	kgl_memcpy(buf, pwd->data, size);
+	return size;
+}
+
+static X509* kgl_ssl_load_certificate(char** err, kgl_str_t* cert,STACK_OF(X509)** chain) {
+	BIO* bio;
+	X509* x509, * temp;
+	u_long   n;
+
+	if (strncmp(cert->data, "data:", sizeof("data:") - 1) == 0) {
+
+		bio = BIO_new_mem_buf(cert->data + sizeof("data:") - 1,
+			cert->len - (sizeof("data:") - 1));
+		if (bio == NULL) {
+			*err = "BIO_new_mem_buf() failed";
+			return NULL;
+		}
+
+	} else {
+		bio = BIO_new_file((char*)cert->data, "r");
+		if (bio == NULL) {
+			*err = "BIO_new_file() failed";
+			return NULL;
+		}
+	}
+
+	/* certificate itself */
+
+	x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL);
+	if (x509 == NULL) {
+		*err = "PEM_read_bio_X509_AUX() failed";
+		BIO_free(bio);
+		return NULL;
+	}
+
+	/* rest of the chain */
+
+	*chain = sk_X509_new_null();
+	if (*chain == NULL) {
+		*err = "sk_X509_new_null() failed";
+		BIO_free(bio);
+		X509_free(x509);
+		return NULL;
+	}
+
+	for (;; ) {
+
+		temp = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+		if (temp == NULL) {
+			n = ERR_peek_last_error();
+			if (/*ERR_GET_LIB(n) == ERR_LIB_PEM
+				&& */ERR_GET_REASON(n) == PEM_R_NO_START_LINE) {
+				/* end of file */
+				ERR_clear_error();
+				break;
+			}
+
+			/* some real error */
+
+			*err = "PEM_read_bio_X509() failed";
+			BIO_free(bio);
+			X509_free(x509);
+			sk_X509_pop_free(*chain, X509_free);
+			return NULL;
+		}
+
+		if (sk_X509_push(*chain, temp) == 0) {
+			*err = "sk_X509_push() failed";
+			BIO_free(bio);
+			X509_free(x509);
+			sk_X509_pop_free(*chain, X509_free);
+			return NULL;
+		}
+	}
+
+	BIO_free(bio);
+
+	return x509;
+}
+static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_str_t* key, const kgl_array_t* passwords) {
+	BIO* bio;
+	EVP_PKEY* pkey;
+	kgl_str_t* pwd;
+	uint32_t        tries;
+	pem_password_cb* cb;
+	if (strncmp(key->data, "engine:", sizeof("engine:") - 1) == 0) {
+#ifndef OPENSSL_NO_ENGINE
+
+		u_char* p, * last;
+		ENGINE* engine;
+
+		p = (u_char *)key->data + sizeof("engine:") - 1;
+		last = (u_char*)strchr((char *)p, ':');
+
+		if (last == NULL) {
+			*err = "invalid syntax";
+			return NULL;
+		}
+
+		*last = '\0';
+
+		engine = ENGINE_by_id((char*)p);
+
+		if (engine == NULL) {
+			*err = "ENGINE_by_id() failed";
+			return NULL;
+		}
+
+		*last++ = ':';
+
+		pkey = ENGINE_load_private_key(engine, (char*)last, 0, 0);
+
+		if (pkey == NULL) {
+			*err = "ENGINE_load_private_key() failed";
+			ENGINE_free(engine);
+			return NULL;
+		}
+		ENGINE_free(engine);
+		return pkey;
+
+#else
+
+		* err = "loading \"engine:...\" certificate keys is not supported";
+		return NULL;
+
+#endif
+	}
+
+	if (strncmp(key->data, "data:", sizeof("data:") - 1) == 0) {
+		bio = BIO_new_mem_buf(key->data + sizeof("data:") - 1,
+			key->len - (sizeof("data:") - 1));
+		if (bio == NULL) {
+			*err = "BIO_new_mem_buf() failed";
+			return NULL;
+		}
+
+	} else {
+		bio = BIO_new_file((char*)key->data, "r");
+		if (bio == NULL) {
+			*err = "BIO_new_file() failed";
+			return NULL;
+		}
+	}
+
+	if (passwords) {
+		tries = (uint32_t)passwords->nelts;
+		pwd = (kgl_str_t *)passwords->elts;
+		cb = kgl_ssl_password_callback;
+
+	} else {
+		tries = 1;
+		pwd = NULL;
+		cb = NULL;
+	}
+
+	for (;; ) {
+
+		pkey = PEM_read_bio_PrivateKey(bio, NULL, cb, pwd);
+		if (pkey != NULL) {
+			break;
+		}
+
+		if (tries-- > 1) {
+			ERR_clear_error();
+			(void)BIO_reset(bio);
+			pwd++;
+			continue;
+		}
+
+		*err = "PEM_read_bio_PrivateKey() failed";
+		BIO_free(bio);
+		return NULL;
+	}
+
+	BIO_free(bio);
+
+	return pkey;
+}
+
+int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_str_t* cert, const kgl_str_t* key, const kgl_array_t* passwords) {
+	char* err;
+	X509* x509;
+	EVP_PKEY* pkey;
+	STACK_OF(X509)* chain = NULL;
+	if (!cert) {
+		cert = key;
+	}
+	x509 = kgl_ssl_load_certificate(&err, cert, &chain);
+	if (x509 == NULL) {
+		if (err != NULL) {
+			klog(KLOG_ERR,"cannot load certificate \"%s\": %s", cert->data, err);
+		}
+		return -1;
+	}
+
+	if (SSL_CTX_use_certificate(ctx, x509) == 0) {
+		klog(KLOG_ERR, "SSL_CTX_use_certificate(\"%s\") failed", cert->data);
+		X509_free(x509);
+		sk_X509_pop_free(chain, X509_free);
+		return -1;
+	}
+	/*
+	 * Note that x509 is not freed here, but will be instead freed in
+	 * ngx_ssl_cleanup_ctx().  This is because we need to preserve all
+	 * certificates to be able to iterate all of them through exdata
+	 * (ngx_ssl_certificate_index, ngx_ssl_next_certificate_index),
+	 * while OpenSSL can free a certificate if it is replaced with another
+	 * certificate of the same type.
+	 */
+
+#ifdef SSL_CTX_set0_chain
+	if (SSL_CTX_set0_chain(ctx, chain) == 0) {
+		klog(KLOG_ERR, "SSL_CTX_set0_chain(\"%s\") failed", cert->data);
+		sk_X509_pop_free(chain, X509_free);
+		return -1;
+	}
+#else
+	{
+		int  n;
+
+		/* SSL_CTX_set0_chain() is only available in OpenSSL 1.0.2+ */
+
+		n = sk_X509_num(chain);
+
+		while (n--) {
+			x509 = sk_X509_shift(chain);
+
+			if (SSL_CTX_add_extra_chain_cert(ctx, x509) == 0) {
+				klog(KLOG_ERR, "SSL_CTX_add_extra_chain_cert(\"%s\") failed", cert->data);
+				sk_X509_pop_free(chain, X509_free);
+				return -1;
+			}
+		}
+
+		sk_X509_free(chain);
+	}
+#endif
+
+	pkey = kgl_ssl_load_certificate_key(&err, key, passwords);
+	if (pkey == NULL) {
+		if (err != NULL) {
+			klog(KLOG_ERR, "cannot load certificate key \"%s\": %s", 	key->data, err);
+		}
+		return -1;
+	}
+
+	if (SSL_CTX_use_PrivateKey(ctx, pkey) == 0) {
+		klog(KLOG_ERR, "SSL_CTX_use_PrivateKey(\"%s\") failed", key->data);
+		EVP_PKEY_free(pkey);
+		return -1;
+	}
+	EVP_PKEY_free(pkey);
+	return 0;
+}
+
 
 static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const char* ca_file, void* ssl_ctx_data)
 {
@@ -505,51 +775,6 @@ static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const c
 	//SSL_CTX_sess_set_cache_size(ctx,1000);
 	return ctx;
 }
-SSL_CTX* kgl_ssl_ctx_new_server_from_memory(const char* cert_buffer, const char* key_buffer, const char* ca_path, const char* ca_file, void* ssl_ctx_data)
-{
-	X509* cert = NULL;
-	RSA* rsa = NULL;
-	BIO* cbio = NULL, * kbio = NULL;
-	SSL_CTX* ctx = NULL;
-	if (cert_buffer == NULL || *cert_buffer == '\0') {
-		cert_buffer = key_buffer;
-	}
-	cbio = BIO_new_mem_buf((void*)cert_buffer, -1);
-	cert = PEM_read_bio_X509(cbio, NULL, 0, NULL);
-	if (cert == NULL) {
-		goto failed;
-	}
-	kbio = BIO_new_mem_buf((void*)key_buffer, -1);
-	rsa = PEM_read_bio_RSAPrivateKey(kbio, NULL, 0, NULL);
-	if (rsa == NULL) {
-		goto failed;
-	}
-	ctx = kgl_ssl_ctx_new(ssl_ctx_data);
-	if (ctx == NULL) {
-		fprintf(stderr, "cann't init_ctx\n");
-		goto failed;
-	}
-	SSL_CTX_use_certificate(ctx, cert);	
-	SSL_CTX_use_RSAPrivateKey(ctx, rsa);
-	kgl_ssl_session_id_context_from_buffer(ctx, cert_buffer);
-failed:
-	if (cert) {
-		X509_free(cert);
-	}
-	if (rsa) {
-		RSA_free(rsa);
-	}
-	if (cbio) {
-		BIO_free(cbio);
-	}
-	if (kbio) {
-		BIO_free(kbio);
-	}
-	if (ctx) {
-		return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
-	}
-	return NULL;
-}
 bool kgl_ssl_ctx_load_cert_key(SSL_CTX *ctx,const char *cert_file, const char *key_file)
 {
 	if (cert_file == NULL || *cert_file=='\0') {
@@ -570,6 +795,19 @@ bool kgl_ssl_ctx_load_cert_key(SSL_CTX *ctx,const char *cert_file, const char *k
 		return false;
 	}
 	return kgl_ssl_session_id_context(ctx, cert_file);
+}
+SSL_CTX* kgl_ssl_ctx_new_server2(kgl_str_t* cert_buffer, kgl_str_t* key_buffer, const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
+	SSL_CTX* ctx = kgl_ssl_ctx_new(ssl_ctx_data);
+	if (ctx == NULL) {
+		fprintf(stderr, "cann't init_ctx\n");
+		return NULL;
+	}
+	if (kgl_ssl_certificate(ctx, cert_buffer, key_buffer, NULL) != 0) {
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+	kgl_ssl_session_id_context_from_buffer(ctx, cert_buffer->data);
+	return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
 }
 SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
 {

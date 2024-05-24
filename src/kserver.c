@@ -312,9 +312,11 @@ bool kserver_open(kserver* server, int flag, result_callback accept_callback)
 		}
 	}
 done:
-	char ips[MAXIPLEN];
-	ksocket_sockaddr_ip((sockaddr_i*)&server->addr, ips, MAXIPLEN);
-	klog(KLOG_ERR, "listen server on %s:%d [%s]\n", ips, ksocket_addr_port((sockaddr_i*)&server->addr), result ? "success" : "failed");
+	{
+		char ips[MAXIPLEN];
+		ksocket_sockaddr_ip((sockaddr_i*)&server->addr, ips, MAXIPLEN);
+		klog(KLOG_ERR, "listen server on %s:%d [%s]\n", ips, ksocket_addr_port((sockaddr_i*)&server->addr), result ? "success" : "failed");
+	}
 	return result;
 }
 static void kserver_free(kserver *server) {

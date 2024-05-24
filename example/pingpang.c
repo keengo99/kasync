@@ -38,6 +38,7 @@ int main_fiber(void *arg,int argc)
     }
     kserver_selectable_destroy(ss);
     kserver_release(server);
+    return 0;
 }
 int main(int argc,char **argv)
 {

@@ -227,7 +227,7 @@ int selector_manager_thread_init(result_callback call_back, void *arg)
 	selector_manager_add_callback(&thread_init, call_back, arg);
 	return 0;
 }
-static int kgl_pow2(int size, int max_bits=7) {
+static int kgl_pow2(int size, int max_bits) {
 	int result = 0;
 	for (int i = 0; i < max_bits; i++) {
 		result = (1 << i);
@@ -249,7 +249,7 @@ bool selector_manager_grow(int  new_size) {
 		fprintf(stderr, "call selector_manager_init first.\n");
 		return false;
 	}
-	new_size = kgl_pow2(new_size);
+	new_size = kgl_pow2(new_size, 7);
 	if (new_size <= kgl_selector_count) {
 		return false;
 	}
@@ -280,7 +280,7 @@ void selector_manager_init(int  size, bool register_thread_timer)
 			abort();
 		}
 	}
-	kgl_selector_count = kgl_pow2(size);
+	kgl_selector_count = kgl_pow2(size, 7);
 	kgl_selector_hash = kgl_selector_count - 1;
 	kgl_selectors = (kselector **)xmalloc(sizeof(kselector *)*kgl_selector_count);
 	for (int i = 0; i < kgl_selector_count; i++) {
