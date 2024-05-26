@@ -261,7 +261,7 @@ static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md)
 	if (list != NULL) {
 		n = sk_X509_NAME_num(list);
 		for (i = 0; i < n; i++) {
-			name = sk_X509_NAME_value(list, i);
+			name = sk_X509_NAME_value(list, (int)i);
 			if (X509_NAME_digest(name, EVP_sha1(), buf, &len) == 0) {
 				klog(KLOG_ERR, "X509_NAME_digest() failed");
 				return false;
@@ -485,7 +485,7 @@ static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* user
 	return size;
 }
 
-static X509* kgl_ssl_load_certificate(char** err, const kgl_ref_str_t* cert,STACK_OF(X509)** chain) {
+static X509* kgl_ssl_load_certificate(const char** err, const kgl_ref_str_t* cert,STACK_OF(X509)** chain) {
 	BIO* bio;
 	X509* x509, * temp;
 	u_long   n;
@@ -560,55 +560,12 @@ static X509* kgl_ssl_load_certificate(char** err, const kgl_ref_str_t* cert,STAC
 
 	return x509;
 }
-static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_ref_str_t* key, const kgl_array_t* passwords) {
+static EVP_PKEY* kgl_ssl_load_certificate_key(const char** err, const kgl_ref_str_t* key, const kgl_array_t* passwords) {
 	BIO* bio;
 	EVP_PKEY* pkey;
 	kgl_str_t* pwd;
 	uint32_t        tries;
 	pem_password_cb* cb;
-	if (strncmp(key->data, "engine:", sizeof("engine:") - 1) == 0) {
-#ifndef OPENSSL_NO_ENGINE
-
-		u_char* p, * last;
-		ENGINE* engine;
-
-		p = (u_char *)key->data + sizeof("engine:") - 1;
-		last = (u_char*)strchr((char *)p, ':');
-
-		if (last == NULL) {
-			*err = "invalid syntax";
-			return NULL;
-		}
-
-		*last = '\0';
-
-		engine = ENGINE_by_id((char*)p);
-
-		if (engine == NULL) {
-			*err = "ENGINE_by_id() failed";
-			return NULL;
-		}
-
-		*last++ = ':';
-
-		pkey = ENGINE_load_private_key(engine, (char*)last, 0, 0);
-
-		if (pkey == NULL) {
-			*err = "ENGINE_load_private_key() failed";
-			ENGINE_free(engine);
-			return NULL;
-		}
-		ENGINE_free(engine);
-		return pkey;
-
-#else
-
-		* err = "loading \"engine:...\" certificate keys is not supported";
-		return NULL;
-
-#endif
-	}
-
 	if (strncmp(key->data, "data:", sizeof("data:") - 1) == 0) {
 		bio = BIO_new_mem_buf(key->data + sizeof("data:") - 1,
 			key->len - (sizeof("data:") - 1));
@@ -661,7 +618,7 @@ static EVP_PKEY* kgl_ssl_load_certificate_key(char** err, const kgl_ref_str_t* k
 }
 
 int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_str_t* key, const kgl_array_t* passwords) {
-	char* err;
+	const char* err;
 	X509* x509;
 	EVP_PKEY* pkey;
 	STACK_OF(X509)* chain = NULL;
