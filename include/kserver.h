@@ -13,6 +13,7 @@
 #define KGL_SERVER_START       (1<<30)
 #define KGL_SERVER_UNIX        (1<<29)
 #define KGL_SERVER_H2          (1<<28)
+#define KGL_SERVER_REJECT_NOSNI (1<<27)
 
 //#define KGL_SSL_CTX_EARLY_DATA (1<<28)
 #ifndef _WIN32
@@ -126,6 +127,9 @@ INLINE void kgl_set_flag(uint32_t *flags, int flag, bool val) {
 	} else {
 		KBIT_CLR(*flags, flag);
 	}
+}
+INLINE uint32_t kserver_test_flag(kserver* server, uint32_t flag) {
+	return KBIT_TEST(server->flags, flag);
 }
 //NOTICE: kserver_close will not release server,release server must call kserver_release
 DLL_PUBLIC void kserver_close(kserver *server);

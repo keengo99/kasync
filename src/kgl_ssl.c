@@ -51,7 +51,11 @@ int kgl_ssl_sni(SSL *ssl, int *ad, void *arg)
 	}
 	const char* servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 	if (servername == NULL) {
-		return SSL_TLSEXT_ERR_NOACK;
+		if (kserver_test_flag(c->server, KGL_SERVER_REJECT_NOSNI) > 0) {
+			return SSL_TLSEXT_ERR_ALERT_FATAL;
+		} else {
+			return SSL_TLSEXT_ERR_OK;
+		}
 	}
 	SSL_CTX* ssl_ctx = NULL;
 	c->sni = kgl_ssl_create_sni(kserver_get_opaque(c->server), servername, &ssl_ctx);
@@ -785,7 +789,7 @@ SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, con
 kssl_status kgl_ssl_handshake_status(SSL *ssl, int re)
 {
 	int err = SSL_get_error(ssl, re);
-	//printf("ssl=[%p] ssl_get_error=[%d]\n", ssl, err);
+	//printf("ssl=[%p] ssl_get_error=[%d] re=[%d]\n", ssl, err, re);
 	switch (err) {
 	case SSL_ERROR_WANT_READ:
 		return ret_want_read;
