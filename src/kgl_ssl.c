@@ -67,7 +67,10 @@ int kgl_ssl_npn_selected(SSL *ssl, const unsigned char **out, unsigned char *out
 	const unsigned char *selected_protocol = (const unsigned char *)KGL_HTTP_NPN_ADVERTISE;
 	unsigned int selected_len = sizeof(KGL_HTTP_NPN_ADVERTISE) - 1;
 	if (kgl_ssl_create_sni) {
-		kgl_ssl_sni(ssl, NULL, NULL);
+		int ret = kgl_ssl_sni(ssl, NULL, NULL);
+		if (ret != SSL_TLSEXT_ERR_OK) {
+			return ret;
+		}
 	}
 	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
 	void *ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
