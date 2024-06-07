@@ -665,13 +665,15 @@ int kfiber_ssl_handshake(kconnection * cn) {
 }
 int kfiber_ssl_shutdown(kconnection * c) {
 	if (kconnection_is_ssl_handshake(c) && !c->st.ssl->shutdown) {
-		kfiber* fiber = kfiber_self();
-		CHECK_FIBER(fiber);
-		c->st.data = NULL;
-		if (!KBIT_TEST(c->st.base.st_flags, STF_ERR)) {
-			fiber->arg = &c->st;
-			if (kev_fiber_ok != kselectable_ssl_shutdown((kselectable*)fiber->arg, result_fiber_ssl_shutdown, fiber)) {
-				__kfiber_wait(fiber, NULL);
+		if (c->st.base.selector != NULL) {
+			kfiber* fiber = kfiber_self();
+			CHECK_FIBER(fiber);
+			c->st.data = NULL;
+			if (!KBIT_TEST(c->st.base.st_flags, STF_ERR)) {
+				fiber->arg = &c->st;
+				if (kev_fiber_ok != kselectable_ssl_shutdown((kselectable*)fiber->arg, result_fiber_ssl_shutdown, fiber)) {
+					__kfiber_wait(fiber, NULL);
+				}
 			}
 		}
 		c->st.ssl->shutdown = 1;
