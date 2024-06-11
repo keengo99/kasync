@@ -494,11 +494,11 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	return result(st->data, arg, got);
 #elif BSD_OS
 #ifdef DARWIN
-	off_t send_bytes = bufs.iov_len;
+	off_t send_bytes = buffer->iov_len;
 	got = sendfile(file->st.fd, st->fd, offset, &send_bytes,NULL,0);
 #else
 	off_t send_bytes = 0;
-	got = sendfile(file->st.fd, st->fd, offset, bufs.iov_len, NULL, &send_bytes,0);
+	got = sendfile(file->st.fd, st->fd, offset, buffer->iov_len, NULL, &send_bytes,0);
 #endif
 	if (got<0) {
 		if (errno==EAGAIN) {
