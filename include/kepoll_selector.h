@@ -2,16 +2,18 @@
 #define KEPOLL_SELECTOR_H_99
 #include "kselectable.h"
 #include "ksync.h"
-#ifdef LINUX
-#ifdef LINUX_EPOLL
-void kepoll_module_init();
-#endif
-typedef struct kepoll_notice_selectable_s kepoll_notice_selectable;
+#ifndef _WIN32
 struct kepoll_notice_selectable_s {
         kselectable st;
         kmutex lock;
 	kselector_notice *head;
 };
+typedef struct kepoll_notice_selectable_s kepoll_notice_selectable;
+#endif
+#ifdef LINUX
+#ifdef LINUX_EPOLL
+void kepoll_module_init();
+#endif
 void kepoll_notice_init(kselector *selector,kepoll_notice_selectable *notice_st,result_callback result,void *arg);
 INLINE void kepoll_notice_event(kepoll_notice_selectable* ast) {
 	uint64_t value;
