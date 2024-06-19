@@ -170,6 +170,9 @@ void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_
 }
 bool kgl_ssl_support_sendfile(kssl_session *ssl)
 {
+#ifdef LINUX_IOURING
+	return false;
+#else
 #ifdef ENABLE_KSSL_BIO
 	return false;
 #endif
@@ -177,6 +180,7 @@ bool kgl_ssl_support_sendfile(kssl_session *ssl)
 	return BIO_get_ktls_send(SSL_get_wbio(ssl->ssl))==1;
 #endif
 	return false;
+#endif
 }
 static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_length)
 {
