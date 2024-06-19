@@ -509,53 +509,73 @@ static int iouring_selector_select(kselector *selector, int tmo)
 }
 static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 	kiouring_selector *cs = (kiouring_selector *)st->base.selector->ctx;
-	struct io_uring_sqe *sqe = kiouring_get_seq(&cs->ring);
-	if (sqe==NULL) {
-		return false;
+	kgl_event *e;
+	struct io_uring_sqe *sqe;
+	if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
+		/* ssl sendfile may use poll model */
+		e = &st->e[OP_WRITE];
+		e->arg = arg;
+		e->result = result;
+		e->st = st;
+		e->buffer = buffer;
+		KBIT_SET(st->base.st_flags,STF_WRITE|STF_SENDFILE);
+		KBIT_CLR(st->base.st_flags,STF_RDHUP);
+		if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
+			kselector_add_list(st->base.selector, st, KGL_LIST_READY);
+			return true;
+		}
+		sqe = kiouring_get_seq(&cs->ring);
+		if (unlikely(sqe==NULL)) {
+			KBIT_CLR(st->base.st_flags,STF_WRITE|STF_SENDFILE);
+			return false;
+		}
+		io_uring_prep_poll_add(sqe, st->fd, POLLOUT);
+	} else {
+		WSABUF bufs;
+		sqe = kiouring_get_seq(&cs->ring);
+		if (unlikely(sqe==NULL)) {
+			return false;
+		}
+		iouring_sendfile *sf = (iouring_sendfile *)xmalloc(sizeof(iouring_sendfile));
+		memset(sf,0,sizeof(iouring_sendfile));
+		if (pipe2(sf->pipe,O_CLOEXEC)!=0) {
+			xfree(sf);
+			return false;
+		}
+		buffer(st->data, arg, &bufs, 1);
+		kassert(bufs.iov_len > 0);
+		kasync_file *file = (kasync_file *)bufs.iov_base;
+		sf->st = st;
+		sf->file = file;
+		sf->refs=1;
+		e = &file->st.e[OP_WRITE];
+		/* store final result */
+		e->arg = arg;
+		e->result = result;
+		e->st = st;
+		/* splice file to pipe */
+		e = &file->st.e[OP_READ];
+		e->arg = sf;
+		e->result = iouring_sendfile_file_result;
+		e->st = &file->st;
+		io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,bufs.iov_len,0);
+		io_uring_sqe_set_data(sqe, e);
+		KBIT_SET(file->st.base.st_flags,STF_READ);
+		/* splice pipe to socket */
+		sqe = kiouring_get_seq(&cs->ring);
+		if (sqe==NULL) {
+			sf->skip_call_result = true;
+			return false;
+		}
+		sf->refs++;
+		e = &st->e[OP_WRITE];
+		e->arg = sf;
+		e->result = iouring_sendfile_selectable_result;
+		e->st = st;
+		io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,bufs.iov_len,0);
+		KBIT_SET(st->base.st_flags,STF_WRITE);
 	}
-	iouring_sendfile *sf = (iouring_sendfile *)xmalloc(sizeof(iouring_sendfile));
-	memset(sf,0,sizeof(iouring_sendfile));
-	if (pipe2(sf->pipe,O_CLOEXEC)!=0) {
-		xfree(sf);
-		return false;
-	}
-	WSABUF bufs;
-	buffer(st->data, arg, &bufs, 1);
-	kassert(bufs.iov_len > 0);
-	kasync_file *file = (kasync_file *)bufs.iov_base;
-	sf->st = st;
-	sf->file = file;
-	sf->refs=1;
-
-	kgl_event *e = &file->st.e[OP_WRITE];
-	/* store final result */
-	e->arg = arg;
-	e->result = result;
-	e->st = st;
-	
-	/* splice file to pipe */
-	e = &file->st.e[OP_READ];
-	e->arg = sf;
-	e->result = iouring_sendfile_file_result;
-	e->st = &file->st;
-	io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,bufs.iov_len,0);
 	io_uring_sqe_set_data(sqe, e);
-	KBIT_SET(file->st.base.st_flags,STF_READ);
-	/* splice pipe to socket */
-	sqe = kiouring_get_seq(&cs->ring);
-	if (sqe==NULL) {
-		sf->skip_call_result = true;
-		return false;
-	}
-	sf->refs++;
-	e = &st->e[OP_WRITE];
-	e->arg = sf;
-	e->result = iouring_sendfile_selectable_result;
-	e->st = st;
-	KBIT_SET(st->base.st_flags,STF_WRITE);
-	io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,bufs.iov_len,0);
-	io_uring_sqe_set_data(sqe, e);
-
 	if (st->base.queue.next == NULL) {
 		kselector_add_list(st->base.selector, st, KGL_LIST_RW);
 	}

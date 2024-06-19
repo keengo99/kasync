@@ -233,7 +233,7 @@ void selectable_read_event(kselectable* st)
 }
 void selectable_write_event(kselectable* st)
 {
-#ifndef KGL_IOCP
+#ifndef _WIN32
 	if (KBIT_TEST(st->base.st_flags,STF_SENDFILE)) {
 		KBIT_CLR(st->base.st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);
 		selectable_event_sendfile(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
@@ -431,7 +431,7 @@ bool selectable_try_read(kselectable* st, result_callback result, buffer_callbac
 #endif
 	return kgl_selector_module.read(st->base.selector, st, result, buffer, arg);
 }
-#ifndef KGL_IOCP
+#ifndef _WIN32
 kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
 	WSABUF bufs;
 	buffer(st->data,arg,&bufs,1);
@@ -440,6 +440,10 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	assert(sizeof(off_t)==sizeof(int64_t));
 	int got = -1;
 #ifdef KSOCKET_SSL
+#ifdef LINUX_IOURING
+	//linux iouring sendfile without ssl do not goto here.
+	assert(st->ssl);
+#endif
 	if (st->ssl) {
 		assert(kgl_ssl_support_sendfile(st->ssl));
 #if defined(BIO_get_ktls_send)

@@ -390,7 +390,7 @@ static bool epoll_selector_sendfile(kselectable* st, result_callback result, buf
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_WEV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
-			KBIT_CLR(st->base.st_flags,STF_WRITE);
+			KBIT_CLR(st->base.st_flags,STF_WRITE|STF_SENDFILE);
 			return false;
 		}
 	}
