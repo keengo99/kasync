@@ -217,11 +217,17 @@ INLINE bool kfiber_file_read_full(kfiber_file* file, char* buf, int *length) {
 		if (got <= 0) {
 			return false;
 		}
-			*length -= got;
-			buf += got;
+		*length -= got;
+		buf += got;
 	}
 	return true;
 }
+/*
+* kfiber_file_safe_* func allow the caller and file's selector be different.
+*/
+bool kfiber_file_safe_write_full(kfiber_file* fp, const char* buf, int* length);
+int kfiber_file_safe_read(kfiber_file* fp, char* buf, int length);
+
 void kfiber_file_close(kfiber_file *fp);
 int kfiber_file_seek(kfiber_file *fp, seekPosion pos, int64_t offset);
 int64_t kfiber_file_tell(kfiber_file *fp);

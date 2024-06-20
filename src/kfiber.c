@@ -798,3 +798,55 @@ int kfiber_thread_call(kfiber_start_func start, void* arg, int argc, int* ret) {
 	*ret = __kfiber_wait(fiber, arg);
 	return 0;
 }
+typedef struct _kfiber_file_safe_param {
+	kfiber_file* fp;
+	void* buf;
+	int* length;
+} kfiber_file_safe_param;
+
+int kfiber_file_safe_write_func (void* arg, int len) {
+	kfiber_file_safe_param* param = (kfiber_file_safe_param*)arg;
+	return (int)kfiber_file_write_full(param->fp, (const char *)param->buf, param->length);
+}
+int kfiber_file_safe_read_func(void* arg, int len) {
+	kfiber_file_safe_param* param = (kfiber_file_safe_param*)arg;
+	return kfiber_file_read(param->fp, (char*)param->buf, *param->length);
+}
+bool kfiber_file_safe_write_full(kfiber_file* fp, const char* buf, int* length) {
+	kfiber* fiber = kfiber_self();
+	kselector* selector = kasync_file_get_selector(fp);
+	if (selector == fiber->base.selector) {
+		return kfiber_file_write_full(fp, buf, length);
+	}
+	kfiber_file_safe_param param;
+	param.fp = fp;
+	param.buf = (void *)buf;
+	param.length = length;
+	kfiber* ret_fiber = NULL;
+	int ret = 0;
+	if (kfiber_create2(selector, kfiber_file_safe_write_func, &param, 0, 0, &ret_fiber) != 0) {
+		return false;
+	}
+	assert(ret_fiber);
+	kfiber_join(ret_fiber, &ret);
+	return !!ret;
+}
+int kfiber_file_safe_read(kfiber_file* fp, char* buf, int length) {
+	kfiber* fiber = kfiber_self();
+	kselector* selector = kasync_file_get_selector(fp);
+	if (selector == fiber->base.selector) {
+		return kfiber_file_read(fp, buf, length);
+	}
+	kfiber_file_safe_param param;
+	param.fp = fp;
+	param.buf = (void*)buf;
+	param.length = &length;
+	kfiber* ret_fiber = NULL;
+	int ret = 0;
+	if (kfiber_create2(selector, kfiber_file_safe_read_func, &param, 0, 0, &ret_fiber) != 0) {
+		return false;
+	}
+	assert(ret_fiber);
+	kfiber_join(ret_fiber, &ret);
+	return ret;
+}
