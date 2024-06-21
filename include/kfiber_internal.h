@@ -114,7 +114,8 @@ struct _kfiber {
 #endif
 	kfiber_context ctx;
 };
-kev_result result_switch_fiber(KOPAQUE data, void* arg, int got);
+kev_result kfiber_result_callback(KOPAQUE data, void* arg, int got);
+int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF * buf, int bc);
 bool is_main_fiber(kfiber* fiber);
 KEND_DECLS
 #endif

@@ -97,6 +97,7 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 	printf("ntsetinfomationfile ret=[%x]\n", ret);
 #endif
 }
+#if 0
 static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
@@ -151,6 +152,7 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	}	
 	return KASYNC_IO_ERR_SYS;
 }
+#endif
 static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
@@ -479,7 +481,6 @@ static kselector_module iocp_selector_module = {
 	iocp_selector_write,
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
-	iocp_selector_recvmsg,
 	iocp_selector_select,
 	iocp_selector_next,
 	iocp_selector_aio_open,

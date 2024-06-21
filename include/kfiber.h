@@ -88,7 +88,10 @@ int kfiber_net_accept(kserver_selectable* ss, kconnection **cn);
 int kfiber_net_getaddr(const char *hostname, kgl_addr **addr);
 int kfiber_net_connect(kconnection *cn, sockaddr_i *bind_addr, int tproxy_mask);
 int kfiber_net_write(kconnection *cn, const char *buf, int len);
-int kfiber_net_writev(kconnection *cn, WSABUF *buf, int vc);
+int kfiber_net_writev2(kfiber *fiber, kconnection * cn, WSABUF * buf, int vc);
+INLINE int kfiber_net_writev(kconnection *cn, WSABUF *buf, int vc) {
+	return kfiber_net_writev2(kfiber_self(), cn, buf, vc);
+}
 int kfiber_net_read(kconnection *cn, char *buf, int len);
 
 int kfiber_sendfile(kconnection* cn, kfiber_file* fp, int len);
@@ -122,42 +125,6 @@ INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
 	}
 	return true;
 }
-#if 0
-/* length is -1 will write all buf data. */
-INLINE bool kfiber_net_write_buf_full(kconnection* cn, kbuf* buf, int length) {
-
-#define KGL_RQ_WRITE_BUF_COUNT 32
-	WSABUF bufs[KGL_RQ_WRITE_BUF_COUNT];
-	while (buf) {
-		int bc = 0;
-		while (bc < KGL_RQ_WRITE_BUF_COUNT && buf) {
-			if (length == 0) {
-				break;
-			}
-			if (length > 0) {
-				bufs[bc].iov_len = KGL_MIN(length, buf->used);
-				length -= bufs[bc].iov_len;
-			} else {
-				bufs[bc].iov_len = buf->used;
-			}
-			bufs[bc].iov_base = buf->data;
-			buf = buf->next;
-			bc++;
-		}
-		if (bc == 0) {
-			if (length > 0) {
-				return false;
-			}
-			assert(length == 0);
-			return true;
-		}
-		if (!kfiber_net_writev_full(cn, bufs, &bc)) {
-			return false;
-		}
-	}
-	return true;
-}
-#endif
 INLINE bool kfiber_net_write_full(kconnection *cn, const char *buf, int *len)
 {
 	while (*len > 0) {
@@ -182,16 +149,16 @@ INLINE bool kfiber_net_read_full(kconnection *cn, char *buf, int *len)
 	}
 	return true;
 }
-int kfiber_net_readv(kconnection *cn, WSABUF *buf, int vc);
+int kfiber_net_readv2(kfiber *fiber, kconnection *cn, WSABUF *buf, int vc);
+INLINE int kfiber_net_readv(kconnection * cn, WSABUF * buf, int vc) {
+	return kfiber_net_readv2(kfiber_self(), cn, buf, vc);
+}
 int kfiber_net_close(kconnection *cn);
 int kfiber_net_shutdown(kconnection *cn);
 #ifdef KSOCKET_SSL
 int kfiber_ssl_handshake(kconnection *cn);
 #endif
 
-//udp
-int kfiber_udp_readv(kconnection* cn, WSABUF* buf, int vc);
-int kfiber_udp_read(kconnection* cn, char *buf,int len);
 //file
 kfiber_file *kfiber_file_open(const char *filename, fileModel model, int kf_flags);
 kfiber_file* kfiber_file_bind(FILE_HANDLE fp);

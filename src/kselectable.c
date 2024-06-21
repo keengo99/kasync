@@ -210,12 +210,36 @@ int selectable_recvmsg(kselectable* st)
 #endif
 void selectable_udp_read_event(kselectable* st)
 {
+#ifndef _WIN32
 	assert(KBIT_TEST(st->base.st_flags, STF_UDP));
 #ifdef STF_ET
 	if (KBIT_TEST(st->base.st_flags, STF_ET))
 #endif
 		KBIT_CLR(st->base.st_flags, STF_READ);
-	st->e[OP_READ].result(st->data, st->e[OP_READ].arg, -1);
+	int got = selectable_recvmsg(st);
+	if (got>=0) {
+		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
+		return;
+	}
+	switch(errno) {
+	case EAGAIN:
+	case EINTR:
+		KBIT_CLR(st->base.st_flags, STF_RREADY);
+		if (kgl_selector_module.read(st->base.selector, st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg)) {
+			return;
+		}
+		break;
+	case ENOMEM:
+		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_NOMEM);
+		break;
+	default:
+		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_RESULT);
+		break;
+	}
+#else
+	//windows iocp never goto here.
+	assert(false);
+#endif
 }
 void selectable_read_event(kselectable* st)
 {

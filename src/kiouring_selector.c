@@ -383,6 +383,7 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
 }
+#if 0
 static KASYNC_IO_RESULT iouring_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
@@ -420,6 +421,7 @@ static KASYNC_IO_RESULT iouring_selector_recvmsg(kselector *selector, kselectabl
 		return KASYNC_IO_ERR_SYS;
 	}
 }
+#endif
 static void iouring_add_timeout(struct io_uring *ring,unsigned wait_nr,struct __kernel_timespec *ts)
 {
 	struct io_uring_sqe *sqe = kiouring_get_seq(ring);
@@ -441,7 +443,10 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 	}
 	
 	if (got>0 && e->buffer==null_buffer) {
-		//如果只是检测pollout/pollin事件，成功后，把 got设置为0，使上层接口和epoll/iocp/kqueue等表现一致。
+		/*
+		* if pollout/pollin success. 
+		* reset got=0, let the behavior be same as epoll/iocp/kqueue
+		*/
 		got = 0;
 	}
 	if (e == &st->e[OP_READ]) {
@@ -601,7 +606,6 @@ static kselector_module iouring_selector_module = {
 	iouring_selector_write,
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
-	iouring_selector_recvmsg,
 	iouring_selector_select,
 	iouring_selector_next,
 

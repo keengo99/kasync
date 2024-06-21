@@ -289,6 +289,7 @@ static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 	return false;
 #endif
 }
+#if 0
 static KASYNC_IO_RESULT epoll_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
@@ -327,6 +328,7 @@ static KASYNC_IO_RESULT epoll_selector_recvmsg(kselector *selector, kselectable 
 		return KASYNC_IO_ERR_SYS;
 	}
 }
+#endif
 static bool epoll_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
@@ -547,7 +549,6 @@ static kselector_module epoll_selector_module = {
 	epoll_selector_write,
 	epoll_selector_readhup,
 	epoll_selector_remove_readhup,
-	epoll_selector_recvmsg,
 	epoll_selector_select,
 	epoll_selector_next,
 	epoll_selector_aio_open,

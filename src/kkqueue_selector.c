@@ -241,6 +241,7 @@ static bool kqueue_selector_sendfile(kselectable *st, result_callback result, bu
 	}
 	return true;
 }
+#if 0
 static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kqueue_selector* es = (kqueue_selector*)selector->ctx;
@@ -279,6 +280,7 @@ static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable
 		return KASYNC_IO_ERR_SYS;
 	}
 }
+#endif
 static int kqueue_selector_select(kselector *selector, int tmo) 
 {
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
@@ -422,7 +424,6 @@ static kselector_module kqueue_selector_module = {
 	kqueue_selector_write,
 	kselector_default_readhup,
 	kselector_default_remove_readhup,
-	kqueue_selector_recvmsg,
 	kqueue_selector_select,
 	kqueue_selector_next,
 	kqueue_selector_aio_open,

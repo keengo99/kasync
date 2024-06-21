@@ -144,7 +144,9 @@ typedef WSABUF* LPWSABUF;
 
 #define ST_ERR_RESULT      -1
 #define ST_ERR_TIME_OUT    -2
-#define ST_ERR_RESOLV      -3
+#define ST_ERR_NOMEM       -3
+#define ST_ERR_RESOLV      -4
+
 typedef volatile int32_t kcountable_t;
 typedef struct
 {

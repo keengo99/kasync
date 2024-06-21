@@ -68,7 +68,11 @@ kconnection* kudp_new2(int flags, kselector* st)
 		domain = PF_INET6;
 	}
 	kconnection* uc = kconnection_internal_new();
+#ifdef STF_USEPOLL
+	KBIT_SET(uc->st.base.st_flags, STF_UDP|STF_USEPOLL);
+#else
 	KBIT_SET(uc->st.base.st_flags, STF_UDP);
+#endif
 	if ((uc->st.fd = ksocket_new_udp(domain,flags)) == INVALID_SOCKET) {
 		kconnection_destroy(uc);
 		return NULL;
@@ -94,20 +98,4 @@ bool kudp_send_to(kconnection*uc,const sockaddr_i *dst,const char *package, int 
 int kudp_send(kconnection* uc, const struct sockaddr* peer_addr, socklen_t peer_addr_len, const char* package, int package_len)
 {
 	return sendto(uc->st.fd, package, package_len, 0, peer_addr, peer_addr_len);
-}
-kev_result kudp_recv_from(kconnection*uc, result_callback result, buffer_callback buffer, void* arg)
-{
-	KASYNC_IO_RESULT got;
-retry:
-	got = kgl_selector_module.recvmsg(uc->st.base.selector, &uc->st, result, buffer, arg);
-	switch (got) {
-		case KASYNC_IO_PENDING:
-			return kev_ok;
-		case KASYNC_IO_ERR_BUFFER:
-			goto retry;
-		case KASYNC_IO_ERR_SYS:
-		default:
-			kgl_selector_module.next(uc->st.base.selector, uc->st.data, result, arg, got);
-			return kev_ok;
-	}
 }

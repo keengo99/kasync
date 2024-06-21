@@ -16,12 +16,6 @@
 #define OP_WRITE 1
 #define SELECTOR_TMO_MSEC 100
 
-#define KASYNC_IO_RESULT     int
-
-#define KASYNC_IO_PENDING     -1
-#define KASYNC_IO_ERR_BUFFER  -2 //socket should retry with this error
-#define KASYNC_IO_ERR_SYS     -3 //socket must close with this error
-
 KBEGIN_DECLS
 typedef int(*kfiber_start_func)(void* arg, int len);
 typedef struct _kfiber kfiber;
@@ -47,12 +41,7 @@ typedef bool (*selector_remove_readhup)(kselector* selector, kselectable* st);
 
 typedef bool (*selector_write)(kselector* selector, kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 typedef bool (*selector_connect)(kselector* selector, kselectable* st, result_callback result, void* arg);
-/* >=0                  is success
-* KASYNC_IO_PENDING     is pending
-* KASYNC_IO_ERR_BUFFER  socket should retry with this error
-* KASYNC_IO_ERR_SYS     socket must close with this error
-*/
-typedef KASYNC_IO_RESULT(*selector_recvmsg)(kselector* selector, kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+
 typedef void (*selector_next)(kselector* selector, KOPAQUE data, result_callback result, void* arg, int got);
 
 typedef void (*selector_aio_open)(kselector* selector, kasync_file* file, FILE_HANDLE fd);
@@ -102,8 +91,6 @@ typedef struct
 	selector_write write;
 	selector_readhup readhup;
 	selector_remove_readhup remove_readhup;
-
-	selector_recvmsg recvmsg; /* for udp */
 
 	selector_select select;
 	selector_next next;
