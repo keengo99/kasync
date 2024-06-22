@@ -63,9 +63,11 @@ static void iocp_selector_bind(kselector *selector, kselectable *st)
 	}
 	if (ksocket_opened(st->fd)) {
 		CreateIoCompletionPort((HANDLE)st->fd, selector->ctx, (ULONG_PTR)st, 0);
+		/*
 		if (KBIT_TEST(st->base.st_flags, STF_UDP)) {
 			SetFileCompletionNotificationModes((HANDLE)st->fd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
 		}
+		*/
 		KBIT_SET(st->base.st_flags, STF_IOCP_BINDED);
 	}
 	st->base.selector = selector;
@@ -97,15 +99,12 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 	printf("ntsetinfomationfile ret=[%x]\n", ret);
 #endif
 }
-#if 0
 static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
-	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
 	kassert(KBIT_TEST(st->base.st_flags, STF_UDP));
-	
 	DWORD BytesRecv = 0;
 	DWORD Flags = 0;
-	WSABUF buf[16];
+	WSABUF buf[MAX_IOVECT_COUNT];
 	WSABUF addr;
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
@@ -132,54 +131,41 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	} else {
 		rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr*)addr.buf, (INT*)&addr.len, &st->e[OP_READ].lp, NULL);
 	}
-	if (rc == 0) {
-		//success
-		assert(BytesRecv >= 0);
-		if (BytesRecv < 0) {
-			return KASYNC_IO_ERR_BUFFER;
-		}
-		return BytesRecv;
-	}
-	if (rc == SOCKET_ERROR) {
-		int err = WSAGetLastError();
-		if (WSA_IO_PENDING == err) {
-			KBIT_SET(st->base.st_flags, STF_READ);
-			if (st->base.queue.next == NULL) {
-				kselector_add_list(selector, st, KGL_LIST_RW);
-			}
-			return KASYNC_IO_PENDING;
-		}
-	}	
-	return KASYNC_IO_ERR_SYS;
+	return rc;
 }
-#endif
+
 static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
 	KBIT_SET(st->base.st_flags,STF_READ);
-	WSABUF recvBuf[MAX_IOVECT_COUNT];
-	memset(&recvBuf, 0, sizeof(recvBuf));
-	int bufferCount;
-	if (buffer) {
-		bufferCount = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
+	int rc;
+	if (KBIT_TEST(st->base.st_flags, STF_UDP)) {
+		rc = iocp_selector_recvmsg(selector, st, result, buffer, arg);
 	} else {
-		bufferCount = 1;
-	}
-	DWORD BytesRecv = 0;
-	DWORD Flags = 0;
-	st->e[OP_READ].arg = arg;
-	st->e[OP_READ].result = result;
-	st->e[OP_READ].buffer = buffer;
-	assert(st->base.selector == selector);
-	if (!KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED)) {
-		assert(false);
-	}
-	assert(KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
-	//iocp_selector_bind(selector, st);
-	int rc = WSARecv(st->fd, recvBuf, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);
+		WSABUF recvBuf[MAX_IOVECT_COUNT];
+		memset(&recvBuf, 0, sizeof(recvBuf));
+		int bufferCount;
+		if (buffer) {
+			bufferCount = buffer(st->data, arg, recvBuf, MAX_IOVECT_COUNT);
+		} else {
+			bufferCount = 1;
+		}
+		DWORD BytesRecv = 0;
+		DWORD Flags = 0;
+		st->e[OP_READ].arg = arg;
+		st->e[OP_READ].result = result;
+		st->e[OP_READ].buffer = buffer;
+		assert(st->base.selector == selector);
+		if (!KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED)) {
+			assert(false);
+		}
+		assert(KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
+		//iocp_selector_bind(selector, st);
+		rc = WSARecv(st->fd, recvBuf, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);
 #ifndef NDEBUG
-	//klog(KLOG_DEBUG,"addSocket st=%p,us=%p,op=%d,rc=%d,err=%d\n",s,us,op,rc,err);
+		//klog(KLOG_DEBUG,"addSocket st=%p,us=%p,op=%d,rc=%d,err=%d\n",s,us,op,rc,err);
 #endif
+	}
 	if (rc == SOCKET_ERROR) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
