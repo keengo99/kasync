@@ -164,18 +164,6 @@ SOCKET ksocket_new_udp(uint16_t sin_family, int flag) {
 #endif
 	return sockfd;
 }
-SOCKET ksocket_listen_udp(const sockaddr_i* addr, int flag) {
-	SOCKET sockfd = ksocket_new_udp(addr->v4.sin_family, flag);
-	if (!ksocket_opened(sockfd)) {
-		return sockfd;
-	}
-
-	if (bind(sockfd, (struct sockaddr*)addr, ksocket_addr_len(addr)) < 0) {
-		ksocket_close(sockfd);
-		return INVALID_SOCKET;
-	}
-	return sockfd;
-}
 SOCKET ksocket_listen(const sockaddr_i* addr, int flag) {
 #ifdef KSOCKET_UNIX	
 	if (addr->v4.sin_family == AF_UNIX) {

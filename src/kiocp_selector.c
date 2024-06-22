@@ -111,7 +111,7 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	kconnection* c = kgl_list_data(st, kconnection, st);
 	int bc = 0;
 	if (buffer != NULL) {
-		bc = buffer(st->data, arg, buf, 16);
+		bc = buffer(st->data, arg, buf, MAX_IOVECT_COUNT);
 		kconnection_buffer_addr(st->data, st, &addr, 1);
 	} else {
 		addr.iov_base = NULL;
