@@ -7,7 +7,6 @@
 #include "kconnection.h"
 #include "kmalloc.h"
 #include "kgl_ssl.h"
-#include "kcountable.h"
 #include "ksync.h"
 #define KGL_SERVER_SSL         (1<<31)
 #define KGL_SERVER_START       (1<<30)

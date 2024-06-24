@@ -3,7 +3,7 @@
 #include "kfeature.h"
 #include "kselector.h"
 #include "ksocket.h"
-#include "kcountable.h"
+#include "katom.h"
 KBEGIN_DECLS
 typedef enum  {
 	kgl_addr_ip,

@@ -2,7 +2,7 @@
 #define KWORKER_H_99
 #include "kfeature.h"
 #include "ksync.h"
-#include "kcountable.h"
+#include "katom.h"
 KBEGIN_DECLS
 typedef kev_result (*kasync_worker_callback)(void *data, int msec);
 

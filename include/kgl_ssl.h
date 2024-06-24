@@ -11,7 +11,7 @@
 #include "kselector.h"
 #include "kssl_bio.h"
 #include "kmalloc.h"
-#include "kcountable.h"
+#include "katom.h"
 #include "kforwin32.h"
 #define KGL_HTTP_NPN_ADVERTISE  "\x08http/1.1"
 #ifdef SSL_READ_EARLY_DATA_SUCCESS
