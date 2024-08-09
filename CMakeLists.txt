@@ -56,7 +56,11 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
         set(ENABLE_LIBUCONTEXT ON)
 endif()
 
-
+if (ENABLE_FCONTEXT)
+    unset(ENABLE_LIBUCONTEXT)
+    add_subdirectory(fcontext)
+    list(APPEND KASYNC_LIBS boost_context)
+endif()
 
 
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
@@ -194,4 +198,8 @@ target_link_libraries(pingpang kasync ${KASYNC_LIBS})
 
 if (ENABLE_LIBUCONTEXT) 
     add_dependencies(kasync ucontext)
+endif()
+
+if (ENABLE_FCONTEXT)
+    add_dependencies(kasync boost_context)
 endif()

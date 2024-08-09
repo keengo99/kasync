@@ -83,7 +83,7 @@ bool kfiber_is_main() {
 static void kfiber_delete_context(kfiber* fiber) {
 	//printf("delete fiber=[%p]\n", fiber);
 	assert(kfiber_self() == kfiber_main());
-#ifdef _WIN32
+#ifdef ENABLE_WIN_FIBER
 	DeleteFiber(fiber->ctx);
 #else
 #ifdef KFIBER_PROTECTED
@@ -97,7 +97,9 @@ static void kfiber_delete_context(kfiber* fiber) {
 		perror("mprotect");
 	}
 #endif
-	free(fiber->stack);
+#endif
+#ifndef ENABLE_WIN_FIBER
+	kgl_align_free(fiber->stack);
 #endif
 }
 static void kfiber_destroy(kfiber* fiber) {
@@ -114,14 +116,22 @@ void kfiber_set_self(kfiber* thread) {
 kfiber* kfiber_self() {
 	return (kfiber*)pthread_getspecific(kgl_current_fiber_key);
 }
+#ifdef ENABLE_FCONTEXT
+static transfer_t update_fcontext(transfer_t rt) {
+	((kfiber*)rt.data)->ctx = rt.fctx;
+	return rt;
+}
+#endif
 void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
-	//printf("switch fiber from [%p] to [%p]\n", fiber_from, fiber_to);
 	assert(kfiber_self() == fiber_from);
 	assert(fiber_from != fiber_to);
 	kfiber_set_self(fiber_to);
 #ifndef NDEBUG
 	//kgl_get_stack_trace(fiber_to->sp);
 #endif
+#ifdef ENABLE_FCONTEXT
+	ontop_fcontext(fiber_to->ctx, fiber_from, update_fcontext);	
+#else
 #ifdef _WIN32
 	assert(GetCurrentFiber() == fiber_from->ctx);
 	SwitchToFiber(fiber_to->ctx);
@@ -135,6 +145,7 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
 	}
 #else
 	fprintf(stderr, "DISABLE_KFIBER is on. swapcontext failed.");
+#endif
 #endif
 #endif
 	assert(kfiber_self() == fiber_from);
@@ -192,34 +203,6 @@ void kfiber_wakeup(kfiber* fiber, void* obj, int ret) {
 	__kfiber_switch(fiber_from, fiber);
 }
 
-kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
-	if (got == 1) {
-		//exit
-		return kev_ok;
-	}
-	kfiber* fiber = kfiber_main();
-	if (fiber != NULL) {
-		fiber->base.selector = kgl_get_tls_selector();
-		return kev_ok;
-	}
-	fiber = (kfiber*)xmemory_newz(sizeof(kfiber));
-#ifdef _WIN32
-	fiber->ctx = ConvertThreadToFiber(NULL);
-	//printf("main ctx=[%p]\n", fiber->ctx);
-#else
-
-#endif
-	fiber->base.selector = kgl_get_tls_selector();
-	pthread_setspecific(kgl_main_fiber_key, fiber);
-	kfiber_set_self(fiber);
-	return kev_ok;
-	//printf("main fiber=[%p]\n", fiber);
-}
-void kfiber_init() {
-	pthread_key_create(&kgl_main_fiber_key, NULL);
-	pthread_key_create(&kgl_current_fiber_key, NULL);
-	selector_manager_thread_init(kfiber_thread_init, NULL);
-}
 static void kfiber_release(kfiber* fiber) {
 	if (katom_dec((void*)&fiber->base.ref) == 0) {
 		kfiber_destroy(fiber);
@@ -243,13 +226,18 @@ static void kfiber_exit(kfiber* fiber, int retval) {
 	kfiber_next_call(fiber, result_fiber_exit, retval, true);
 	__kfiber_wait(fiber, fiber->close_cond);
 }
+#ifdef ENABLE_FCONTEXT
+static void fiber_start(transfer_t rt) {
+	kfiber* fiber = kfiber_self();
+#else
 #ifdef _WIN32
-void WINAPI fiber_start(void* arg) {
+static void WINAPI fiber_start(void* arg) {
 	kfiber* fiber = (kfiber*)arg;
 	assert(kfiber_self() == fiber);
 #else
-void fiber_start() {
+static void fiber_start() {
 	kfiber* fiber = kfiber_self();
+#endif
 #endif
 	int result = -1;
 	while (!fiber->start_called) {
@@ -257,6 +245,31 @@ void fiber_start() {
 		result = fiber->start(fiber->arg, fiber->retval);
 	}
 	kfiber_exit(fiber, result);
+}
+kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
+	if (got == 1) {
+		//exit
+		return kev_ok;
+	}
+	kfiber* fiber = kfiber_main();
+	if (fiber != NULL) {
+		fiber->base.selector = kgl_get_tls_selector();
+		return kev_ok;
+	}
+	fiber = (kfiber*)xmemory_newz(sizeof(kfiber));
+#ifdef ENABLE_WIN_FIBER
+	fiber->ctx = ConvertThreadToFiber(NULL);
+#endif
+	fiber->base.selector = kgl_get_tls_selector();
+	pthread_setspecific(kgl_main_fiber_key, fiber);
+	kfiber_set_self(fiber);
+	return kev_ok;
+	//printf("main fiber=[%p]\n", fiber);
+}
+void kfiber_init() {
+	pthread_key_create(&kgl_main_fiber_key, NULL);
+	pthread_key_create(&kgl_current_fiber_key, NULL);
+	selector_manager_thread_init(kfiber_thread_init, NULL);
 }
 kev_result kfiber_result_callback(KOPAQUE data, void* arg, int got) {
 	kfiber* fiber = (kfiber*)arg;
@@ -296,6 +309,10 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	fiber->start = start;
 	fiber->arg = start_arg;
 	fiber->stk_page = stk_page;
+#ifdef ENABLE_FCONTEXT
+	fiber->stack = kgl_memalign(4096, stk_size + 2 * KFIBER_REDZONE);
+	fiber->ctx = make_fcontext((char *)fiber->stack + KFIBER_REDZONE + stk_size, stk_size, fiber_start);
+#else
 #ifdef _WIN32
 	fiber->ctx = CreateFiber(stk_size, fiber_start, fiber);
 #else
@@ -321,6 +338,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	kfiber_makecontext(&fiber->ctx, (void(*)(void))fiber_start, 0);
 #else
 	fprintf(stderr, "DISABLE_KFIBER is set ON.");
+#endif
 #endif
 #endif
 	katom_inc((void*)&fiber_count);

@@ -2,7 +2,12 @@
 #define KFIBER_INTERNAL_H
 #include "kselector.h"
 #include "kselectable.h"
+#ifdef ENABLE_FCONTEXT
+#include "fcontext.h"
+typedef fcontext_t kfiber_context;
+#else
 #ifdef _WIN32
+#define ENABLE_WIN_FIBER 1
 #define kfiber_context void*
 #else
 #ifdef ENABLE_LIBUCONTEXT
@@ -21,7 +26,7 @@
 #define kfiber_makecontext makecontext
 #endif
 #endif
-
+#endif
 #define KFIBER_WAITED
 KBEGIN_DECLS
 //#define switch_main __kfiber_wait
@@ -109,7 +114,7 @@ struct _kfiber {
 #ifndef NDEBUG
 	//TRACEBACK sp;
 #endif
-#ifndef _WIN32
+#ifndef ENABLE_WIN_FIBER
 	void* stack;
 #endif
 	kfiber_context ctx;
