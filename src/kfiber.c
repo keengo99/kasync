@@ -291,7 +291,19 @@ void kfiber_wakeup2(kselector * selector, kfiber * fiber, void* obj, int retval)
 	}
 	kgl_selector_module.next(selector, obj, kfiber_result_callback, fiber, retval);
 }
-
+const char* kfiber_powered_by() {
+#ifdef ENABLE_FCONTEXT
+	return "fcontext";
+#elif ENABLE_WIN_FIBER
+	return "winfiber";
+#elif ENABLE_LIBUCONTEXT
+	return "libucontext";
+#elif DISABLE_KFIBER
+	return "none";
+#else
+	return "ucontext";
+#endif
+}
 kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	kfiber* fiber;
 	/* Adjust stack size */

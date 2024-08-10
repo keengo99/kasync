@@ -24,7 +24,7 @@ void kfiber_init();
 int kfiber_get_count();
 //create a paused fiber
 kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size);
-
+const char* kfiber_powered_by();
 int kfiber_start(kfiber* fiber,int len);
 int kfiber_create2(kselector *selector, kfiber_start_func start, void *start_arg, int len, int stk_size, kfiber** fiber);
 INLINE int kfiber_create(kfiber_start_func start, void* arg, int len, int stk_size, kfiber** fiber) {
