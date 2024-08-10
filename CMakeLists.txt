@@ -69,7 +69,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
 else()
     include(CheckCSourceCompiles)
-    if (NOT ENABLE_LIBUCONTEXT)
+    if (NOT ENABLE_LIBUCONTEXT AND NOT ENABLE_FCONTEXT)
 	    check_c_source_compiles(
 		"#include<ucontext.h>
 		int main(){
