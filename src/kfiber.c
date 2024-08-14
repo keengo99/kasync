@@ -760,7 +760,6 @@ int kfiber_file_read(kfiber_file * file, char* buf, int length) {
 	kasync_file_bind_opaque(file, fiber);
 	assert(kasync_file_get_selector(file) == fiber->base.selector);
 	if (!kgl_selector_module.aio_read(file, kfiber_file_callback, buf, length, file)) {
-		assert(false);
 		return -1;
 	}
 	return __kfiber_wait(fiber, fiber);
@@ -771,7 +770,6 @@ int kfiber_file_write(kfiber_file * file, const char* buf, int length) {
 	CHECK_FIBER(fiber);
 	assert(kasync_file_get_selector(file) == fiber->base.selector);
 	if (!kgl_selector_module.aio_write(file, kfiber_file_callback, buf, length, file)) {
-		assert(false);
 		return -1;
 	}
 	return __kfiber_wait(fiber, fiber);
