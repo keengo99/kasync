@@ -33,8 +33,8 @@ INLINE int kfiber_create(kfiber_start_func start, void* arg, int len, int stk_si
 int kfiber_create_sync(kfiber_start_func start, void* start_arg, int len, int stk_size, kfiber** fiber);
 //void kfiber_yield();
 //kfiber next deprecated
-bool kfiber_has_next();
-int kfiber_next(kfiber_start_func start, void* start_arg, int len);
+//bool kfiber_has_next();
+//int kfiber_next(kfiber_start_func start, void* start_arg, int len);
 kfiber *kfiber_self();
 
 kfiber *kfiber_ref_self(bool thread_safe);

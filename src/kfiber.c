@@ -239,12 +239,14 @@ static void fiber_start() {
 	kfiber* fiber = kfiber_self();
 #endif
 #endif
-	int result = -1;
+#if 0
 	while (!fiber->start_called) {
 		fiber->start_called = 1;
 		result = fiber->start(fiber->arg, fiber->retval);
 	}
-	kfiber_exit(fiber, result);
+#endif
+	fiber->start_called = 1;
+	kfiber_exit(fiber, fiber->start(fiber->arg, fiber->retval));
 }
 kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
 	if (got == 1) {
@@ -422,7 +424,7 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg) {
 	return fiber->close_cond->f->wait_callback(fiber->close_cond, data, notice, arg);
 }
 
-
+#if 0
 bool kfiber_has_next() {
 	kfiber* fiber = kfiber_self();
 	//CHECK_FIBER(fiber);
@@ -439,7 +441,7 @@ int kfiber_next(kfiber_start_func start, void* arg, int got) {
 	fiber->start_called = 0;
 	return 0;
 }
-
+#endif
 kfiber* kfiber_ref_self(bool thread_safe) {
 	kfiber* fiber = kfiber_self();
 	assert(fiber && !is_main_fiber(fiber));
