@@ -209,10 +209,6 @@ void selectable_write_event(kselectable* st);
 kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 kev_result selectable_event_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-#ifdef ENABLE_KSSL_BIO
-void selectable_low_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-void selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-#endif
 #ifndef _WIN32
 int selectable_recvmsg(kselectable* st);
 #endif

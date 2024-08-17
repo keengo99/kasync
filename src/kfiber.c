@@ -584,6 +584,14 @@ int kfiber_net_writev2(kfiber *fiber, kconnection * cn, WSABUF * buf, int vc) {
 	CHECK_FIBER(fiber);
 	fiber->retval = vc;
 	fiber->arg = buf;
+#ifndef KGL_IOCP
+	if (KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
+		if (kev_fiber_ok != selectable_event_write(&cn->st, kfiber_result_callback, kfiber_buffer_callback, fiber)) {
+			__kfiber_wait(fiber, cn->st.data);
+		}
+		return fiber->retval;
+	}
+#endif
 	if (kev_fiber_ok != selectable_write(&cn->st, kfiber_result_callback, kfiber_buffer_callback, fiber)) {
 		__kfiber_wait(fiber, cn->st.data);
 	}
