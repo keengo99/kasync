@@ -104,38 +104,26 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	kassert(KBIT_TEST(st->base.st_flags, STF_UDP));
 	DWORD BytesRecv = 0;
 	DWORD Flags = 0;
-	WSABUF buf[MAX_IOVECT_COUNT];
-	WSABUF addr;
 	st->e[OP_READ].arg = arg;
 	st->e[OP_READ].result = result;
 	kconnection* c = kgl_list_data(st, kconnection, st);
-	int bc = 0;
-	if (buffer != NULL) {
-#if 0
-		bc = buffer(st->data, arg, buf, MAX_IOVECT_COUNT);
-		kconnection_buffer_addr(st->data, st, &addr, 1);
-#endif
-	} else {
-		addr.iov_base = NULL;
-		addr.iov_len = 0;
-	}
+	struct sockaddr* addr = (struct sockaddr*)&c->addr;
+	socklen_t addr_len = ksocket_addr_len(&c->addr);
 	int rc;
 	if (c->udp) {
 		memset(c->udp, 0, sizeof(kudp_extend));		
-		c->udp->msg.name = (struct sockaddr*)addr.buf;
-		c->udp->msg.namelen = (INT)addr.len;
-		c->udp->msg.lpBuffers = buf;
-		c->udp->msg.dwBufferCount = bc;
-
+		c->udp->msg.name = addr;
+		c->udp->msg.namelen = (INT)addr_len;
+		c->udp->msg.lpBuffers = (WSABUF*)buffer->iov_base;
+		c->udp->msg.dwBufferCount = buffer->iov_len;
 		c->udp->msg.Control.iov_base = c->udp->pktinfo;
 		c->udp->msg.Control.iov_len = sizeof(c->udp->pktinfo);
 		rc = lpfnWsaRecvMsg(st->fd, &c->udp->msg, &BytesRecv, &st->e[OP_READ].lp, NULL);
 	} else {
-		rc = WSARecvFrom(st->fd, buf, bc, &BytesRecv, &Flags, (struct sockaddr*)addr.buf, (INT*)&addr.len, &st->e[OP_READ].lp, NULL);
+		rc = WSARecvFrom(st->fd, (WSABUF *)buffer->iov_base, buffer->iov_len, &BytesRecv, &Flags, addr, (INT*)&addr_len, &st->e[OP_READ].lp, NULL);
 	}
 	return rc;
 }
-
 static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, kgl_iovec *buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
