@@ -123,11 +123,7 @@ bool kconnection_half_connect(kconnection *c, sockaddr_i *bind_addr, int tproxy_
 kev_result kconnection_connect(kconnection *c,result_callback cb, void *arg)
 {
 	assert(kselector_is_same_thread(c->st.base.selector));
-#ifdef KGL_IOCP
-	c->st.e[OP_READ].buffer = kconnection_buffer_addr;
-	c->st.e[OP_READ].arg = &c->st;
-#endif
-	if (!kgl_selector_module.connect(c->st.base.selector, &c->st, cb, arg)) {
+	if (!kgl_selector_module.connect(c->st.base.selector, &c->st, cb, (struct sockaddr *)&c->addr, arg)) {
 		return cb(c->st.data, arg, -1);
 	}
 	return kev_ok;

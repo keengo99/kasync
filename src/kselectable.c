@@ -60,7 +60,7 @@ static int kgl_ssl_writev(kssl_session* ssl, WSABUF* buffer, int bc)
 	}
 	return got;
 }
-static int kgl_ssl_readv(kssl_session* ssl, WSABUF* buffer, int bc)
+static inline int kgl_ssl_readv(kssl_session* ssl, kgl_iovec* buffer, int bc)
 {
 	int got = 0;
 	int i = 0;
@@ -108,11 +108,11 @@ static int kgl_ssl_readv(kssl_session* ssl, WSABUF* buffer, int bc)
 	return got;
 }
 #endif
-static int kgl_writev(SOCKET s, WSABUF* buffer, int bc)
-{
 #ifdef HAVE_WRITEV
-	return writev(s, buffer, bc);
+#define kgl_writev writev
 #else
+static inline int kgl_writev(SOCKET s, kgl_iovec * buffer, int bc)
+{
 	int got = 0;
 	for (int i = 0; i < bc; i++) {
 		char* hot = (char*)buffer[i].iov_base;
@@ -128,13 +128,13 @@ static int kgl_writev(SOCKET s, WSABUF* buffer, int bc)
 		}
 	}
 	return got;
-#endif
 }
-static int kgl_readv(SOCKET s, WSABUF* buffer, int bc)
-{
+#endif
 #ifdef HAVE_READV
-	return readv(s, buffer, bc);
+#define kgl_readv readv
 #else
+static inline int kgl_readv(SOCKET s, kgl_iovec* buffer, int bc)
+{
 	int got = 0;
 	for (int i = 0; i < bc; i++) {
 		char* hot = (char*)buffer[i].iov_base;
@@ -150,8 +150,8 @@ static int kgl_readv(SOCKET s, WSABUF* buffer, int bc)
 		}
 	}
 	return got;
-#endif
 }
+#endif
 void selectable_clean(kselectable* st)
 {
 	/* aio file type do not call selectable_clean */
@@ -241,12 +241,119 @@ void selectable_udp_read_event(kselectable* st)
 	assert(false);
 #endif
 }
+
+#ifdef ENABLE_KSSL_BIO
+static bool selectable_ssl_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+	kssl_bio* ssl_bio = &st->ssl->bio[OP_READ];
+	ssl_bio->buffer = buffer;
+	ssl_bio->result = result;
+	ssl_bio->arg = arg;
+	ssl_bio->st = st;
+	kassert(result != result_ssl_bio_read);
+	kassert(arg != ssl_bio);
+	if (BIO_pending(ssl_bio->bio) > 0) {
+		kassert(!KBIT_TEST(st->base.st_flags, STF_READ));
+		//ssl still have data to read
+		st->e[OP_READ].arg = arg;
+		st->e[OP_READ].result = result;
+		st->e[OP_READ].buffer = buffer;
+		KBIT_SET(st->base.st_flags, STF_READ | STF_RREADY2);
+		KBIT_CLR(st->base.st_flags, STF_RDHUP);
+		kselector_add_list(st->base.selector, st, KGL_LIST_READY);
+		//selectable_event_read(st,result,buffer,arg);
+		return true;
+	}
+	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)xmalloc(sizeof(kssl_bio_buffer));
+	bio_buffer->bio = ssl_bio;
+	buffer_ssl_bio_read(bio_buffer);
+	if (!kgl_selector_module.read(st->base.selector, st, result_ssl_bio_read, bio_buffer->buf, bio_buffer)) {
+		xfree(bio_buffer);
+		return false;
+	}
+	return true;
+}
+static bool selectable_ssl_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+	kssl_bio* ssl_bio = &st->ssl->bio[OP_WRITE];
+	ssl_bio->got = 0;
+	if (buffer) {
+		ssl_bio->got = kgl_ssl_writev(st->ssl, (kgl_iovec*)buffer->iov_base, buffer->iov_len);
+	}
+	if (BIO_pending(ssl_bio->bio) <= 0) {
+		st->e[OP_WRITE].arg = arg;
+		st->e[OP_WRITE].result = result;
+		st->e[OP_WRITE].buffer = buffer;
+		KBIT_SET(st->base.st_flags, STF_WRITE | STF_WREADY2);
+		kselector_add_list(st->base.selector, st, KGL_LIST_READY);
+		return true;
+	}
+	ssl_bio->buffer = buffer;
+	ssl_bio->result = result;
+	ssl_bio->arg = arg;
+	ssl_bio->st = st;
+
+	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)xmalloc(sizeof(kssl_bio_buffer));
+	bio_buffer->bio = ssl_bio;
+	buffer_ssl_bio_write(bio_buffer);
+	if (!kgl_selector_module.write(st->base.selector, st, result_ssl_bio_write, bio_buffer->buf, bio_buffer)) {
+		xfree(bio_buffer);
+		return false;
+	}
+	return true;
+}
+
+inline kev_result selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+#ifdef _WIN32
+	kassert(false);
+#endif
+	if (unlikely(buffer == NULL)) {
+		return result(st->data, arg, 0);
+	}
+	assert(buffer->iov_base);
+	int got = kgl_writev(st->fd, (kgl_iovec *)buffer->iov_base, buffer->iov_len);
+	if (got >= 0) {
+		return result(st->data, arg, got);
+	}
+	if (errno == EAGAIN) {
+		KBIT_CLR(st->base.st_flags, STF_WREADY);
+		if (kgl_selector_module.write(st->base.selector, st, result, buffer, arg)) {
+			return kev_ok;
+		}
+	}
+	return result(st->data, arg, got);
+}
+inline kev_result selectable_low_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+#ifdef _WIN32
+	kassert(false);
+#endif
+	if (unlikely(buffer == NULL)) {
+		return result(st->data, arg, 0);
+	}
+	int got = kgl_readv(st->fd, (kgl_iovec*)buffer->iov_base, buffer->iov_len);
+	if (got >= 0) {
+		return result(st->data, arg, got);
+	}
+	if (errno == EAGAIN) {
+		KBIT_CLR(st->base.st_flags, STF_RREADY);
+		if (kgl_selector_module.read(st->base.selector, st, result, buffer, arg)) {
+			return kev_ok;
+		}
+	}
+	return result(st->data, arg, got);
+}
+#endif
 void selectable_read_event(kselectable* st)
 {
 #ifdef STF_ET
 	if (KBIT_TEST(st->base.st_flags, STF_ET))
 #endif
 		KBIT_CLR(st->base.st_flags, STF_READ);
+
+#ifdef ENABLE_KSSL_BIO
+	if (!KBIT_TEST(st->base.st_flags, STF_RREADY2)) {
+		selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
+		return;
+	}
+#endif
 	selectable_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
 }
 void selectable_write_event(kselectable* st)
@@ -263,113 +370,13 @@ void selectable_write_event(kselectable* st)
 		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
 		return;
 	}
+#ifdef ENABLE_KSSL_BIO
+	if (!KBIT_TEST(st->base.st_flags, STF_WREADY2)) {
+		selectable_low_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
+		return;
+	}
+#endif
 	selectable_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
-}
-#ifdef ENABLE_KSSL_BIO
-static bool selectable_ssl_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-	kssl_bio* ssl_bio = &st->ssl->bio[OP_READ];
-	ssl_bio->buffer = buffer;
-	ssl_bio->result = result;
-	ssl_bio->arg = arg;
-	ssl_bio->st = st;
-	kassert(result != result_ssl_bio_read);
-	kassert(buffer != buffer_ssl_bio_read);
-	kassert(arg != ssl_bio);
-	if (BIO_pending(ssl_bio->bio) > 0) {
-		kassert(!KBIT_TEST(st->base.st_flags, STF_READ));
-		//ssl still have data to read
-		st->e[OP_READ].arg = arg;
-		st->e[OP_READ].result = result;
-		st->e[OP_READ].buffer = buffer;
-		KBIT_SET(st->base.st_flags, STF_READ | STF_RREADY2);
-		KBIT_CLR(st->base.st_flags, STF_RDHUP);
-		kselector_add_list(st->base.selector, st, KGL_LIST_READY);
-		//selectable_event_read(st,result,buffer,arg);
-		return true;
-	}
-	return kgl_selector_module.read(st->base.selector, st, result_ssl_bio_read, buffer_ssl_bio_read, ssl_bio);
-}
-static bool selectable_ssl_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-	kssl_bio* ssl_bio = &st->ssl->bio[OP_WRITE];
-	ssl_bio->got = 0;
-	if (buffer) {
-		WSABUF bufs[MAX_IOVECT_COUNT];
-		ssl_bio->got = kgl_ssl_writev(st->ssl, bufs, buffer(st->data, arg, bufs, MAX_IOVECT_COUNT));
-	}
-	if (BIO_pending(ssl_bio->bio) <= 0) {
-		st->e[OP_WRITE].arg = arg;
-		st->e[OP_WRITE].result = result;
-		st->e[OP_WRITE].buffer = buffer;
-		KBIT_SET(st->base.st_flags, STF_WRITE | STF_WREADY2);
-		kselector_add_list(st->base.selector, st, KGL_LIST_READY);
-		return true;
-	}
-	ssl_bio->buffer = buffer;
-	ssl_bio->result = result;
-	ssl_bio->arg = arg;
-	ssl_bio->st = st;
-	return kgl_selector_module.write(st->base.selector, st, result_ssl_bio_write, buffer_ssl_bio_write, ssl_bio);
-}
-
-inline kev_result selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-#ifdef _WIN32
-	kassert(false);
-#endif
-	if (unlikely(buffer == NULL)) {
-		return result(st->data, arg, 0);
-	}
-	WSABUF bufs[MAX_IOVECT_COUNT];
-	int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-	kassert(bufs[0].iov_len > 0);
-	int got = kgl_writev(st->fd, bufs, bc);
-	if (got >= 0) {
-		return result(st->data, arg, got);
-	}
-	if (errno == EAGAIN) {
-		KBIT_CLR(st->base.st_flags, STF_WREADY);
-		if (kgl_selector_module.write(st->base.selector, st, result, buffer, arg)) {
-			return kev_ok;
-		}
-	}
-	return result(st->data, arg, got);
-}
-inline kev_result selectable_low_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-#ifdef _WIN32
-	kassert(false);
-#endif
-	if (unlikely(buffer == NULL)) {
-		return result(st->data, arg, 0);
-	}
-	WSABUF bufs[MAX_IOVECT_COUNT];
-	int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-	kassert(bufs[0].iov_len > 0);
-	int got = kgl_readv(st->fd, bufs, bc);
-	if (got >= 0) {
-		return result(st->data, arg, got);
-	}
-	if (errno == EAGAIN) {
-		KBIT_CLR(st->base.st_flags, STF_RREADY);
-		if (kgl_selector_module.read(st->base.selector, st, result, buffer, arg)) {
-			return kev_ok;
-		}
-	}
-	return result(st->data, arg, got);
-}
-#endif
-bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE | STF_WREADY2) == 0);
-#ifdef ENABLE_KSSL_BIO
-	if (selectable_is_ssl_handshake(st)) {
-		kassert(st->ssl);
-		return selectable_ssl_write(st, result, buffer, arg);
-	}
-#endif
-	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
 }
 void selectable_next_read(kselectable* st, result_callback result, void* arg)
 {
@@ -393,23 +400,17 @@ void selectable_next_write(kselectable* st, result_callback result, void* arg)
 	KBIT_CLR(st->base.st_flags, STF_RDHUP);
 	kselector_add_list(st->base.selector, st, KGL_LIST_READY);
 }
-kev_result selectable_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-	if (!selectable_try_read(st, result, buffer, arg)) {
-		return result(st->data, arg, -1);
+INLINE bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE | STF_WREADY2) == 0);
+#ifdef ENABLE_KSSL_BIO
+	if (selectable_is_ssl_handshake(st)) {
+		kassert(st->ssl);
+		return selectable_ssl_write(st, result, buffer, arg);
 	}
-	return kev_ok;
+#endif
+	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
 }
-kev_result selectable_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
-	if (!selectable_try_write(st, result, buffer, arg)) {
-		return result(st->data, arg, -1);
-	}
-	return kev_ok;
-}
-
-bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
-{
+INLINE bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		if (
@@ -438,6 +439,20 @@ bool selectable_try_read(kselectable* st, result_callback result, buffer_callbac
 	}
 #endif
 	return kgl_selector_module.read(st->base.selector, st, result, buffer, arg);
+}
+kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg)
+{
+	if (!selectable_try_read(st, result, buffer, arg)) {
+		return result(st->data, arg, -1);
+	}
+	return kev_ok;
+}
+kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg)
+{
+	if (!selectable_try_write(st, result, buffer, arg)) {
+		return result(st->data, arg, -1);
+	}
+	return kev_ok;
 }
 #ifndef _WIN32
 kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
@@ -512,38 +527,31 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 #endif
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg)
 {
-	WSABUF bufs[MAX_IOVECT_COUNT];
 	if (unlikely(KBIT_TEST(st->base.st_flags, STF_WREADY2))) {
 		KBIT_CLR(st->base.st_flags, STF_WREADY2);
 #ifdef ENABLE_KSSL_BIO		
 		if (st->ssl && buffer) {
 			kssl_bio* ssl_bio = &st->ssl->bio[OP_WRITE];
-			kassert(buffer != buffer_ssl_bio_write);
 			kassert(result != result_ssl_bio_write);
 			kassert(arg != ssl_bio);
 			kassert(BIO_pending(ssl_bio->bio) <= 0);
 			return result(st->data, arg, ssl_bio->got);
 		}
 #endif
-#ifdef ENABLE_KSSL_BIO
-	} else {
-		return selectable_low_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
-#endif
 	}
 	if (unlikely(buffer == NULL)) {
 		return result(st->data, arg, 0);
-	}
-	int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-	kassert(bufs[0].iov_len > 0);
+	}	
+	kassert(buffer->iov_len > 0);
 	int got;
 
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);
-		got = kgl_ssl_writev(st->ssl, bufs, bc);
+		got = kgl_ssl_writev(st->ssl, (kgl_iovec *)buffer->iov_base, buffer->iov_len);
 	} else
 #endif
-		got = kgl_writev(st->fd, bufs, bc);
+		got = kgl_writev(st->fd, (kgl_iovec*)buffer->iov_base, buffer->iov_len);
 	if (got >= 0) {
 		return result(st->data, arg, got);
 	}
@@ -590,25 +598,21 @@ kev_result selectable_event_read(kselectable* st, result_callback result, buffer
 		}
 #endif
 #endif
-#ifdef ENABLE_KSSL_BIO
-	} else {
-		return selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
-#endif
 	}
 	if (unlikely(buffer == NULL)) {
 		return result(st->data, arg, 0);
 	}
-	WSABUF bufs[MAX_IOVECT_COUNT];
-	int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-	kassert(bufs[0].iov_len > 0);
+	//WSABUF bufs[MAX_IOVECT_COUNT];
+	//int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
+	//kassert(bufs[0].iov_len > 0);
 	int got;
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
 		kassert(st->ssl);
-		got = kgl_ssl_readv(st->ssl, bufs, bc);
+		got = kgl_ssl_readv(st->ssl, (kgl_iovec*)buffer->iov_base, buffer->iov_len);
 	} else
 #endif
-		got = kgl_readv(st->fd, bufs, bc);
+		got = kgl_readv(st->fd, (kgl_iovec*)buffer->iov_base, buffer->iov_len);
 
 	if (got >= 0) {
 		return result(st->data, arg, got);

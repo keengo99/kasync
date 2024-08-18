@@ -125,12 +125,15 @@ typedef struct
 #define iovec          _WSABUF
 #define iov_base       buf
 #define iov_len        len
+typedef struct _WSABUF   kgl_iovec;
 #endif
 #else
 #include <netdb.h>
 typedef struct iovec WSABUF;
 typedef WSABUF* LPWSABUF;
+typedef struct iovec kgl_iovec;
 #endif
+typedef kgl_iovec* buffer_callback;
 
 #if defined _WIN32 || defined __CYGWIN__
 #define DLL_PUBLIC __declspec(dllexport)
@@ -158,7 +161,7 @@ typedef kev_result(*kgl_addr_call_back)(void* arg, kgl_addr* addr);
 
 typedef void* KOPAQUE;
 typedef kev_result(*result_callback)(KOPAQUE data, void* arg, int got);
-typedef int (*buffer_callback)(KOPAQUE data, void* arg, struct iovec* buf, int bc);
+//typedef int (*buffer_callback)(KOPAQUE data, void* arg, struct iovec* buf, int bc);
 typedef void(*kgl_cleanup_f) (void* data);
 typedef struct kgl_cleanup_s kgl_cleanup_t;
 #define kgl_expand_string(str)  (char *)str ,sizeof(str) - 1

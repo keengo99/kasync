@@ -131,7 +131,9 @@ void kgl_bio_clean_method() {
 }
 kev_result result_ssl_bio_read(KOPAQUE data, void *arg, int got)
 {
-	kssl_bio *ssl_bio = (kssl_bio *)arg;
+	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)arg;
+	kssl_bio* ssl_bio = bio_buffer->bio;
+	xfree(bio_buffer);
 	krw_buffer *bb = (krw_buffer *)BIO_get_data(ssl_bio->bio);
 	if (got == ST_ERR_TIME_OUT) {
 		return ssl_bio->result(data, ssl_bio->arg, got);
@@ -143,34 +145,26 @@ kev_result result_ssl_bio_read(KOPAQUE data, void *arg, int got)
 	}
 	return selectable_event_read(ssl_bio->st, ssl_bio->result, ssl_bio->buffer, ssl_bio->arg);
 }
-int  buffer_ssl_bio_read(KOPAQUE data, void *arg, LPWSABUF buf, int bufCount)
-{
-	kssl_bio *ssl_bio = (kssl_bio *)arg;
-	krw_buffer *bb = (krw_buffer *)BIO_get_data(ssl_bio->bio);
-	int len;
-	buf[0].iov_base = krw_get_write_buffer(bb,&len);
-	buf[0].iov_len = len;
-	return 1;
-}
+
 kev_result result_ssl_bio_write(KOPAQUE data, void *arg, int got)
 {
-	kssl_bio *ssl_bio = (kssl_bio *)arg;
+	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)arg;
+	kssl_bio* ssl_bio = bio_buffer->bio;
 	krw_buffer *bb = (krw_buffer *)BIO_get_data(ssl_bio->bio);
 	if (got <= 0) {
+		xfree(bio_buffer);
 		return ssl_bio->result(data, ssl_bio->arg, got);
 	}	
 	if (krw_read_success(bb, got)) {
-		if (!kgl_selector_module.write(ssl_bio->st->base.selector, ssl_bio->st, result_ssl_bio_write, buffer_ssl_bio_write, ssl_bio)) {
+		buffer_ssl_bio_write(bio_buffer);
+		if (!kgl_selector_module.write(ssl_bio->st->base.selector, ssl_bio->st, result_ssl_bio_write, bio_buffer->buf, bio_buffer)) {
+			xfree(bio_buffer);
 			return ssl_bio->result(data, ssl_bio->arg, -1);
 		}
 		return kev_ok;
 	}
+	xfree(bio_buffer);
 	return ssl_bio->result(data, ssl_bio->arg, ssl_bio->got);
 }
-int buffer_ssl_bio_write(KOPAQUE data, void *arg, LPWSABUF buf, int bufCount)
-{
-	kssl_bio *ssl_bio = (kssl_bio *)arg;
-	krw_buffer *bb = (krw_buffer *)BIO_get_data(ssl_bio->bio);
-	return krw_get_read_buffers(bb, buf, bufCount);
-}
+
 #endif

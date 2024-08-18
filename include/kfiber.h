@@ -88,9 +88,9 @@ int kfiber_net_accept(kserver_selectable* ss, kconnection **cn);
 int kfiber_net_getaddr(const char *hostname, kgl_addr **addr);
 int kfiber_net_connect(kconnection *cn, sockaddr_i *bind_addr, int tproxy_mask);
 int kfiber_net_write(kconnection *cn, const char *buf, int len);
-int kfiber_net_writev2(kfiber *fiber, kconnection * cn, WSABUF * buf, int vc);
-INLINE int kfiber_net_writev(kconnection *cn, WSABUF *buf, int vc) {
-	return kfiber_net_writev2(kfiber_self(), cn, buf, vc);
+int kfiber_net_writev2(kfiber *fiber, kconnection * cn, kgl_iovec* buf,int bc);
+INLINE int kfiber_net_writev(kconnection *cn, kgl_iovec *buf, int bc) {
+	return kfiber_net_writev2(kfiber_self(), cn, buf, bc);
 }
 int kfiber_net_read(kconnection *cn, char *buf, int len);
 
@@ -105,8 +105,7 @@ INLINE bool kfiber_sendfile_full(kconnection* cn, kfiber_file* fp, int* len) {
 	}
 	return true;
 }
-INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
-{
+INLINE bool kfiber_net_writev_full(kconnection* cn, WSABUF* buf, int* vc) {
 	while (*vc > 0) {
 		int got = kfiber_net_writev(cn, buf, *vc);
 		if (got <= 0) {
@@ -115,16 +114,17 @@ INLINE bool kfiber_net_writev_full(kconnection *cn, WSABUF *buf, int *vc)
 		while (got > 0) {
 			if ((int)buf->iov_len > got) {
 				buf->iov_len -= got;
-				buf->iov_base = (char *)buf->iov_base + got;
+				buf->iov_base = (char*)buf->iov_base + got;
 				break;
 			}
-			got -= (int)buf->iov_len;			
-			buf ++;
-			(*vc) --;
+			got -= (int)buf->iov_len;
+			buf++;
+			(*vc)--;
 		}
 	}
 	return true;
 }
+
 INLINE bool kfiber_net_write_full(kconnection *cn, const char *buf, int *len)
 {
 	while (*len > 0) {
@@ -149,9 +149,9 @@ INLINE bool kfiber_net_read_full(kconnection *cn, char *buf, int *len)
 	}
 	return true;
 }
-int kfiber_net_readv2(kfiber *fiber, kconnection *cn, WSABUF *buf, int vc);
-INLINE int kfiber_net_readv(kconnection * cn, WSABUF * buf, int vc) {
-	return kfiber_net_readv2(kfiber_self(), cn, buf, vc);
+int kfiber_net_readv2(kfiber *fiber, kconnection *cn, kgl_iovec *buf,int bc);
+INLINE int kfiber_net_readv(kconnection * cn, kgl_iovec* buf,int bc) {
+	return kfiber_net_readv2(kfiber_self(), cn, buf, bc);
 }
 int kfiber_net_close(kconnection *cn);
 int kfiber_net_shutdown(kconnection *cn);

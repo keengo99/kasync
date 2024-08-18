@@ -506,12 +506,6 @@ static kev_result kfiber_getaddr_callback(void* arg, kgl_addr * addr) {
 	kfiber_wakeup(fiber, (void*)kfiber_getaddr_callback, addr ? 0 : -1);
 	return kev_fiber_ok;
 }
-int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF * buf, int bc) {
-	kfiber* fiber = (kfiber*)arg;
-	int copy_bc = KGL_MIN(bc, fiber->retval);
-	kgl_memcpy(buf, fiber->arg, copy_bc * sizeof(WSABUF));
-	return copy_bc;
-}
 int kfiber_net_listen(kserver * server, int flag, kserver_selectable * *ss) {
 	kfiber* fiber = kfiber_self();
 	CHECK_FIBER(fiber);
@@ -575,32 +569,34 @@ int kfiber_net_connect(kconnection * c, sockaddr_i * bind_addr, int tproxy_mask)
 	return fiber->retval;
 }
 int kfiber_net_write(kconnection * cn, const char* buf, int len) {
-	WSABUF v;
-	v.iov_base = (char*)buf;
+	kgl_iovec v;
+	v.iov_base = (char *)buf;
 	v.iov_len = len;
 	return kfiber_net_writev(cn, &v, 1);
 }
-int kfiber_net_writev2(kfiber *fiber, kconnection * cn, WSABUF * buf, int vc) {
+int kfiber_net_writev2(kfiber *fiber, kconnection * cn, kgl_iovec* buf, int bc) {
 	CHECK_FIBER(fiber);
-	fiber->retval = vc;
-	fiber->arg = buf;
+	kgl_iovec iovec_buf;
+	iovec_buf.iov_base = (char*)buf;
+	iovec_buf.iov_len = bc;
 #ifndef KGL_IOCP
-	if (KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
-		if (kev_fiber_ok != selectable_event_write(&cn->st, kfiber_result_callback, kfiber_buffer_callback, fiber)) {
+	if (!selectable_get_ssl(cn->st) && KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
+		if (kev_fiber_ok != selectable_event_write(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
 			__kfiber_wait(fiber, cn->st.data);
 		}
 		return fiber->retval;
 	}
 #endif
-	if (kev_fiber_ok != selectable_write(&cn->st, kfiber_result_callback, kfiber_buffer_callback, fiber)) {
+	if (kev_fiber_ok != selectable_write(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
 		__kfiber_wait(fiber, cn->st.data);
 	}
 	return fiber->retval;
 }
-int kfiber_net_readv2(kfiber *fiber, kconnection* cn, WSABUF* buf, int vc) {
+int kfiber_net_readv2(kfiber *fiber, kconnection* cn, kgl_iovec* buf, int bc) {
 	CHECK_FIBER(fiber);
-	fiber->retval = vc;
-	fiber->arg = buf;
+	kgl_iovec iovec_buf;
+	iovec_buf.iov_base = (char*)buf;
+	iovec_buf.iov_len = bc;
 	if (KBIT_TEST(cn->st.base.st_flags,STF_READ)) {
 		/*
 			connection already has read event.
@@ -608,18 +604,18 @@ int kfiber_net_readv2(kfiber *fiber, kconnection* cn, WSABUF* buf, int vc) {
 		*/
 		assert(KBIT_TEST(cn->st.base.st_flags,STF_RTIME_OUT));
 		assert(cn->st.e[OP_READ].result==kfiber_result_callback);
-		assert(cn->st.e[OP_READ].buffer == kfiber_buffer_callback);
+		//assert(cn->st.e[OP_READ].buffer == kfiber_buffer_callback);
 		assert(cn->st.e[OP_READ].arg==fiber);
 		return __kfiber_wait(fiber, cn->st.data);
 	}
-	if (kev_fiber_ok != selectable_read(&cn->st, kfiber_result_callback, kfiber_buffer_callback, fiber)) {
+	if (kev_fiber_ok != selectable_read(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
 		return __kfiber_wait(fiber, cn->st.data);
 	}
 	return fiber->retval;
 }
 int kfiber_net_read(kconnection * cn, char* buf, int len) {
-	WSABUF v;
-	v.iov_base = buf;
+	kgl_iovec v;
+	v.iov_base = (char*)buf;
 	v.iov_len = len;
 	return kfiber_net_readv(cn, &v, 1);
 }
@@ -628,13 +624,7 @@ typedef struct _kfiber_sendfile_op
 	kfiber_file* fp;
 	int length;
 } kfiber_sendfile_op;
-static int kfiber_buffer_sendfile(KOPAQUE data, void* arg, WSABUF * buf, int bc) {
-	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
-	assert(bc > 0);
-	buf[0].iov_base = (char*)op->fp;
-	buf[0].iov_len = op->length;
-	return 1;
-}
+
 static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {	
 	kfiber_sendfile_op* op = (kfiber_sendfile_op*)arg;
 	if (got > 0) {
@@ -650,7 +640,10 @@ int kfiber_sendfile(kconnection * cn, kfiber_file * file, int length) {
 	kfiber_sendfile_op op;
 	op.fp = file;
 	op.length = length;
-	if (!kgl_selector_module.sendfile(&cn->st, kfiber_result_sendfile, kfiber_buffer_sendfile, &op)) {
+	kgl_iovec buf;
+	buf.iov_base = (char*)file;
+	buf.iov_len = length;
+	if (!kgl_selector_module.sendfile(&cn->st, kfiber_result_sendfile, &buf, &op)) {
 		return -1;
 	}
 	return __kfiber_wait(fiber, &op);

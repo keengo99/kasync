@@ -111,8 +111,10 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	kconnection* c = kgl_list_data(st, kconnection, st);
 	int bc = 0;
 	if (buffer != NULL) {
+#if 0
 		bc = buffer(st->data, arg, buf, MAX_IOVECT_COUNT);
 		kconnection_buffer_addr(st->data, st, &addr, 1);
+#endif
 	} else {
 		addr.iov_base = NULL;
 		addr.iov_len = 0;
@@ -134,7 +136,7 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	return rc;
 }
 
-static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, kgl_iovec *buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
 	KBIT_SET(st->base.st_flags,STF_READ);
@@ -142,13 +144,16 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 	if (KBIT_TEST(st->base.st_flags, STF_UDP)) {
 		rc = iocp_selector_recvmsg(selector, st, result, buffer, arg);
 	} else {
-		WSABUF recvBuf[MAX_IOVECT_COUNT];
-		memset(&recvBuf, 0, sizeof(recvBuf));
+		WSABUF recvBuf;		
 		int bufferCount;
 		if (buffer) {
-			bufferCount = buffer(st->data, arg, recvBuf, MAX_IOVECT_COUNT);
+			bufferCount = buffer->iov_len;
+			buffer = (kgl_iovec*)buffer->iov_base;
+			kassert(buffer->iov_len > 0);
 		} else {
+			memset(&recvBuf, 0, sizeof(WSABUF));
 			bufferCount = 1;
+			buffer = &recvBuf;
 		}
 		DWORD BytesRecv = 0;
 		DWORD Flags = 0;
@@ -156,12 +161,9 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 		st->e[OP_READ].result = result;
 		st->e[OP_READ].buffer = buffer;
 		assert(st->base.selector == selector);
-		if (!KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED)) {
-			assert(false);
-		}
 		assert(KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
 		//iocp_selector_bind(selector, st);
-		rc = WSARecv(st->fd, recvBuf, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);
+		rc = WSARecv(st->fd, buffer, bufferCount, &BytesRecv, &Flags, &st->e[OP_READ].lp, NULL);
 #ifndef NDEBUG
 		//klog(KLOG_DEBUG,"addSocket st=%p,us=%p,op=%d,rc=%d,err=%d\n",s,us,op,rc,err);
 #endif
@@ -181,24 +183,26 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 static bool iocp_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	KBIT_SET(st->base.st_flags,STF_WRITE);
-	WSABUF recvBuf[MAX_IOVECT_COUNT];
-	memset(&recvBuf, 0, sizeof(recvBuf));
+	WSABUF recvBuf;
 	int bufferCount;
 	if (buffer) {
-		bufferCount = buffer(st->data,arg, recvBuf, MAX_IOVECT_COUNT);
-		kassert(recvBuf[0].len > 0);
+		bufferCount = buffer->iov_len;
+		buffer = (kgl_iovec *)buffer->iov_base;
+		kassert(buffer->iov_len > 0);
 	} else {
+		memset(&recvBuf, 0, sizeof(WSABUF));
 		bufferCount = 1;
+		buffer = &recvBuf;
 	}
 	//printf("iocp write bc=[%d],data_len=[%d]\n", bufferCount,recvBuf[0].len);
 	DWORD BytesRecv = 0;
 	DWORD Flags = 0;
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	st->e[OP_WRITE].buffer = buffer;
+	//st->e[OP_WRITE].buffer = buffer;
 	assert(st->base.selector == selector);
 	assert(KBIT_TEST(st->base.st_flags, STF_IOCP_BINDED));
-	int rc = WSASend(st->fd, recvBuf, bufferCount, &BytesRecv, Flags, &st->e[OP_WRITE].lp, NULL);
+	int rc = WSASend(st->fd, buffer, bufferCount, &BytesRecv, Flags, &st->e[OP_WRITE].lp, NULL);
 #ifndef NDEBUG
 	//klog(KLOG_DEBUG,"addSocket st=%p,rc=%d\n",st,rc);
 #endif
@@ -214,19 +218,17 @@ static bool iocp_selector_write(kselector *selector, kselectable *st, result_cal
 	}
 	return true;
 }
-static bool iocp_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
+static bool iocp_selector_connect(kselector *selector, kselectable *st, result_callback result, struct sockaddr* addr, void *arg)
 {
 	//printf("connection st=[%p]\n", st);
 	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE) == 0);
-	WSABUF addr_buf;
-	st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &addr_buf, 1);
 	KBIT_SET(st->base.st_flags,STF_WRITE);
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	st->e[OP_WRITE].buffer = NULL;
+	//st->e[OP_WRITE].buffer = NULL;
 	//CreateIoCompletionPort((HANDLE)st->fd, selector->ctx, (ULONG_PTR)st, 0);
 	DWORD BytesRecv = 0;
-	int rc = lpfnConnectEx(st->fd, (struct sockaddr *)addr_buf.buf, addr_buf.len, NULL, 0, &BytesRecv, &st->e[OP_WRITE].lp);
+	int rc = lpfnConnectEx(st->fd, addr, ksocket_addr_len((const sockaddr_i *)addr), NULL, 0, &BytesRecv, &st->e[OP_WRITE].lp);
 	if (rc == FALSE) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
@@ -278,11 +280,11 @@ static void iocp_selector_next(kselector *selector, KOPAQUE data, result_callbac
 
 	next_st->e[OP_READ].arg = next_st;
 	next_st->e[OP_READ].result = next_call_back;
-	next_st->e[OP_READ].buffer = NULL;
+	//next_st->e[OP_READ].buffer = NULL;
 
 	next_st->e[OP_WRITE].arg = arg;
 	next_st->e[OP_WRITE].result = result;
-	next_st->e[OP_WRITE].buffer = NULL;
+	//next_st->e[OP_WRITE].buffer = NULL;
 	if (!PostQueuedCompletionStatus(selector->ctx, got, (ULONG_PTR)next_st, &next_st->e[OP_READ].lp)) {
 		KBIT_CLR(next_st->base.st_flags, STF_READ);
 		xfree(next_st);
@@ -309,7 +311,7 @@ bool iocp_selector_aio_write(kasync_file *file, result_callback result, const ch
 	assert(KBIT_TEST(file->st.base.st_flags, STF_WRITE|STF_READ)==0);	
 	file->st.e[OP_WRITE].result = result;
 	file->st.e[OP_WRITE].arg = arg;
-	file->st.e[OP_WRITE].buffer = NULL;
+	//file->st.e[OP_WRITE].buffer = NULL;
 #ifndef KF_ASYNC_WORKER
 	KBIT_SET(file->st.base.st_flags, STF_WRITE);
 	DWORD bytesWrite;
@@ -336,7 +338,7 @@ bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf
 	assert(KBIT_TEST(file->st.base.st_flags, STF_WRITE | STF_READ) == 0);	
 	file->st.e[OP_READ].result = result;
 	file->st.e[OP_READ].arg = arg;
-	file->st.e[OP_READ].buffer = NULL;
+	//file->st.e[OP_READ].buffer = NULL;
 #ifndef KF_ASYNC_WORKER
 	KBIT_SET(file->st.base.st_flags, STF_READ);
 	LARGE_INTEGER *li = (LARGE_INTEGER *)&file->st.e[OP_READ].lp.Pointer;
@@ -369,12 +371,10 @@ bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_call
 	DWORD Flags = 0;
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	WSABUF bufs;
-	buffer(st->data, arg, &bufs, 1);
-	kasync_file* file = (kasync_file *)bufs.iov_base;
+	kasync_file* file = (kasync_file *)buffer->iov_base;
 	LARGE_INTEGER* li = (LARGE_INTEGER*)&st->e[OP_WRITE].lp.Pointer;
 	li->QuadPart = file->st.offset;
-	int rc = lpfnTransmitFile(st->fd, kasync_file_get_handle(file), bufs.iov_len, 0, &st->e[OP_WRITE].lp, NULL, 0);
+	int rc = lpfnTransmitFile(st->fd, kasync_file_get_handle(file), buffer->iov_len, 0, &st->e[OP_WRITE].lp, NULL, 0);
 	if (rc == FALSE) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {

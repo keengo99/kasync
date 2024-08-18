@@ -50,42 +50,11 @@
 
 KBEGIN_DECLS
 
-typedef void(*kgl_void_f)();
 typedef struct
 {
 	void* arg;
-	union
-	{
-		result_callback result;
-		kgl_void_f void_result;
-	};
-	union
-	{
-		buffer_callback buffer;
-		kgl_void_f void_buffer;
-	};
-} kgl_app_event;
-
-typedef struct
-{
-	kgl_app_event ev;
-	void* arg;
-} kgl_stack_context;
-
-typedef struct
-{
-
-	struct
-	{
-		void* arg;
-		result_callback result;
-		union
-		{
-			buffer_callback buffer;
-			void* buffer_ctx;
-		};
-	};
-
+	result_callback result;
+	kgl_iovec* buffer;
 #ifdef _WIN32
 	WSAOVERLAPPED lp;
 #endif
@@ -167,15 +136,16 @@ INLINE bool selectable_support_sendfile(kselectable* st) {
 }
 void selectable_next_read(kselectable* st, result_callback result, void* arg);
 void selectable_next_write(kselectable* st, result_callback result, void* arg);
-
-kev_result selectable_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-kev_result selectable_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+/**
+* selectable_read & selectable_write
+* buffer->iov_base store real struct iovec
+* buffer->iov_len store count of struct iovec
+* and buffer must be available until result callback.
+*/
+kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
+kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
 bool selectable_readhup(kselectable* st, result_callback result, void* arg);
 void selectable_remove_readhup(kselectable* st);
-
-
 void selectable_shutdown(kselectable* st);
 INLINE void selectable_clear_flags(kselectable* st, uint16_t flags) {
 	KBIT_CLR(st->base.st_flags, flags);
