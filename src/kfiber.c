@@ -580,7 +580,7 @@ int kfiber_net_writev2(kfiber *fiber, kconnection * cn, kgl_iovec* buf, int bc) 
 	iovec_buf.iov_base = (char*)buf;
 	iovec_buf.iov_len = bc;
 #ifndef KGL_IOCP
-	if (!selectable_get_ssl(cn->st) && KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
+	if (!selectable_get_ssl(&cn->st) && KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
 		if (kev_fiber_ok != selectable_event_write(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
 			__kfiber_wait(fiber, cn->st.data);
 		}

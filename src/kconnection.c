@@ -23,15 +23,6 @@ static kev_result ssl_handshake_result(kconnection_ssl_param *sh, bool result)
 	return ret;
 }
 #endif
-
-int kconnection_buffer_addr(KOPAQUE data, void *arg, WSABUF *buffer, int bc)
-{
-	kconnection* c = kgl_list_data(arg, kconnection, st);
-	buffer[0].iov_base = (char *)&c->addr;
-	buffer[0].iov_len = ksocket_addr_len(&c->addr);
-	return 1;
-}
-
 kconnection* kconnection_internal_new()
 {
 	kconnection* c = (kconnection*)xmalloc(sizeof(kconnection));
@@ -123,7 +114,7 @@ bool kconnection_half_connect(kconnection *c, sockaddr_i *bind_addr, int tproxy_
 kev_result kconnection_connect(kconnection *c,result_callback cb, void *arg)
 {
 	assert(kselector_is_same_thread(c->st.base.selector));
-	if (!kgl_selector_module.connect(c->st.base.selector, &c->st, cb, (struct sockaddr *)&c->addr, arg)) {
+	if (!kgl_selector_module.connect(c->st.base.selector, &c->st, cb, arg)) {
 		return cb(c->st.data, arg, -1);
 	}
 	return kev_ok;

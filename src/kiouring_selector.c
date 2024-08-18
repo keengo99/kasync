@@ -27,8 +27,6 @@ static unsigned URING_MASK;
 typedef struct {
     struct io_uring ring;
 	kepoll_notice_selectable notice_st;
-	WSABUF bufs[URING_COUNT][MAX_IOVECT_COUNT];
-	unsigned buf_index;
 } kiouring_selector;
 
 static kev_result iouring_sendfile_result(iouring_sendfile *sf,int got, bool final_result) {
@@ -63,18 +61,6 @@ static kev_result iouring_sendfile_file_result(KOPAQUE data, void *arg,int got) 
 	close(sf->pipe[1]);
 	sf->pipe[1] = -1;
 	return iouring_sendfile_result(sf,got,false);
-}
-static int null_buffer(KOPAQUE data, void *arg,LPWSABUF buf,int bc)
-{
-	//never go here;
-	assert(false);
-	return 0;
-}
-WSABUF *kiouring_get_bufs(kiouring_selector *cs)
-{
-	WSABUF *bufs = cs->bufs[cs->buf_index & URING_MASK];
-	cs->buf_index++;
-	return bufs;
 }
 static struct io_uring_sqe *kiouring_get_seq(struct io_uring *ring)
 {
@@ -247,14 +233,11 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 	if (sqe==NULL) {
 		return false;
 	}
+	e->buffer = buffer;
 	if (buffer) {
-		e->buffer = buffer;
-		WSABUF *bufs = kiouring_get_bufs(cs);
-		int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-		io_uring_prep_readv(sqe,st->fd,bufs,bc,0);
+		io_uring_prep_readv(sqe,st->fd,(struct iovec *)buffer->iov_base,buffer->iov_len,0);
 	} else {
-		e->buffer = null_buffer;
-		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
+		io_uring_prep_poll_add(sqe, st->fd, POLLIN);
 	}	
 prepare_done:
 	KBIT_SET(st->base.st_flags,STF_READ);
@@ -291,14 +274,10 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 	if (sqe==NULL) {
 		return false;
 	}
+	e->buffer = buffer;
 	if (buffer) {
-		e->buffer = buffer;
-		WSABUF *bufs = kiouring_get_bufs(cs);
-		int bc = buffer(st->data, arg, bufs, MAX_IOVECT_COUNT);
-		kassert(bufs[0].iov_len > 0);
-		io_uring_prep_writev(sqe,st->fd,bufs,bc,0);
+		io_uring_prep_writev(sqe,st->fd,(struct iovec *)buffer->iov_base,buffer->iov_len,0);
 	} else {
-		e->buffer = null_buffer;
 		io_uring_prep_poll_add(sqe, st->fd,POLLOUT);
 	}	
 prepare_done:
@@ -331,10 +310,7 @@ bool iouring_selector_aio_write(kasync_file *file, result_callback result, const
 	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
-	WSABUF *bufs = kiouring_get_bufs(cs);
-	bufs[0].iov_base = (void *)buf;
-	bufs[0].iov_len = length;
-	io_uring_prep_writev(sqe,st->fd,bufs,1,file->st.offset);
+	io_uring_prep_write(sqe,st->fd,buf,length,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
 	KBIT_SET(st->base.st_flags, STF_WRITE);
 	return true;
@@ -353,10 +329,7 @@ bool iouring_selector_aio_read(kasync_file *file, result_callback result, char *
 	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
-	WSABUF *bufs = kiouring_get_bufs(cs);
-	bufs[0].iov_base = buf;
-	bufs[0].iov_len = length;
-	io_uring_prep_readv(sqe,st->fd,bufs,1,file->st.offset);
+	io_uring_prep_read(sqe,st->fd,buf,length,file->st.offset);
 	io_uring_sqe_set_data(sqe, e);
 	KBIT_SET(st->base.st_flags,STF_READ);
 	return true;
@@ -370,15 +343,14 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	if (sqe==NULL) {
 		return false;
 	}
-	WSABUF addr_buf;
-	st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, &addr_buf, 1);
+	kconnection* c = kgl_list_data(st, kconnection, st);
 	KBIT_SET(st->base.st_flags,STF_WRITE);
 	kgl_event *e = &st->e[OP_WRITE];
 	e->arg = arg;
 	e->result = result;
 	e->buffer = NULL;
 	e->st = st;
-	io_uring_prep_connect(sqe, st->fd,(struct sockaddr *)addr_buf.iov_base,(socklen_t)addr_buf.iov_len);
+	io_uring_prep_connect(sqe, st->fd,(struct sockaddr *)&c->addr,(socklen_t)ksocket_addr_len(&c->addr));
 	io_uring_sqe_set_data(sqe, e);
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
@@ -442,7 +414,7 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 		kselector_remove_list(selector,st);
 	}
 	
-	if (got>0 && e->buffer==null_buffer) {
+	if (got>0 && e->buffer==NULL) {
 		/*
 		* if pollout/pollin success. 
 		* reset got=0, let the behavior be same as epoll/iocp/kqueue
@@ -536,7 +508,6 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 		}
 		io_uring_prep_poll_add(sqe, st->fd, POLLOUT);
 	} else {
-		WSABUF bufs;
 		sqe = kiouring_get_seq(&cs->ring);
 		if (unlikely(sqe==NULL)) {
 			return false;
@@ -547,9 +518,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 			xfree(sf);
 			return false;
 		}
-		buffer(st->data, arg, &bufs, 1);
-		kassert(bufs.iov_len > 0);
-		kasync_file *file = (kasync_file *)bufs.iov_base;
+		kasync_file *file = (kasync_file *)buffer->iov_base;
 		sf->st = st;
 		sf->file = file;
 		sf->refs=1;
@@ -563,7 +532,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 		e->arg = sf;
 		e->result = iouring_sendfile_file_result;
 		e->st = &file->st;
-		io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,bufs.iov_len,0);
+		io_uring_prep_splice(sqe,file->st.fd,file->st.offset,sf->pipe[1],-1,buffer->iov_len,0);
 		io_uring_sqe_set_data(sqe, e);
 		KBIT_SET(file->st.base.st_flags,STF_READ);
 		/* splice pipe to socket */
@@ -577,7 +546,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 		e->arg = sf;
 		e->result = iouring_sendfile_selectable_result;
 		e->st = st;
-		io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,bufs.iov_len,0);
+		io_uring_prep_splice(sqe,sf->pipe[0],-1,st->fd,-1,buffer->iov_len,0);
 		KBIT_SET(st->base.st_flags,STF_WRITE);
 	}
 	io_uring_sqe_set_data(sqe, e);

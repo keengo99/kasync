@@ -218,17 +218,16 @@ static bool iocp_selector_write(kselector *selector, kselectable *st, result_cal
 	}
 	return true;
 }
-static bool iocp_selector_connect(kselector *selector, kselectable *st, result_callback result, struct sockaddr* addr, void *arg)
+static bool iocp_selector_connect(kselector *selector, kselectable *st, result_callback result, void *arg)
 {
 	//printf("connection st=[%p]\n", st);
+	kconnection* c = kgl_list_data(st, kconnection, st);
 	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE) == 0);
 	KBIT_SET(st->base.st_flags,STF_WRITE);
 	st->e[OP_WRITE].arg = arg;
 	st->e[OP_WRITE].result = result;
-	//st->e[OP_WRITE].buffer = NULL;
-	//CreateIoCompletionPort((HANDLE)st->fd, selector->ctx, (ULONG_PTR)st, 0);
 	DWORD BytesRecv = 0;
-	int rc = lpfnConnectEx(st->fd, addr, ksocket_addr_len((const sockaddr_i *)addr), NULL, 0, &BytesRecv, &st->e[OP_WRITE].lp);
+	int rc = lpfnConnectEx(st->fd, (struct sockaddr*)&c->addr, ksocket_addr_len(&c->addr), NULL, 0, &BytesRecv, &st->e[OP_WRITE].lp);
 	if (rc == FALSE) {
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {

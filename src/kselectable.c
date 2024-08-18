@@ -190,16 +190,12 @@ void selectable_shutdown(kselectable* st)
 int selectable_recvmsg(kselectable* st)
 {
 	kconnection* c = kgl_list_data(st, kconnection, st);
-	WSABUF bufs[16];
-	WSABUF addr;
-	int bc = st->e[OP_READ].buffer(st->data, st->e[OP_READ].arg, bufs, 16);
-	kconnection_buffer_addr(st->data, st, &addr, 1);
 	struct msghdr msg;
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = (struct sockaddr*)addr.iov_base;
-	msg.msg_namelen = addr.iov_len;
-	msg.msg_iov = bufs;
-	msg.msg_iovlen = bc;
+	msg.msg_name = (struct sockaddr*)&c->addr;
+	msg.msg_namelen = ksocket_addr_len((sockaddr_i *)msg.msg_name);
+	msg.msg_iov = (struct iovec *)st->e[OP_READ].buffer->iov_base;
+	msg.msg_iovlen = st->e[OP_READ].buffer->iov_len;
 	msg.msg_control = c->udp->pktinfo;
 	if (c->udp) {
 		memset(c->udp, 0, sizeof(kudp_extend));
@@ -456,9 +452,7 @@ kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *
 }
 #ifndef _WIN32
 kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
-	WSABUF bufs;
-	buffer(st->data,arg,&bufs,1);
-	kasync_file *file = (kasync_file *)bufs.iov_base;
+	kasync_file *file = (kasync_file *)buffer->iov_base;
 	off_t offset = file->st.offset;
 	assert(sizeof(off_t)==sizeof(int64_t));
 	int got = -1;
@@ -470,7 +464,7 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	if (st->ssl) {
 		assert(kgl_ssl_support_sendfile(st->ssl));
 #if defined(BIO_get_ktls_send)
-		got = SSL_sendfile(st->ssl->ssl,file->st.fd,offset,bufs.iov_len,0);
+		got = SSL_sendfile(st->ssl->ssl,file->st.fd,offset,buffer->iov_len,0);
 		if (got>=0) {
 			return result(st->data, arg, got);
 		}
@@ -487,7 +481,7 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 #endif
 
 #ifdef LINUX
-	got = sendfile(st->fd,file->st.fd, &offset, bufs.iov_len);
+	got = sendfile(st->fd,file->st.fd, &offset, buffer->iov_len);
 	if (got >= 0) {
 		return result(st->data, arg, got);
 	}

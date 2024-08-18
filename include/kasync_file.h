@@ -84,8 +84,10 @@ INLINE int kasync_file_adjust_result(kasync_file *fp,int got)
 }
 bool kasync_file_direct(kasync_file *fp, bool on_flag);
 #else
-#define kasync_file_direct(x,y) true
-#define kasync_file_adjust_result(file,got) got
+INLINE bool kasync_file_direct(kasync_file *fp, bool on_flag) {
+	return true;
+}
+#define kasync_file_adjust_result(file,got) (got)
 #define _kasync_file_get_adjust_offset(file) (file->st.offset)
 #endif
 KEND_DECLS
