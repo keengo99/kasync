@@ -593,7 +593,6 @@ kev_result selectable_event_read(kselectable* st, result_callback result, buffer
 #ifdef ENABLE_KSSL_BIO
 	} else {
 		return selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
-	}
 #endif
 	}
 	if (unlikely(buffer == NULL)) {
