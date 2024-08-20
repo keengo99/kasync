@@ -46,7 +46,7 @@ static volatile int32_t fiber_count = 0;
 pthread_key_t kgl_main_fiber_key;
 pthread_key_t kgl_current_fiber_key;
 
-static void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
+static INLINE void kfiber_next_call(kfiber* fiber, result_callback cb, int got, bool same_thread) {
 	if (same_thread) {
 		assert(fiber->base.selector == kgl_get_tls_selector());
 		//assert(fiber->start_called == 1);
@@ -110,16 +110,12 @@ static void kfiber_destroy(kfiber* fiber) {
 	xfree(fiber);
 	katom_dec((void*)&fiber_count);
 }
-void kfiber_set_self(kfiber* thread) {
+INLINE void kfiber_set_self(kfiber* thread) {
 	pthread_setspecific(kgl_current_fiber_key, thread);
 }
-kfiber* kfiber_self() {
-	return (kfiber*)pthread_getspecific(kgl_current_fiber_key);
-}
 #ifdef ENABLE_FCONTEXT
-static transfer_t update_fcontext(transfer_t rt) {
+static INLINE void update_fcontext(transfer_t rt) {
 	((kfiber*)rt.data)->ctx = rt.fctx;
-	return rt;
 }
 #endif
 void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
@@ -130,7 +126,7 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
 	//kgl_get_stack_trace(fiber_to->sp);
 #endif
 #ifdef ENABLE_FCONTEXT
-	ontop_fcontext(fiber_to->ctx, fiber_from, update_fcontext);	
+	update_fcontext(jump_fcontext(fiber_to->ctx, fiber_from));
 #else
 #ifdef _WIN32
 	assert(GetCurrentFiber() == fiber_from->ctx);
@@ -151,58 +147,6 @@ void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to) {
 	assert(kfiber_self() == fiber_from);
 }
 
-int __kfiber_wait(kfiber* fiber, void* obj) {
-	kassert(fiber->switch_from);
-	kassert(fiber == kfiber_self());
-#ifndef NDEBUG
-	if (fiber->notice_flag) {
-		assert(fiber->wait_code == KFIBER_WAIT_CODE(obj));
-		if (KFIBER_WAIT_CODE(obj) != fiber->wait_code) {
-			klog(KLOG_ERR, "BUG __kfiber_wait fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
-			abort();
-		}
-	} else {
-		fiber->wait_code = KFIBER_WAIT_CODE(obj);
-	}
-	fiber->wait_flag = 1;
-#endif
-	__kfiber_switch(fiber, fiber->switch_from);
-	return fiber->retval;
-}
-int kfiber_wait(void* obj) {
-	kfiber* fiber = kfiber_self();
-#ifndef NDEBUG
-	fiber->wait_notice_flag = 0;
-#endif
-	return __kfiber_wait(fiber, obj);
-}
-void kfiber_wakeup(kfiber* fiber, void* obj, int ret) {
-	kfiber* fiber_from = kfiber_self();
-	kassert(fiber_from);
-	kassert(fiber_from->base.selector);
-	kassert(fiber->base.selector);
-	kassert(fiber_from->base.selector == fiber->base.selector);
-#ifndef NDEBUG
-	if (fiber->wait_flag) {
-		kassert(KFIBER_WAIT_CODE(obj) == fiber->wait_code);
-		if (KFIBER_WAIT_CODE(obj) != fiber->wait_code) {
-			klog(KLOG_ERR, "BUG wakeup fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
-			abort();
-		}
-	} else {
-		fiber->wait_code = KFIBER_WAIT_CODE(obj);
-	}
-	fiber->notice_flag = 1;
-#endif
-	fiber->retval = ret;
-	if (fiber_from == fiber) {
-		return;
-	}
-	assert(fiber_from != fiber);
-	fiber->switch_from = fiber_from;
-	__kfiber_switch(fiber_from, fiber);
-}
-
 static void kfiber_release(kfiber* fiber) {
 	if (katom_dec((void*)&fiber->base.ref) == 0) {
 		kfiber_destroy(fiber);
@@ -219,7 +163,7 @@ static kev_result result_fiber_exit(KOPAQUE data, void* arg, int got) {
 	return kev_ok;
 }
 
-static void kfiber_exit(kfiber* fiber, int retval) {
+static INLINE void kfiber_exit(kfiber* fiber, int retval) {
 #ifndef NDEBUG
 	fiber->wait_notice_flag = 0;
 #endif
@@ -228,6 +172,7 @@ static void kfiber_exit(kfiber* fiber, int retval) {
 }
 #ifdef ENABLE_FCONTEXT
 static void fiber_start(transfer_t rt) {
+	update_fcontext(rt);
 	kfiber* fiber = kfiber_self();
 #else
 #ifdef _WIN32
@@ -238,12 +183,6 @@ static void WINAPI fiber_start(void* arg) {
 static void fiber_start() {
 	kfiber* fiber = kfiber_self();
 #endif
-#endif
-#if 0
-	while (!fiber->start_called) {
-		fiber->start_called = 1;
-		result = fiber->start(fiber->arg, fiber->retval);
-	}
 #endif
 	fiber->start_called = 1;
 	kfiber_exit(fiber, fiber->start(fiber->arg, fiber->retval));

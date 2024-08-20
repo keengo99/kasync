@@ -12,8 +12,9 @@
 
 KBEGIN_DECLS
 #define _ST_PAGE_SIZE 4096
+#define KFIBER_WAIT_CODE(obj) obj
 
-
+extern pthread_key_t kgl_current_fiber_key;
 typedef kasync_file kfiber_file;
 
 
@@ -35,8 +36,9 @@ int kfiber_create_sync(kfiber_start_func start, void* start_arg, int len, int st
 //kfiber next deprecated
 //bool kfiber_has_next();
 //int kfiber_next(kfiber_start_func start, void* start_arg, int len);
-kfiber *kfiber_self();
-
+INLINE kfiber* kfiber_self() {
+	return (kfiber*)pthread_getspecific(kgl_current_fiber_key);
+}
 kfiber *kfiber_ref_self(bool thread_safe);
 
 
@@ -47,10 +49,59 @@ kev_result kfiber_join2(kfiber *fiber, KOPAQUE data, result_callback notice, voi
 int kfiber_exit_callback(KOPAQUE data, result_callback notice, void *arg);
 bool kfiber_is_main();
 int kfiber_msleep(int msec);
-void kfiber_wakeup(kfiber *fiber,void *obj, int retval);
+void __kfiber_switch(kfiber* fiber_from, kfiber* fiber_to);
+INLINE void kfiber_wakeup(kfiber* fiber, void* obj, int ret) {
+	kfiber* fiber_from = kfiber_self();
+	kassert(fiber_from);
+	kassert(fiber_from->base.selector);
+	kassert(fiber->base.selector);
+	kassert(fiber_from->base.selector == fiber->base.selector);
+#ifndef NDEBUG
+	if (fiber->wait_flag) {
+		kassert(KFIBER_WAIT_CODE(obj) == fiber->wait_code);
+		if (KFIBER_WAIT_CODE(obj) != fiber->wait_code) {
+			//klog(KLOG_ERR, "BUG wakeup fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
+			abort();
+		}
+	} else {
+		fiber->wait_code = KFIBER_WAIT_CODE(obj);
+	}
+	fiber->notice_flag = 1;
+#endif
+	fiber->retval = ret;
+	if (fiber_from == fiber) {
+		return;
+	}
+	assert(fiber_from != fiber);
+	fiber->switch_from = fiber_from;
+	__kfiber_switch(fiber_from, fiber);
+}
 void kfiber_wakeup_ts(kfiber* fiber, void* obj, int retval);
-int kfiber_wait(void *obj);
-int __kfiber_wait(kfiber *fiber, void* obj);
+INLINE int __kfiber_wait(kfiber* fiber, void* obj) {
+	kassert(fiber->switch_from);
+	kassert(fiber == kfiber_self());
+#ifndef NDEBUG
+	if (fiber->notice_flag) {
+		assert(fiber->wait_code == KFIBER_WAIT_CODE(obj));
+		if (KFIBER_WAIT_CODE(obj) != fiber->wait_code) {
+			//klog(KLOG_ERR, "BUG __kfiber_wait fiber=[%p] not expected,wakeup code=[%p], wait code=[%p]\n", fiber, KFIBER_WAIT_CODE(obj), fiber->wait_code);
+			abort();
+		}
+	} else {
+		fiber->wait_code = KFIBER_WAIT_CODE(obj);
+	}
+	fiber->wait_flag = 1;
+#endif
+	__kfiber_switch(fiber, fiber->switch_from);
+	return fiber->retval;
+}
+INLINE int kfiber_wait(void* obj) {
+	kfiber* fiber = kfiber_self();
+#ifndef NDEBUG
+	fiber->wait_notice_flag = 0;
+#endif
+	return __kfiber_wait(fiber, obj);
+}
 
 INLINE void _kfiber_wakeup_waiter(kfiber_waiter* waiter, void *obj, int got) {
 	if (waiter->st_flags == STF_FIBER) {
