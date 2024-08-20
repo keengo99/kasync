@@ -552,13 +552,6 @@ int kfiber_net_readv2(kfiber *fiber, kconnection* cn, kgl_iovec* buf, int bc) {
 	}
 	return fiber->retval;
 }
-int kfiber_net_read(kconnection * cn, char* buf, int len) {
-	kgl_iovec v;
-	v.iov_base = (char*)buf;
-	v.iov_len = len;
-	return kfiber_net_readv(cn, &v, 1);
-}
-
 static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {	
 	kasync_file* file = (kasync_file*)arg;
 	if (got > 0) {

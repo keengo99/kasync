@@ -63,20 +63,6 @@ void krw_buffer_init(krw_buffer* rw_buffer, int chunk_size) {
 	memset(rw_buffer, 0, sizeof(krw_buffer));
 	rw_buffer->chunk_size = chunk_size;
 }
-void ks_buffer_init(ks_buffer* buf, int buf_size) {
-	memset(buf, 0, sizeof(ks_buffer));
-	buf->buf = (char*)xmalloc(buf_size);
-	buf->buf_size = buf_size;
-}
-ks_buffer* ks_buffer_new(int chunk_size) {
-	ks_buffer* b = (ks_buffer*)xmalloc(sizeof(ks_buffer));
-	ks_buffer_init(b, chunk_size);
-	return b;
-}
-void ks_buffer_destroy(ks_buffer* buf) {
-	ks_buffer_clean(buf);
-	xfree(buf);
-}
 void ks_save_point(ks_buffer* buf, const char* hot) {
 	kassert(buf->buf_size > 0);
 	assert(hot >= buf->buf);
@@ -248,9 +234,6 @@ bool ks_guarantee(ks_buffer* buf, int len) {
 	buf->buf = n;
 	return true;
 }
-void ks_write_success(ks_buffer* buf, int got) {
-	buf->used += got;
-}
 bool ks_write_str(ks_buffer* buf, const char* str, int len) {
 	if (!ks_guarantee(buf, len)) {
 		return false;
@@ -270,25 +253,6 @@ void ks_write_int64(ks_buffer* buf, int64_t val) {
 	memset(tbuf, 0, sizeof(tbuf));
 	int len = snprintf(tbuf, sizeof(tbuf), "%" PRId64, (INT64)val);
 	ks_write_str(buf, tbuf, len);
-}
-
-char* ks_get_write_buffer(ks_buffer* buf, int* len) {
-	kassert(buf->buf_size > 0);
-	for (;;) {
-		int left = buf->buf_size - buf->used;
-		if (left <= 0) {
-			int new_size = buf->buf_size * 2;
-			new_size = kgl_align(new_size, 1024);
-			buf->buf_size = new_size;
-			char* n = (char*)xmalloc(buf->buf_size);
-			kgl_memcpy(n, buf->buf, buf->used);
-			xfree(buf->buf);
-			buf->buf = n;
-			continue;
-		}
-		*len = left;
-		return buf->buf + buf->used;
-	}
 }
 char* ks_get_read_buffer(ks_buffer* buf, int* len) {
 	WSABUF buffer;

@@ -71,18 +71,49 @@ typedef struct {
 	int used;
 } ks_buffer;
 
-void ks_buffer_init(ks_buffer *buf, int buf_size);
-ks_buffer *ks_buffer_new(int chunk_size);
-void ks_buffer_destroy(ks_buffer *buf);
+INLINE void ks_buffer_init(ks_buffer* buf, int buf_size) {
+	memset(buf, 0, sizeof(ks_buffer));
+	buf->buf = (char*)xmalloc(buf_size);
+	buf->buf_size = buf_size;
+}
+INLINE ks_buffer* ks_buffer_new(int chunk_size) {
+	ks_buffer* b = (ks_buffer*)xmalloc(sizeof(ks_buffer));
+	ks_buffer_init(b, chunk_size);
+	return b;
+}
+
 INLINE void ks_buffer_clean(ks_buffer *buf)
 {
 	xfree(buf->buf);
 }
-void ks_write_success(ks_buffer *buf, int got);
+INLINE void ks_write_success(ks_buffer *buf, int got) {
+	buf->used += got;
+}
+INLINE void ks_buffer_destroy(ks_buffer *buf) {
+	ks_buffer_clean(buf);
+	xfree(buf);
+}
 bool ks_write_str(ks_buffer *buf, const char *str, int len);
 void ks_write_int(ks_buffer *buf, int val);
 void ks_write_int64(ks_buffer *buf, int64_t val);
-char *ks_get_write_buffer(ks_buffer *buf, int *len);
+INLINE char *ks_get_write_buffer(ks_buffer *buf, int *len) {
+	kassert(buf->buf_size > 0);
+	for (;;) {
+		int left = buf->buf_size - buf->used;
+		if (left <= 0) {
+			int new_size = buf->buf_size * 2;
+			new_size = kgl_align(new_size, 1024);
+			buf->buf_size = new_size;
+			char* n = (char*)xmalloc(buf->buf_size);
+			kgl_memcpy(n, buf->buf, buf->used);
+			xfree(buf->buf);
+			buf->buf = n;
+			continue;
+		}
+		*len = left;
+		return buf->buf + buf->used;
+	}
+}
 void ks_save_point(ks_buffer *buf, const char *hot);
 
 INLINE void ks_buffer_switch_read(ks_buffer *buf)

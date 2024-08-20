@@ -143,8 +143,6 @@ int kfiber_net_writev2(kfiber *fiber, kconnection * cn, kgl_iovec* buf,int bc);
 INLINE int kfiber_net_writev(kconnection *cn, kgl_iovec *buf, int bc) {
 	return kfiber_net_writev2(kfiber_self(), cn, buf, bc);
 }
-int kfiber_net_read(kconnection *cn, char *buf, int len);
-
 int kfiber_sendfile(kconnection* cn, kfiber_file* fp, int len);
 INLINE bool kfiber_sendfile_full(kconnection* cn, kfiber_file* fp, int* len) {
 	while (*len > 0) {
@@ -188,6 +186,17 @@ INLINE bool kfiber_net_write_full(kconnection *cn, const char *buf, int *len)
 	}
 	return true;
 }
+int kfiber_net_readv2(kfiber *fiber, kconnection *cn, kgl_iovec *buf,int bc);
+INLINE int kfiber_net_readv(kconnection * cn, kgl_iovec* buf,int bc) {
+	return kfiber_net_readv2(kfiber_self(), cn, buf, bc);
+}
+
+INLINE int kfiber_net_read(kconnection *cn, char *buf, int len) {
+	kgl_iovec v;
+	v.iov_base = (char*)buf;
+	v.iov_len = len;
+	return kfiber_net_readv(cn, &v, 1);
+}
 INLINE bool kfiber_net_read_full(kconnection *cn, char *buf, int *len)
 {
 	while (*len > 0) {
@@ -199,10 +208,6 @@ INLINE bool kfiber_net_read_full(kconnection *cn, char *buf, int *len)
 		*len -= got;
 	}
 	return true;
-}
-int kfiber_net_readv2(kfiber *fiber, kconnection *cn, kgl_iovec *buf,int bc);
-INLINE int kfiber_net_readv(kconnection * cn, kgl_iovec* buf,int bc) {
-	return kfiber_net_readv2(kfiber_self(), cn, buf, bc);
 }
 int kfiber_net_close(kconnection *cn);
 int kfiber_net_shutdown(kconnection *cn);
