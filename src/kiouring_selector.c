@@ -28,7 +28,7 @@ typedef struct {
     struct io_uring ring;
 	kepoll_notice_selectable notice_st;
 } kiouring_selector;
-
+static kgl_iovec null_buffer;
 static kev_result iouring_sendfile_result(iouring_sendfile *sf,int got, bool final_result) {
 	if (final_result) {
 		sf->got = got;
@@ -233,10 +233,11 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 	if (sqe==NULL) {
 		return false;
 	}
-	e->buffer = buffer;
 	if (buffer) {
+		e->buffer = buffer;
 		io_uring_prep_readv(sqe,st->fd,(struct iovec *)buffer->iov_base,buffer->iov_len,0);
 	} else {
+		e->buffer = &null_buffer;
 		io_uring_prep_poll_add(sqe, st->fd, POLLIN);
 	}	
 prepare_done:
@@ -274,10 +275,11 @@ static bool iouring_selector_write(kselector *selector, kselectable *st, result_
 	if (sqe==NULL) {
 		return false;
 	}
-	e->buffer = buffer;
 	if (buffer) {
+		e->buffer = buffer;
 		io_uring_prep_writev(sqe,st->fd,(struct iovec *)buffer->iov_base,buffer->iov_len,0);
 	} else {
+		e->buffer = &null_buffer;
 		io_uring_prep_poll_add(sqe, st->fd,POLLOUT);
 	}	
 prepare_done:
@@ -355,45 +357,6 @@ static bool iouring_selector_connect(kselector *selector, kselectable *st, resul
 	kselector_add_list(selector,st, KGL_LIST_CONNECT);
 	return true;
 }
-#if 0
-static KASYNC_IO_RESULT iouring_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
-{
-	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
-	assert(KBIT_TEST(st->base.st_flags,STF_READ)==0);
-	struct io_uring_sqe *sqe;
-	kgl_event *e = &st->e[OP_READ];
-	e->arg = arg;
-	e->result = result;
-	e->st = st;
-	e->buffer = buffer;
-	assert(KBIT_TEST(st->base.st_flags,STF_UDP));
-	int got = selectable_recvmsg(st);
-	if (got>=0) {
-		return got;
-	}
-	switch (errno) {
-	case EAGAIN:
-		KBIT_SET(st->base.st_flags,STF_READ);
-		e->buffer = null_buffer;
-		sqe = kiouring_get_seq(&cs->ring);
-		if (sqe==NULL) {
-			KBIT_CLR(st->base.st_flags,STF_READ);
-			return KASYNC_IO_ERR_SYS;
-		}
-		io_uring_prep_poll_add(sqe, st->fd,POLLIN);
-		io_uring_sqe_set_data(sqe, e);
-		if (st->base.queue.next==NULL) {
-			kselector_add_list(selector,st,KGL_LIST_RW);
-		}
-		return KASYNC_IO_PENDING;
-	case EINTR:
-	case ENOMEM:
-		return KASYNC_IO_ERR_BUFFER;
-	default:
-		return KASYNC_IO_ERR_SYS;
-	}
-}
-#endif
 static void iouring_add_timeout(struct io_uring *ring,unsigned wait_nr,struct __kernel_timespec *ts)
 {
 	struct io_uring_sqe *sqe = kiouring_get_seq(ring);
@@ -414,7 +377,7 @@ static inline void handle_complete_event(kselector *selector,kgl_event *e,int go
 		kselector_remove_list(selector,st);
 	}
 	
-	if (got>0 && e->buffer==NULL) {
+	if (got>0 && e->buffer==&null_buffer) {
 		/*
 		* if pollout/pollin success. 
 		* reset got=0, let the behavior be same as epoll/iocp/kqueue
@@ -587,7 +550,8 @@ static kselector_module iouring_selector_module = {
 void kiouring_module_init()
 {
 	URING_MASK = URING_COUNT - 1;
-    kgl_selector_module = iouring_selector_module;
+	kgl_selector_module = iouring_selector_module;
+	memset(&null_buffer,0,sizeof(null_buffer));
 }
 #endif
 #endif
