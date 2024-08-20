@@ -86,10 +86,9 @@ static inline int kgl_ssl_readv(kssl_session* ssl, kgl_iovec* buffer, int bc)
 				if (n != SSL_READ_EARLY_DATA_SUCCESS) {
 					return got;
 				}
-				this_len = (int)read_bytes;
-				got += this_len;
-				len -= this_len;
-				hot += this_len;
+				got += (int)read_bytes;
+				len -= (int)read_bytes;
+				hot += (int)read_bytes;
 				continue;
 			}
 #endif
