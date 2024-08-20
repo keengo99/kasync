@@ -50,12 +50,11 @@ static int kgl_ssl_writev(kssl_session* ssl, WSABUF* buffer, int bc)
 #endif
 			int this_len = SSL_write(ssl->ssl, hot, len);
 			//printf("SSL_write try write=[%d] return [%d] got=[%d].\n", len,this_len,got);
-			if (this_len <= 0) {
-				return (got > 0 ? got : this_len);
+			if (this_len != len) {
+				return this_len > 0 ? got + this_len : (got > 0 ? got : this_len);
 			}
 			got += this_len;
-			len -= this_len;
-			hot += this_len;
+			break;
 		}
 	}
 	return got;
@@ -63,9 +62,7 @@ static int kgl_ssl_writev(kssl_session* ssl, WSABUF* buffer, int bc)
 static inline int kgl_ssl_readv(kssl_session* ssl, kgl_iovec* buffer, int bc)
 {
 	int got = 0;
-	int i = 0;
-	int this_len;
-	for (; i < bc; i++) {
+	for (int i = 0; i < bc; i++) {
 		u_char* hot = (u_char*)buffer[i].iov_base;
 		int len = buffer[i].iov_len;
 		while (len > 0) {
@@ -96,13 +93,12 @@ static inline int kgl_ssl_readv(kssl_session* ssl, kgl_iovec* buffer, int bc)
 				continue;
 			}
 #endif
-			this_len = SSL_read(ssl->ssl, hot, len);
-			if (this_len <= 0) {
-				return (got > 0 ? got : this_len);
+			int this_len = SSL_read(ssl->ssl, hot, len);
+			if (this_len != len) {
+				return this_len > 0 ? got + this_len : (got>0?got:this_len);
 			}
 			got += this_len;
-			len -= this_len;
-			hot += this_len;
+			break;
 		}
 	}
 	return got;
@@ -111,21 +107,18 @@ static inline int kgl_ssl_readv(kssl_session* ssl, kgl_iovec* buffer, int bc)
 #ifdef HAVE_WRITEV
 #define kgl_writev writev
 #else
+#ifndef _WIN32
+#error "If you be sure that system has no writev/readv please remove this line"
+#endif
 static inline int kgl_writev(SOCKET s, kgl_iovec * buffer, int bc)
 {
 	int got = 0;
 	for (int i = 0; i < bc; i++) {
-		char* hot = (char*)buffer[i].iov_base;
-		int len = buffer[i].iov_len;
-		while (len > 0) {
-			int this_len = send(s, hot, len, 0);
-			if (this_len <= 0) {
-				return (got > 0 ? got : this_len);
-			}
-			got += this_len;
-			len -= this_len;
-			hot += this_len;
+		int this_len = send(s, buffer[i].iov_base, buffer[i].iov_len, 0);
+		if (this_len != (int)buffer[i].iov_len) {
+			return this_len > 0 ? got + this_len : (got > 0 ? got : this_len);
 		}
+		got += this_len;
 	}
 	return got;
 }
@@ -137,17 +130,11 @@ static inline int kgl_readv(SOCKET s, kgl_iovec* buffer, int bc)
 {
 	int got = 0;
 	for (int i = 0; i < bc; i++) {
-		char* hot = (char*)buffer[i].iov_base;
-		int len = buffer[i].iov_len;
-		while (len > 0) {
-			int this_len = recv(s, hot, len, 0);
-			if (this_len <= 0) {
-				return (got > 0 ? got : this_len);
-			}
-			got += this_len;
-			len -= this_len;
-			hot += this_len;
+		int this_len = recv(s, buffer[i].iov_base, buffer[i].iov_len, 0);
+		if (this_len != (int)buffer[i].iov_len) {
+			return this_len > 0 ? got + this_len : (got > 0 ? got : this_len);
 		}
+		got += this_len;
 	}
 	return got;
 }

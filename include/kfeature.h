@@ -109,6 +109,15 @@ typedef struct
 	volatile  uint32_t ref;
 } kgl_ref_str_t;
 
+typedef struct kbuf_s kbuf;
+
+struct kbuf_s {
+	kbuf* next;
+	char* data;
+	int used;
+	uint32_t flags;
+};
+
 #ifdef _WIN32
 #pragma warning(disable : 4200)
 #endif

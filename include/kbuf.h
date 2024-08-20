@@ -6,19 +6,7 @@
 #include "kmalloc.h"
 KBEGIN_DECLS
 
-typedef struct kbuf_s kbuf;
 
-struct kbuf_s {
-	char *data;
-	kbuf *next;
-	int used;
-	union {
-		struct {
-			int skip_data_free : 1;
-		};
-		int flags;
-	};
-};
 INLINE kbuf* new_pool_kbuf_align(kgl_pool_t* pool, int len)
 {
 	kbuf* b = (kbuf*)kgl_pnalloc(pool, sizeof(kbuf));

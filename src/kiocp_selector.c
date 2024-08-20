@@ -275,7 +275,6 @@ static void iocp_selector_next(kselector *selector, KOPAQUE data, result_callbac
 	if (!PostQueuedCompletionStatus(selector->ctx, got, (ULONG_PTR)next_st, &next_st->e[OP_READ].lp)) {
 		KBIT_CLR(next_st->base.st_flags, STF_READ);
 		xfree(next_st);
-		perror("notice error");
 	}
 }
 

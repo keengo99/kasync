@@ -113,6 +113,8 @@ else()
     check_symbol_exists(accept4 sys/socket.h HAVE_ACCEPT4)
     check_symbol_exists(memalign malloc.h HAVE_MEMALIGN)
     check_symbol_exists(setmntent mntent.h HAVE_SETMNTENT)
+    check_symbol_exists(writev sys/uio.h HAVE_WRITEV)
+    check_symbol_exists(readv sys/uio.h HAVE_READV)
 endif()
     
 

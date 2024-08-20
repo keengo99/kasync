@@ -133,11 +133,12 @@ kev_result result_ssl_bio_read(KOPAQUE data, void *arg, int got)
 {
 	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)arg;
 	kssl_bio* ssl_bio = bio_buffer->bio;
-	xfree(bio_buffer);
-	krw_buffer *bb = (krw_buffer *)BIO_get_data(ssl_bio->bio);
 	if (got == ST_ERR_TIME_OUT) {
+		assert(KBIT_TEST(ssl_bio->st->base.st_flags, STF_READ));
 		return ssl_bio->result(data, ssl_bio->arg, got);
 	}
+	xfree(bio_buffer);
+	krw_buffer* bb = (krw_buffer*)BIO_get_data(ssl_bio->bio);
 	if (got <= 0) {
 		BIO_set_shutdown(ssl_bio->bio,1);
 	} else {
