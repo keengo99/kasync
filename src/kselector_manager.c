@@ -272,13 +272,8 @@ bool selector_manager_grow(int  new_size) {
 void selector_manager_init(int  size, bool register_thread_timer)
 {
 	if (kgl_selector_module.name == NULL) {
-		kselector_update_time();
-		pthread_key_create(&kgl_selector_key, NULL);
-		selector_module_create();
-		if (kgl_selector_module.name == NULL) {
-			fprintf(stderr, "kgl_selector_module init failed. forget call kasync_init?\n");
-			abort();
-		}
+		fprintf(stderr, "kgl_selector_module init failed. forget call kasync_init first?\n");
+		abort();
 	}
 	kgl_selector_count = kgl_pow2(size, 7);
 	kgl_selector_hash = kgl_selector_count - 1;
