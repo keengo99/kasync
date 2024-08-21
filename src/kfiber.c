@@ -98,9 +98,6 @@ static void kfiber_delete_context(kfiber* fiber) {
 	}
 #endif
 #endif
-#ifndef ENABLE_WIN_FIBER
-	kgl_align_free(fiber->stack);
-#endif
 }
 static void kfiber_destroy(kfiber* fiber) {
 	if (fiber->close_cond) {
@@ -184,7 +181,6 @@ static void fiber_start() {
 	kfiber* fiber = kfiber_self();
 #endif
 #endif
-	fiber->start_called = 1;
 	kfiber_exit(fiber, fiber->start(fiber->arg, fiber->retval));
 }
 kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
@@ -247,26 +243,24 @@ const char* kfiber_powered_by() {
 }
 kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	kfiber* fiber;
-	/* Adjust stack size */
+	int stk_page = stk_size / _ST_PAGE_SIZE;
+	stk_size = stk_page * _ST_PAGE_SIZE;
 	if (stk_size == 0) {
 		stk_size = ST_DEFAULT_STACK_SIZE;
 	}
-	int stk_page = stk_size / _ST_PAGE_SIZE;
-	stk_size = stk_page * _ST_PAGE_SIZE;
-
+#ifdef ENABLE_WIN_FIBER
 	fiber = (kfiber*)malloc(sizeof(kfiber));
-
+#else
+	fiber = (kfiber*)malloc(sizeof(kfiber) + stk_size + 2*KFIBER_REDZONE);
+#endif
 	memset(fiber, 0, sizeof(kfiber));
 	fiber->base.st_flags = STF_FIBER;
 	fiber->base.ref = 1;
 	fiber->start = start;
 	fiber->arg = start_arg;
-	fiber->stk_page = stk_page;
 #ifdef ENABLE_FCONTEXT
-	fiber->stack = kgl_memalign(4096, stk_size + 2 * KFIBER_REDZONE);
-	fiber->ctx = make_fcontext((char *)fiber->stack + KFIBER_REDZONE + stk_size, stk_size, fiber_start);
-#else
-#ifdef _WIN32
+	fiber->ctx = make_fcontext((char *)(fiber+1) + KFIBER_REDZONE + stk_size, stk_size, fiber_start);
+#elif ENABLE_WIN_FIBER
 	fiber->ctx = CreateFiber(stk_size, fiber_start, fiber);
 #else
 #ifndef DISABLE_KFIBER
@@ -274,24 +268,12 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 		xfree(fiber);
 		return NULL;
 	}
-	fiber->stack = kgl_memalign(4096, stk_size + 2 * KFIBER_REDZONE);
-	fiber->ctx.uc_stack.ss_sp = (char*)fiber->stack + KFIBER_REDZONE;
+	fiber->ctx.uc_stack.ss_sp = (char*)(fiber+1) + KFIBER_REDZONE;
 	fiber->ctx.uc_stack.ss_size = stk_size;
 	fiber->ctx.uc_link = NULL;
-#ifdef KFIBER_PROTECTED
-	if (mprotect(fiber->stack, KFIBER_REDZONE, PROT_NONE) != 0) {
-		printf("begin mprotect stack=[%p]\n", fiber->stack);
-		perror("mprotect");
-	}
-	if (mprotect((char*)(fiber->ctx.uc_stack.ss_sp) + stk_size, KFIBER_REDZONE, PROT_NONE) != 0) {
-		printf("end address=[%p]\n", (char*)(fiber->ctx.uc_stack.ss_sp) + stk_size);
-		perror("mprotect");
-	}
-#endif
 	kfiber_makecontext(&fiber->ctx, (void(*)(void))fiber_start, 0);
 #else
 	fprintf(stderr, "DISABLE_KFIBER is set ON.");
-#endif
 #endif
 #endif
 	katom_inc((void*)&fiber_count);

@@ -81,24 +81,7 @@ struct _kfiber_chan {
 
 struct _kfiber {
 	kgl_base_selectable base;	/* must at begin */
-	uint16_t stk_page;
-	volatile uint8_t start_called;
-#ifndef NDEBUG
-	union {
-		struct {
-			uint8_t wait_flag : 1;
-			uint8_t notice_flag : 1;
-		};
-		uint8_t wait_notice_flag;
-	};
-#endif
-	union {
-		volatile int start_arg;
-		volatile int retval;
-	};
-#ifndef NDEBUG
-	void *wait_code;//wait/wakeup be same.
-#endif
+	kfiber_context ctx;
 	//when a fiber exit/wait/yield will switch back to switch_from
 	//when a fiber wakeup will set self to target fiber->switch_from
 	kfiber * switch_from;
@@ -111,13 +94,25 @@ struct _kfiber {
 		int int_arg;
 		void* arg;
 	};
+	union {
+		int start_arg;
+		int retval;
+	};
+#ifndef NDEBUG
+	union {
+		struct {
+			uint8_t wait_flag : 1;
+			uint8_t notice_flag : 1;
+		};
+		uint8_t wait_notice_flag;
+	};
+#endif
+#ifndef NDEBUG
+	void* wait_code;//wait/wakeup be same.
+#endif
 #ifndef NDEBUG
 	//TRACEBACK sp;
 #endif
-#ifndef ENABLE_WIN_FIBER
-	void* stack;
-#endif
-	kfiber_context ctx;
 };
 kev_result kfiber_result_callback(KOPAQUE data, void* arg, int got);
 int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF * buf, int bc);
