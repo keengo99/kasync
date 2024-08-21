@@ -26,6 +26,13 @@ INLINE void klog(int level, const char* fmt, ...) {
 	va_end(ap);
 }
 void klog_init(kgl_vklog_callback kgl_vklog);
-void debug(const char *fmt, ...);
+INLINE void debug(const char* fmt, ...) {
+#ifndef NDEBUG	
+	va_list ap;
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	va_end(ap);
+#endif
+}
 KEND_DECLS
 #endif

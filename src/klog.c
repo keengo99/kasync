@@ -11,12 +11,3 @@ void klog_init(kgl_vklog_callback kgl_vklog)
 {
 	kgl_vklog_callback_f = kgl_vklog;
 }
-
-void debug(const char *fmt, ...) {
-#ifndef NDEBUG	
-	va_list ap;
-	va_start(ap, fmt);
-	vprintf(fmt, ap);
-	va_end(ap);
-#endif
-}
