@@ -121,7 +121,9 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 #else
 	int f = O_CLOEXEC;
 #ifdef O_NOATIME
-	KBIT_SET(f, O_NOATIME);
+	if (KBIT_TEST(flag, KFILE_NOATIME)) {
+		KBIT_SET(f, O_NOATIME);
+	}
 #endif
 #ifdef O_LARGEFILE
 	KBIT_SET(f, O_LARGEFILE);
@@ -156,7 +158,7 @@ FILE_HANDLE kfopen(const char *path, fileModel model, int flag)
 		f |= (O_RDWR | O_CREAT | O_TRUNC);
 		break;
 	}
-	return open(path, f , 0666);
+	return open(path, f , 0644);
 #endif
 }
 bool kfseek(FILE_HANDLE fp,int64_t len, seekPosion position)
