@@ -180,7 +180,7 @@ typedef struct kgl_cleanup_s kgl_cleanup_t;
 #define KFILE_NOFOLLOW         4
 #define KFILE_DSYNC            8
 #define KFILE_SEQUENTIAL       16
-
+#define KFILE_NOATIME          32
 typedef enum _seekPosion
 {
 	seekBegin,
