@@ -231,11 +231,11 @@ void kfiber_wakeup2(kselector * selector, kfiber * fiber, void* obj, int retval)
 const char* kfiber_powered_by() {
 #ifdef ENABLE_FCONTEXT
 	return "fcontext";
-#elif ENABLE_WIN_FIBER
+#elif defined(ENABLE_WIN_FIBER)
 	return "winfiber";
-#elif ENABLE_LIBUCONTEXT
+#elif defined(ENABLE_LIBUCONTEXT)
 	return "libucontext";
-#elif DISABLE_KFIBER
+#elif defined(DISABLE_KFIBER)
 	return "none";
 #else
 	return "ucontext";
@@ -260,7 +260,7 @@ kfiber* kfiber_new(kfiber_start_func start, void* start_arg, int stk_size) {
 	fiber->arg = start_arg;
 #ifdef ENABLE_FCONTEXT
 	fiber->ctx = make_fcontext((char *)(fiber+1) + KFIBER_REDZONE + stk_size, stk_size, fiber_start);
-#elif ENABLE_WIN_FIBER
+#elif defined(ENABLE_WIN_FIBER)
 	fiber->ctx = CreateFiber(stk_size, fiber_start, fiber);
 #else
 #ifndef DISABLE_KFIBER
@@ -344,25 +344,6 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg) {
 	}
 	return fiber->close_cond->f->wait_callback(fiber->close_cond, data, notice, arg);
 }
-
-#if 0
-bool kfiber_has_next() {
-	kfiber* fiber = kfiber_self();
-	//CHECK_FIBER(fiber);
-	return fiber->start_called == 0;
-}
-
-int kfiber_next(kfiber_start_func start, void* arg, int got) {
-	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
-	assert(fiber->start_called);
-	fiber->start = start;
-	fiber->arg = arg;
-	fiber->retval = got;
-	fiber->start_called = 0;
-	return 0;
-}
-#endif
 kfiber* kfiber_ref_self(bool thread_safe) {
 	kfiber* fiber = kfiber_self();
 	assert(fiber && !is_main_fiber(fiber));
