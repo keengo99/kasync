@@ -470,51 +470,7 @@ int kfiber_net_connect(kconnection * c, sockaddr_i * bind_addr, int tproxy_mask)
 	}
 	return fiber->retval;
 }
-int kfiber_net_write(kconnection * cn, const char* buf, int len) {
-	kgl_iovec v;
-	v.iov_base = (char *)buf;
-	v.iov_len = len;
-	return kfiber_net_writev(cn, &v, 1);
-}
-int kfiber_net_writev2(kfiber *fiber, kconnection * cn, kgl_iovec* buf, int bc) {
-	CHECK_FIBER(fiber);
-	kgl_iovec iovec_buf;
-	iovec_buf.iov_base = (char*)buf;
-	iovec_buf.iov_len = bc;
-#ifndef KGL_IOCP
-	if (!selectable_get_ssl(&cn->st) && KBIT_TEST(cn->st.base.st_flags,STF_WREADY)) {
-		if (kev_fiber_ok != selectable_event_write(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
-			__kfiber_wait(fiber, cn->st.data);
-		}
-		return fiber->retval;
-	}
-#endif
-	if (kev_fiber_ok != selectable_write(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
-		__kfiber_wait(fiber, cn->st.data);
-	}
-	return fiber->retval;
-}
-int kfiber_net_readv2(kfiber *fiber, kconnection* cn, kgl_iovec* buf, int bc) {
-	CHECK_FIBER(fiber);
-	kgl_iovec iovec_buf;
-	iovec_buf.iov_base = (char*)buf;
-	iovec_buf.iov_len = bc;
-	if (KBIT_TEST(cn->st.base.st_flags,STF_READ)) {
-		/*
-			connection already has read event.
-			this condition only happened in read timeout
-		*/
-		assert(KBIT_TEST(cn->st.base.st_flags,STF_RTIME_OUT));
-		assert(cn->st.e[OP_READ].result==kfiber_result_callback);
-		//assert(cn->st.e[OP_READ].buffer == kfiber_buffer_callback);
-		assert(cn->st.e[OP_READ].arg==fiber);
-		return __kfiber_wait(fiber, cn->st.data);
-	}
-	if (kev_fiber_ok != selectable_read(&cn->st, kfiber_result_callback, &iovec_buf, fiber)) {
-		return __kfiber_wait(fiber, cn->st.data);
-	}
-	return fiber->retval;
-}
+
 static kev_result kfiber_result_sendfile(KOPAQUE data, void* arg, int got) {	
 	kasync_file* file = (kasync_file*)arg;
 	if (got > 0) {
