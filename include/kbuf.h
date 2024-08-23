@@ -98,21 +98,19 @@ void ks_write_int(ks_buffer *buf, int val);
 void ks_write_int64(ks_buffer *buf, int64_t val);
 INLINE char *ks_get_write_buffer(ks_buffer *buf, int *len) {
 	kassert(buf->buf_size > 0);
-	for (;;) {
-		int left = buf->buf_size - buf->used;
-		if (left <= 0) {
-			int new_size = buf->buf_size * 2;
-			new_size = kgl_align(new_size, 1024);
-			buf->buf_size = new_size;
-			char* n = (char*)xmalloc(buf->buf_size);
-			kgl_memcpy(n, buf->buf, buf->used);
-			xfree(buf->buf);
-			buf->buf = n;
-			continue;
-		}
-		*len = left;
+retry:
+	*len = buf->buf_size - buf->used;
+	if (likely(*len > 0)) {
 		return buf->buf + buf->used;
 	}
+	int new_size = buf->buf_size * 2;
+	new_size = kgl_align(new_size, 1024);
+	buf->buf_size = new_size;
+	char* n = (char*)xmalloc(buf->buf_size);
+	kgl_memcpy(n, buf->buf, buf->used);
+	xfree(buf->buf);
+	buf->buf = n;
+	goto retry;
 }
 INLINE void ks_save_point(ks_buffer* buf, const char* hot) {
 	kassert(buf->buf_size > 0);
