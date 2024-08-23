@@ -279,21 +279,3 @@ int ks_get_write_buffers(ks_buffer* buf, LPWSABUF buffer, int buffer_count) {
 	buffer[0].iov_len = len;
 	return 1;
 }
-kbuf* kbuf_init_read(kbuf* head, int offset, kgl_pool_t* pool) {
-	while (head) {
-		if (offset == 0) {
-			return head;
-		}
-		if (offset < head->used) {
-			kbuf* t = (kbuf*)kgl_pnalloc(pool, sizeof(kbuf));
-			memset(t, 0, sizeof(kbuf));
-			t->data = head->data + offset;
-			t->used = head->used - offset;
-			t->next = head->next;
-			return t;
-		}
-		head = head->next;
-		offset -= head->used;
-	}
-	return NULL;
-}

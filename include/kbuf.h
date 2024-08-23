@@ -144,8 +144,23 @@ void krw_write_int(krw_buffer *rw_buffer, int val);
 void krw_write_int64(krw_buffer *rw_buffer, int64_t val);
 
 void krw_append(krw_buffer *rw_buffer, kbuf *buf);
-void krw_insert(krw_buffer *rw_buffer, kbuf *buf);
-kbuf* kbuf_init_read(kbuf* head, int offset, kgl_pool_t* pool);
+void krw_insert(krw_buffer* rw_buffer, kbuf* buf);
+INLINE kbuf* kbuf_init_read(kbuf* head, int offset, kbuf* header_buf) {
+	while (head) {
+		if (offset == 0) {
+			return head;
+		}
+		if (offset < head->used) {
+			header_buf->data = head->data + offset;
+			header_buf->used = head->used - offset;
+			header_buf->next = head->next;
+			return header_buf;
+		}
+		head = head->next;
+		offset -= head->used;
+	}
+	return NULL;
+}
 void debug_print_buff(kbuf* buf);
 KEND_DECLS
 #endif
