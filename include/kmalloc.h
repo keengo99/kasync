@@ -99,6 +99,7 @@ extern unsigned kgl_pagesize;
 
 kgl_pool_t *kgl_create_pool(size_t size);
 void kgl_destroy_pool(kgl_pool_t *pool);
+void kgl_reset_pool(kgl_pool_t* pool);
 /* align alloc */
 void *kgl_palloc(kgl_pool_t *pool, size_t size);
 /* not align alloc */

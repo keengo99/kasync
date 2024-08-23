@@ -63,29 +63,6 @@ void krw_buffer_init(krw_buffer* rw_buffer, int chunk_size) {
 	memset(rw_buffer, 0, sizeof(krw_buffer));
 	rw_buffer->chunk_size = chunk_size;
 }
-void ks_save_point(ks_buffer* buf, const char* hot) {
-	kassert(buf->buf_size > 0);
-	assert(hot >= buf->buf);
-	if (hot == buf->buf) {
-		if (buf->used == buf->buf_size) {
-			/* not enough buffer */
-			/* if (len == buf->used && buf->used == buf->buf_size) { */
-			int new_size = buf->buf_size * 2;
-			char* nb = (char*)xmalloc(new_size);
-			kgl_memcpy(nb, buf->buf, buf->used);
-			xfree(buf->buf);
-			buf->buf = nb;
-			buf->buf_size = new_size;
-		}
-		return;
-	}
-	int hot_left = buf->used - (int)(hot - buf->buf);
-	assert(hot_left >= 0 && hot_left < buf->used);
-	if (hot_left > 0) {
-		memmove(buf->buf, hot, hot_left);
-	}
-	buf->used = hot_left;
-}
 kbuf* krw_newbuff(int chunk_size) {
 	kbuf* buf = (kbuf*)xmalloc(sizeof(kbuf));
 	buf->flags = 0;

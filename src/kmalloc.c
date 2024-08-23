@@ -151,18 +151,23 @@ void kgl_destroy_pool(kgl_pool_t* pool) {
 void kgl_reset_pool(kgl_pool_t* pool) {
 	kgl_pool_t* p;
 	kgl_pool_large_t* l;
+	kgl_cleanup_t* c;
+	for (c = pool->cleanup; c; c = c->next) {
+		if (c->handler) {
+			c->handler(c->data);
+		}
+	}
+	pool->cleanup = NULL;
 
 	for (l = pool->large; l; l = l->next) {
 		if (l->alloc) {
 			free(l->alloc);
 		}
 	}
-
 	for (p = pool; p; p = p->d.next) {
 		p->d.last = (char*)p + sizeof(kgl_pool_t);
 		p->d.failed = 0;
 	}
-
 	pool->current = pool;
 	pool->large = NULL;
 }
