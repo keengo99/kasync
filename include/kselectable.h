@@ -4,6 +4,7 @@
 #include "kgl_ssl.h"
 #include "kforwin32.h"
 #include "kselector.h"
+#include "kfiber_internal.h"
 #include "klist.h"
 #include "ksocket.h"
 
@@ -50,43 +51,6 @@
 
 KBEGIN_DECLS
 
-typedef struct
-{
-	void* arg;
-	result_callback result;
-	kgl_iovec* buffer;
-#ifdef _WIN32
-	WSAOVERLAPPED lp;
-#endif
-#ifdef LINUX_IOURING
-	kselectable* st;
-#endif
-} kgl_event;
-
-typedef struct kgl_base_selectable_s kgl_base_selectable;
-
-struct kgl_base_selectable_s {
-	union {
-		kgl_list queue;
-		struct {
-			/* used by kfiber waiter */
-			KOPAQUE wait_obj;
-			kgl_base_selectable* next;
-		};
-	};
-	kselector* selector;
-	uint32_t st_flags;
-	union {
-		struct {
-			/* used by kselectable */
-			uint16_t tmo_left;
-			uint16_t tmo;
-		};
-		/* used by kfiber */
-		volatile uint32_t ref;
-	};
-};
-
 struct kselectable_s
 {
 	kgl_base_selectable base;/* must at begin */
@@ -115,6 +79,43 @@ struct kselectable_s
 		};
 	};
 };
+
+INLINE void kselector_add_fiber_ready(kselector* selector, kfiber* fiber) {
+	kassert(kselector_is_same_thread(selector));
+	kassert(fiber->base.selector == selector);
+	kassert(fiber->base.queue.next == NULL);
+	selector->count++;
+	klist_append(&selector->list[KGL_LIST_READY], &fiber->base.queue);
+}
+INLINE void kselector_add_list(kselector* selector, kselectable* st, int list) {
+	if (!kselector_is_same_thread(selector)) {
+		assert(false);
+	}
+	kassert(kselector_is_same_thread(selector));
+	st->base.tmo_left = st->base.tmo;
+	kassert(st->base.selector == selector);
+	if (list != KGL_LIST_READY) {
+		st->active_msec = kgl_current_msec;
+	}
+	kassert(list >= 0 && list < KGL_LIST_COUNT);
+	if (st->base.queue.next) {
+		klist_remove(&st->base.queue);
+	} else {
+		selector->count++;
+	}
+	klist_append(&selector->list[list], &st->base.queue);
+}
+INLINE void kselector_remove_list(kselector* selector, kselectable* st) {
+	kassert(kselector_is_same_thread(selector));
+	kassert(st->base.selector == selector);
+	if (st->base.queue.next == NULL) {
+		return;
+	}
+	klist_remove(&st->base.queue);
+	memset(&st->base.queue, 0, sizeof(st->base.queue));
+	kassert(selector->count > 0);
+	selector->count--;
+}
 INLINE KOPAQUE selectable_get_opaque(kselectable* st) {
 	return st->data;
 }
@@ -144,6 +145,12 @@ void selectable_next_write(kselectable* st, result_callback result, void* arg);
 */
 kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
 kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
+INLINE kev_result selectable_sendfile(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg) {
+	if (!kgl_selector_module.sendfile(st, result, buffer, arg)) {
+		return result(st->data,arg,-1);
+	}
+	return kev_ok;
+}
 bool selectable_readhup(kselectable* st, result_callback result, void* arg);
 void selectable_remove_readhup(kselectable* st);
 void selectable_shutdown(kselectable* st);

@@ -1,6 +1,7 @@
 #include "kfiber_sync.h"
 #include "ksync.h"
 #include "kfiber_internal.h"
+#include "kselectable.h"
 #include "kfiber.h"
 #define KFIBER_CHAN_NO_WAITER   0
 #define KFIBER_CHAN_RECV_WAITER 1
@@ -9,7 +10,7 @@
 //mutext
 kev_result kfiber_mutex_lock2(kfiber_mutex* mutex, KOPAQUE data, result_callback notice, void* arg)
 {
-	kassert(kfiber_self() == NULL);
+	kassert(kfiber_self2() == NULL);
 	kmutex_lock(&mutex->lock);
 	if (mutex->worker < mutex->limit) {
 		mutex->worker++;
@@ -129,7 +130,7 @@ int kfiber_cond_notice(kfiber_cond* fc,int got)
 }
 int kfiber_cond_wait_ts_ar(kfiber_cond* fc, int *got)
 {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -150,7 +151,7 @@ int kfiber_cond_wait_ts_ar(kfiber_cond* fc, int *got)
 	return 0;
 }
 int kfiber_cond_try_wait_ts_ar(kfiber_cond* fc, int* got) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -166,7 +167,7 @@ int kfiber_cond_try_wait_ts_ar(kfiber_cond* fc, int* got) {
 	return -1;
 }
 int kfiber_cond_try_wait_ar(kfiber_cond* fc, int* got) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	if (fc->ev > 0) {
 		fc->ev--;
@@ -179,7 +180,7 @@ int kfiber_cond_try_wait_ar(kfiber_cond* fc, int* got) {
 }
 int kfiber_cond_wait_ar(kfiber_cond* fc, int *got)
 {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	if (fc->ev > 0) {
 		fc->ev--;
@@ -197,7 +198,7 @@ int kfiber_cond_wait_ar(kfiber_cond* fc, int *got)
 }
 int kfiber_cond_wait_ts(kfiber_cond* fc, int *got)
 {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -218,7 +219,7 @@ int kfiber_cond_wait_ts(kfiber_cond* fc, int *got)
 }
 
 int kfiber_cond_try_wait_ts(kfiber_cond* fc, int* got) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	kfiber_cond_ts* fcs = (kfiber_cond_ts*)fc;
 	kmutex_lock(&fcs->lock);
@@ -241,7 +242,7 @@ int kfiber_cond_notice_sync(kfiber_cond* fc, int got)
 }
 int kfiber_cond_wait_sync(kfiber_cond* fc, int *got)
 {
-	assert(kfiber_self() == NULL);
+	assert(kfiber_self2() == NULL);
 	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
 	kcond_wait(sync->sync_cond);
 	if (got) {
@@ -250,7 +251,7 @@ int kfiber_cond_wait_sync(kfiber_cond* fc, int *got)
 	return 0;
 }
 int kfiber_cond_try_wait_sync(kfiber_cond* fc, int* got) {
-	assert(kfiber_self() == NULL);
+	assert(kfiber_self2() == NULL);
 	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
 	if (!kcond_try_wait(sync->sync_cond, 0)) {
 		return -1;
@@ -262,7 +263,7 @@ int kfiber_cond_try_wait_sync(kfiber_cond* fc, int* got) {
 }
 int kfiber_cond_wait(kfiber_cond* fc, int *got)
 {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	if (fc->ev > 0) {
 		if (got) {
@@ -278,7 +279,7 @@ int kfiber_cond_wait(kfiber_cond* fc, int *got)
 	return 0;
 }
 int kfiber_cond_try_wait(kfiber_cond* fc, int* got) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	CHECK_FIBER(fiber);
 	if (fc->ev > 0) {
 		if (got) {
@@ -383,7 +384,7 @@ kfiber_chan* kfiber_chan_create() {
 	return ch;
 }
 int kfiber_chan_send(kfiber_chan* ch, KOPAQUE data) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	assert(fiber);
 	CHECK_FIBER(fiber);
 	if (ch->closed) {
@@ -418,7 +419,7 @@ int kfiber_chan_send(kfiber_chan* ch, KOPAQUE data) {
 	}
 }
 int kfiber_chan_recv(kfiber_chan* ch, KOPAQUE* data, kfiber_waiter** sender) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	int retval;
 	CHECK_FIBER(fiber);
 	switch (ch->wait_flag) {
@@ -481,7 +482,7 @@ int kfiber_chan_close(kfiber_chan* ch) {
 	ch->waiter = NULL;
 	ch->wait_flag = KFIBER_CHAN_NO_WAITER;
 	while (waiter) {
-		assert(waiter->selector == kfiber_self()->base.selector);
+		assert(waiter->selector == kfiber_self2()->base.selector);
 		kfiber_waiter* next = waiter->next;
 		waiter->wait_obj = NULL;
 		kfiber_chan_wakeup(ch, waiter, -1);

@@ -93,13 +93,13 @@ INLINE int kfiber_mutex_get_count(kfiber_mutex* mutex) {
 	return count;
 }
 INLINE int kfiber_mutex_lock(kfiber_mutex* mutex) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	assert(fiber);
 	CHECK_FIBER(fiber);
 	return __kfiber_mutex_lock(fiber, mutex, 0);
 }
 INLINE int kfiber_mutex_try_lock(kfiber_mutex* mutex, int max) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	assert(fiber);
 	CHECK_FIBER(fiber);
 	return __kfiber_mutex_lock(fiber, mutex, max);
@@ -136,13 +136,13 @@ INLINE kfiber_rwlock* kfiber_rwlock_init() {
 }
 
 INLINE int kfiber_rwlock_rlock(kfiber_rwlock* mutex) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	assert(!kfiber_is_main());
 	CHECK_FIBER(fiber);
 	kmutex_lock(&mutex->lock);
 	if (mutex->cnt < 0 || mutex->writer) {
 		/* write lock is held or has write waiter*/
-		kfiber_add_waiter(&mutex->reader, fiber, &fiber);// fiber->base.selector, & fiber, result_switch_fiber, fiber);
+		kfiber_add_waiter(&mutex->reader, fiber, &fiber);
 		kmutex_unlock(&mutex->lock);
 		return __kfiber_wait(fiber, &fiber);
 	}
@@ -151,12 +151,12 @@ INLINE int kfiber_rwlock_rlock(kfiber_rwlock* mutex) {
 	return 0;
 }
 INLINE int kfiber_rwlock_wlock(kfiber_rwlock* mutex) {
-	kfiber* fiber = kfiber_self();
+	kfiber* fiber = kfiber_self2();
 	assert(!kfiber_is_main());
 	CHECK_FIBER(fiber);
 	kmutex_lock(&mutex->lock);
 	if (mutex->cnt != 0) {
-		kfiber_add_waiter(&mutex->writer, fiber, &fiber);// fiber->base.selector, & fiber, result_switch_fiber, fiber);
+		kfiber_add_waiter(&mutex->writer, fiber, &fiber);
 		kmutex_unlock(&mutex->lock);
 		return __kfiber_wait(fiber, &fiber);
 	}
@@ -177,8 +177,7 @@ INLINE int __kfiber_rwlock_try_wakeup_writer(kfiber_rwlock* mutex) {
 	return 0;
 }
 INLINE int kfiber_rwlock_runlock(kfiber_rwlock* mutex) {
-	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
+	CHECK_FIBER(kfiber_self2());
 	kmutex_lock(&mutex->lock);
 	assert(mutex->cnt > 0);
 	mutex->cnt--;
@@ -189,8 +188,7 @@ INLINE int kfiber_rwlock_runlock(kfiber_rwlock* mutex) {
 	return 0;
 }
 INLINE int kfiber_rwlock_wunlock(kfiber_rwlock* mutex) {
-	kfiber* fiber = kfiber_self();
-	CHECK_FIBER(fiber);
+	CHECK_FIBER(kfiber_self2());
 	kmutex_lock(&mutex->lock);
 	assert(mutex->cnt == -1);
 	mutex->cnt = 0;

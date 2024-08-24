@@ -1,7 +1,9 @@
 #ifndef KFIBER_INTERNAL_H
 #define KFIBER_INTERNAL_H
-#include "kselector.h"
-#include "kselectable.h"
+#include "kfeature.h"
+#include "kforwin32.h"
+#include "klist.h"
+
 #ifdef ENABLE_FCONTEXT
 #include "fcontext.h"
 typedef fcontext_t kfiber_context;
@@ -33,25 +35,57 @@ KBEGIN_DECLS
 //#define switch_fiber kfiber_wakeup
 #ifndef NDEBUG
 #define CHECK_FIBER(fiber) do { \
-	if (fiber==NULL || is_main_fiber(fiber)) { \
-		assert(false);\
-		return -1;\
-	}\
-	fiber->wait_notice_flag = 0;\
+	assert(fiber && !is_main_fiber(fiber));\
+	assert(fiber->wait_notice_flag == 0);\
 }while(0)
 #else
-#define CHECK_FIBER(fiber) do { \
-	if (fiber==NULL || is_main_fiber(fiber)) { \
-		return -1;\
-	}\
-}while(0)
+#define CHECK_FIBER(fiber)
 #endif
-
+typedef struct _kfiber kfiber;
 typedef struct _kfiber_mutex kfiber_mutex;
 typedef struct _kfiber_rwlock kfiber_rwlock;
 typedef struct _kfiber_cond kfiber_cond;
 typedef struct _kfiber_chan kfiber_chan;
+typedef struct kselector_s kselector;
+typedef struct kgl_base_selectable_s kgl_base_selectable;
 typedef kgl_base_selectable  kfiber_waiter;
+
+typedef int(*kfiber_start_func)(void* arg, int len);
+
+typedef struct
+{
+	void* arg;
+	result_callback result;
+	kgl_iovec* buffer;
+#ifdef _WIN32
+	WSAOVERLAPPED lp;
+#endif
+#ifdef LINUX_IOURING
+	kselectable* st;
+#endif
+} kgl_event;
+
+struct kgl_base_selectable_s {
+	union {
+		kgl_list queue;
+		struct {
+			/* used by kfiber waiter */
+			KOPAQUE wait_obj;
+			kgl_base_selectable* next;
+		};
+	};
+	kselector* selector;
+	uint32_t st_flags;
+	union {
+		struct {
+			/* used by kselectable */
+			uint16_t tmo_left;
+			uint16_t tmo;
+		};
+		/* used by kfiber */
+		volatile uint32_t ref;
+	};
+};
 
 typedef struct _kfiber_cond_function {
 	int (*notice)(kfiber_cond* fc,int got);

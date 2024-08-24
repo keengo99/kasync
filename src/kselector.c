@@ -51,14 +51,6 @@ static inline int gettimeofday(struct timeval *tp, void *tzp)
 	return (0);
 }
 #endif
-void kselector_add_fiber_ready(kselector* selector, kfiber* fiber)
-{
-	kassert(kselector_is_same_thread(selector));
-	kassert(fiber->base.selector == selector);
-	kassert(fiber->base.queue.next == NULL);
-	selector->count++;
-	klist_append(&selector->list[KGL_LIST_READY], &fiber->base.queue);
-}
 static kev_result next_adjust_time(KOPAQUE data, void *arg, int got)
 {
 	int64_t *diff_time = (int64_t *)arg;
@@ -126,37 +118,6 @@ bool kselector_start(kselector *selector)
 void kselector_next(kselector *selector, KOPAQUE data, result_callback result, void *arg, int got)
 {
 	kassert(kselector_is_same_thread(selector));
-}
-void kselector_add_list(kselector *selector, kselectable *st, int list)
-{
-	if (!kselector_is_same_thread(selector)) {
-		assert(false);
-	}
-	kassert(kselector_is_same_thread(selector));
-	st->base.tmo_left = st->base.tmo;
-	kassert(st->base.selector == selector);
-	if (list!=KGL_LIST_READY) { 
-		st->active_msec = kgl_current_msec;
-	}
-	kassert(list >= 0 && list < KGL_LIST_COUNT);
-	if (st->base.queue.next) {
-		klist_remove(&st->base.queue);
-	} else {
-		selector->count++;
-	}
-	klist_append(&selector->list[list], &st->base.queue);
-}
-void kselector_remove_list(kselector *selector, kselectable *st)
-{
-	kassert(kselector_is_same_thread(selector));
-	kassert(st->base.selector == selector);
-	if (st->base.queue.next == NULL) {
-		return;
-	}
-	klist_remove(&st->base.queue);
-	memset(&st->base.queue, 0, sizeof(st->base.queue));
-	kassert(selector->count > 0);
-	selector->count--;
 }
 void kselector_adjust_time(kselector *selector, int64_t diff_time)
 {

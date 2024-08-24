@@ -1,9 +1,11 @@
 #ifndef MSOCKET_SELECTOR_H
 #define MSOCKET_SELECTOR_H
+#include <assert.h>
 #include "kfeature.h"
 #include "kforwin32.h"
 #include "krbtree.h"
 #include "klist.h"
+#include "kfiber_internal.h"
 #ifndef _WIN32
 #include <pthread.h>
 #endif
@@ -17,10 +19,10 @@
 #define SELECTOR_TMO_MSEC 100
 
 KBEGIN_DECLS
-typedef int(*kfiber_start_func)(void* arg, int len);
-typedef struct _kfiber kfiber;
+
+
 typedef struct kserver_selectable_s kserver_selectable;
-typedef struct kselector_s kselector;
+
 typedef struct kselectable_s kselectable;
 typedef struct kasync_file_s kasync_file;
 typedef struct kselector_tick_s kselector_tick;
@@ -112,16 +114,18 @@ struct kselector_s
 	uint32_t aysnc_main : 1;
 	volatile uint32_t closed : 1;
 	volatile uint32_t shutdown : 1;
+	volatile int ret_val;
 	int timeout[KGL_LIST_COUNT];
 	kgl_list list[KGL_LIST_COUNT];
 	kgl_list tick;
 	struct krb_root block;
 	struct krb_node* block_first;
+	kfiber* current;
 #ifdef MALLOCDEBUG
 	volatile
 #endif
 		pthread_t thread_id;
-	volatile int ret_val;
+
 };
 kselector* kselector_new(kselector_tick* tick);
 void kselector_destroy(kselector* selector);
@@ -152,6 +156,16 @@ INLINE bool kselector_can_close(kselector* selector) {
 extern pthread_key_t kgl_selector_key;
 INLINE kselector* kgl_get_tls_selector() {
 	return (kselector*)pthread_getspecific(kgl_selector_key);
+}
+INLINE kfiber* kselector_get_fiber(kselector* selector) {
+	assert(kgl_get_tls_selector() == selector);
+	assert(selector->current == NULL || selector->current->base.selector == selector);
+	return (kfiber*)selector->current;
+}
+INLINE void kselector_set_fiber(kselector* selector, kfiber* fiber) {
+	assert(fiber->base.selector == selector);
+	assert(kgl_get_tls_selector() == selector);
+	selector->current = fiber;
 }
 extern kselector_module kgl_selector_module;
 extern volatile int64_t kgl_current_msec;
