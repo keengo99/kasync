@@ -1,7 +1,7 @@
 #ifndef KASYNC_CONFIG_INCLUDED_H
 #define KASYNC_CONFIG_INCLUDED_H
 #cmakedefine KSOCKET_SSL
-#cmakedefine KSOCKET_SSL_BIO
+#cmakedefine ENABLE_KSSL_BIO
 #cmakedefine LINUX
 #cmakedefine LINUX_IOURING
 #cmakedefine HAVE_ACCEPT4
