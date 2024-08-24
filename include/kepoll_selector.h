@@ -2,6 +2,7 @@
 #define KEPOLL_SELECTOR_H_99
 #include "kselectable.h"
 #include "ksync.h"
+#ifdef LINUX
 #ifdef LINUX_EPOLL
 void kepoll_module_init();
 #endif
@@ -43,4 +44,5 @@ INLINE void kepoll_notice(kepoll_notice_selectable* notice_st, KOPAQUE data, res
 	uint64_t value = 1;
 	write(notice_st->st.fd, &value, sizeof(value));
 }
+#endif
 #endif
