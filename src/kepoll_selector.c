@@ -33,19 +33,19 @@ typedef struct {
 	kepoll_aio_selectable aio_st;
 } kepoll_selector;
 
-int io_setup(u_int nr_reqs, aio_context_t *ctx)
+static INLINE int io_setup(u_int nr_reqs, aio_context_t *ctx)
 {
     return syscall(SYS_io_setup, nr_reqs, ctx);
 }
-int io_destroy(aio_context_t ctx)
+static INLINE int io_destroy(aio_context_t ctx)
 {
     return syscall(SYS_io_destroy, ctx);
 }
-int io_getevents(aio_context_t ctx, long min_nr, long nr, struct io_event *events, struct timespec *tmo)
+static INLINE int io_getevents(aio_context_t ctx, long min_nr, long nr, struct io_event *events, struct timespec *tmo)
 {
     return syscall(SYS_io_getevents, ctx, min_nr, nr, events, tmo);
 }
-int io_submit(aio_context_t ctx, long n, struct iocb **paiocb)
+static INLINE int io_submit(aio_context_t ctx, long n, struct iocb **paiocb)
 {
     return syscall(SYS_io_submit, ctx, n, paiocb);
 }
@@ -57,7 +57,7 @@ static kev_result result_notice_event(KOPAQUE data, void *arg,int got)
 	kepoll_notice_event(ast);
 	return kev_ok;
 }
-static void aio_result(kasync_file *file,struct iocb *iocb, long res, long res2)
+static INLINE void aio_result(kasync_file *file,struct iocb *iocb, long res, long res2)
 {
 	file->st.e[OP_READ].result(file->st.data,file->st.e[OP_READ].arg,kasync_file_adjust_result(file,(int)res));
 }
@@ -94,7 +94,7 @@ static kev_result result_aio_event(KOPAQUE data, void *arg,int got)
 	return kev_ok;
 
 }
-static bool epoll_add_event(int kdpfd,kselectable *st,uint16_t ev)
+static INLINE bool epoll_add_event(int kdpfd,kselectable *st,uint16_t ev)
 {
 	struct epoll_event event;
 	int op = EPOLL_CTL_ADD;
@@ -233,7 +233,7 @@ static bool epoll_selector_connect(kselector *selector, kselectable *st, result_
 	kselector_add_list(selector,st,KGL_LIST_CONNECT);
 	return true;
 }
-static void epoll_selector_remove(kselector *selector, kselectable *st)
+static INLINE void epoll_selector_remove(kselector *selector, kselectable *st)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
 	if (!KBIT_TEST(st->base.st_flags,STF_REV|STF_WEV)) {
@@ -289,46 +289,6 @@ static bool epoll_selector_remove_readhup(kselector *selector, kselectable *st)
 	return false;
 #endif
 }
-#if 0
-static KASYNC_IO_RESULT epoll_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
-{
-	kepoll_selector *es = (kepoll_selector *)selector->ctx;
-	assert(KBIT_TEST(st->base.st_flags,STF_READ)==0);
-	st->e[OP_READ].arg = arg;
-	st->e[OP_READ].result = result;
-	st->e[OP_READ].buffer = buffer;
-	assert(KBIT_TEST(st->base.st_flags,STF_UDP));
-	if (!KBIT_TEST(st->base.st_flags,STF_REV)) {
-		if (!epoll_add_event(es->kdpfd,st,STF_REV)) {
-			return KASYNC_IO_ERR_SYS;
-		}
-		KBIT_SET(st->base.st_flags,STF_READ);
-		if (st->base.queue.next==NULL) {
-			kselector_add_list(selector,st,KGL_LIST_RW);
-		}
-		return KASYNC_IO_PENDING;
-	}
-	assert(KBIT_TEST(st->base.st_flags,STF_RREADY));
-	int got = selectable_recvmsg(st);
-	if (got>=0) {
-		return got;
-	}
-	switch(errno) {
-	case EAGAIN:
-		KBIT_SET(st->base.st_flags,STF_READ);
-		KBIT_CLR(st->base.st_flags,STF_RREADY);
-		if (st->base.queue.next==NULL) {
-			kselector_add_list(selector,st,KGL_LIST_RW);
-		}
-		return KASYNC_IO_PENDING;
-	case EINTR:
-	case ENOMEM:
-		return KASYNC_IO_ERR_BUFFER;
-	default:
-		return KASYNC_IO_ERR_SYS;
-	}
-}
-#endif
 static bool epoll_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kepoll_selector *es = (kepoll_selector *)selector->ctx;
@@ -489,7 +449,6 @@ bool epoll_selector_aio_write(kasync_file *file, result_callback result,const ch
 	if (io_submit(es->aio_st.aio_ctx, 1, &iocb)==1) {
 		return true;
 	}
-	perror("io_submit write");
 	return false;
 #endif
 }
@@ -572,37 +531,5 @@ void kepoll_notice_init(kselector *selector,kepoll_notice_selectable *notice_st,
 	notice_st->st.e[OP_READ].result = result;
 	notice_st->st.e[OP_READ].buffer = NULL;
 }
-void kepoll_notice_event(kepoll_notice_selectable *ast)
-{
-	 uint64_t value;
-	if (read(ast->st.fd, &value, sizeof(value)) != sizeof(value)) {
-		perror("read");
-		return;
-	}
-	while (value>0) {
-		kmutex_lock(&ast->lock);
-		kselector_notice *notice = ast->head;
-		kassert(notice!=NULL);
-		ast->head = notice->next;
-		kmutex_unlock(&ast->lock);
-		value --;
-		notice->result(notice->data, notice->arg, notice->got);
-		xfree(notice);
-	}
-}
-void kepoll_notice(kepoll_notice_selectable *notice_st,KOPAQUE data, result_callback result, void *arg, int got)
-{
-	kselector_notice *notice = (kselector_notice *)xmalloc(sizeof(kselector_notice));
-	memset(notice,0,sizeof(kselector_notice));
-	notice->data = data;
-	notice->arg = arg;
-	notice->result = result;
-	notice->got = got;
-	kmutex_lock(&notice_st->lock);
-	notice->next = notice_st->head;
-	notice_st->head = notice;
-	kmutex_unlock(&notice_st->lock);
-	uint64_t value = 1;
-	write(notice_st->st.fd,&value,sizeof(value));
-}
+
 #endif
