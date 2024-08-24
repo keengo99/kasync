@@ -168,7 +168,7 @@ void selector_manager_close()
 void selector_manager_start(void(*time_hook)(),bool thread)
 {
 	kgl_second_change_hook = time_hook;
-	kgl_program_start_sec = kgl_current_sec;
+	kgl_program_start_sec = time(NULL);
 	for (int i = 1; i < kgl_selector_count; i++) {
 		kselector_start(kgl_selectors[i]);
 	}
