@@ -7,6 +7,7 @@
 #include "kfiber_internal.h"
 #include "klist.h"
 #include "ksocket.h"
+#include "kmalloc.h"
 
 #define STF_READ        1
 #define STF_WRITE       (1<<1)
