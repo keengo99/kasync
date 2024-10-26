@@ -154,7 +154,12 @@ INLINE kev_result selectable_sendfile(kselectable* st, result_callback result, k
 }
 bool selectable_readhup(kselectable* st, result_callback result, void* arg);
 void selectable_remove_readhup(kselectable* st);
-void selectable_shutdown(kselectable* st);
+INLINE int selectable_shutdown(kselectable* st) {
+#ifdef _WIN32
+	ksocket_cancel(st->fd);
+#endif
+	return ksocket_shutdown(st->fd, SHUT_RDWR);
+}
 INLINE void selectable_clear_flags(kselectable* st, uint16_t flags) {
 	KBIT_CLR(st->base.st_flags, flags);
 }

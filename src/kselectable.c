@@ -165,13 +165,7 @@ bool selectable_remove(kselectable* st)
 	kgl_selector_module.remove(st->base.selector, st);
 	return true;
 }
-void selectable_shutdown(kselectable* st)
-{
-#ifdef _WIN32
-	ksocket_cancel(st->fd);
-#endif
-	ksocket_shutdown(st->fd, SHUT_RDWR);
-}
+
 #ifndef _WIN32
 int selectable_recvmsg(kselectable* st)
 {

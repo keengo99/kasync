@@ -535,7 +535,7 @@ int kfiber_net_shutdown(kconnection * c) {
 #ifdef KSOCKET_SSL
 	kfiber_ssl_shutdown(c);
 #endif
-	return ksocket_shutdown(c->st.fd, SHUT_RDWR);
+	return selectable_shutdown(&c->st);
 }
 int kfiber_net_close(kconnection * c) {
 #ifdef KSOCKET_SSL

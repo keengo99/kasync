@@ -206,9 +206,6 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			}
 			selector->count--;
 			selectable_shutdown(st);
-#ifdef _WIN32
-			ksocket_cancel(st->fd);
-#endif
 		}
 	}
 
