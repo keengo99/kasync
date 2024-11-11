@@ -208,12 +208,19 @@ INLINE bool kfiber_sendfile_full(kconnection * cn, kfiber_file * fp, int* len) {
 	}
 	return true;
 }
-INLINE bool kfiber_net_writev_full(kconnection * cn, WSABUF * buf, int* vc) {
-	while (*vc > 0) {
-		int got = kfiber_net_writev(cn, buf, *vc);
+/*
+* write data until error or complete.
+* return complete size
+* If all complete bc will be 0
+*/
+INLINE size_t kfiber_net_writev_full(kconnection * cn, kgl_iovec * buf, int* bc) {
+	size_t total_length = 0;
+	while (*bc > 0) {
+		int got = kfiber_net_writev(cn, buf, *bc);
 		if (got <= 0) {
-			return false;
+			return total_length;
 		}
+		total_length += got;
 		while (got > 0) {
 			if ((int)buf->iov_len > got) {
 				buf->iov_len -= got;
@@ -222,10 +229,10 @@ INLINE bool kfiber_net_writev_full(kconnection * cn, WSABUF * buf, int* vc) {
 			}
 			got -= (int)buf->iov_len;
 			buf++;
-			(*vc)--;
+			(*bc)--;
 		}
 	}
-	return true;
+	return total_length;
 }
 
 INLINE bool kfiber_net_write_full(kconnection * cn, const char* buf, int* len) {
