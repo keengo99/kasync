@@ -336,7 +336,7 @@ static kev_result epoll_selector_write(kselector *selector, kselectable *st, res
 	return kev_ok;
 }
 
-static bool epoll_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+static kev_result epoll_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 	kepoll_selector *es = (kepoll_selector *)st->base.selector->ctx;
 	assert(!KBIT_TEST(st->base.st_flags, STF_WRITE|STF_SENDFILE));
 	st->e[OP_WRITE].arg = arg;
@@ -345,19 +345,18 @@ static bool epoll_selector_sendfile(kselectable* st, result_callback result, buf
 	KBIT_SET(st->base.st_flags,STF_WRITE|STF_SENDFILE);
 	KBIT_CLR(st->base.st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
-		kselector_add_list(st->base.selector,st,KGL_LIST_READY);
-		return true;
+		return kselectable_is_write_ready(st->base.selector, st);
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_WEV)) {
 		if (!epoll_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
 			KBIT_CLR(st->base.st_flags,STF_WRITE|STF_SENDFILE);
-			return false;
+			return result(st->data, arg, -1);
 		}
 	}
 	if (st->base.queue.next==NULL) {
 		kselector_add_list(st->base.selector,st,KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 static int epoll_selector_select(kselector *selector,int tmo) {
 	struct epoll_event events[MAXEVENT];

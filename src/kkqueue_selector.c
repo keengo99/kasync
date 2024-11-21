@@ -215,7 +215,7 @@ static kev_result kqueue_selector_write(kselector *selector, kselectable *st, re
 	}
 	return kev_ok;
 }
-static bool kqueue_selector_sendfile(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static kev_result kqueue_selector_sendfile(kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kqueue_selector *es = (kqueue_selector *)st->base.selector->ctx;
 	assert(KBIT_TEST(st->base.st_flags,STF_WRITE)==0);
@@ -225,19 +225,18 @@ static bool kqueue_selector_sendfile(kselectable *st, result_callback result, bu
 	KBIT_SET(st->base.st_flags,STF_WRITE|STF_SENDFILE);
 	KBIT_CLR(st->base.st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
-		kselector_add_list(st->base.selector,st,KGL_LIST_READY);
-		return true;
+		return kselectable_is_write_ready(st->base.selector, st);
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_WEV)) {
 		if (!kqueue_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {
 			KBIT_CLR(st->base.st_flags,STF_WRITE);
-			return false;
+			return result(st->data, arg, -1);
 		}
 	}
 	if (st->base.queue.next==NULL) {
 		kselector_add_list(st->base.selector,st,KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 #if 0
 static KASYNC_IO_RESULT kqueue_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)

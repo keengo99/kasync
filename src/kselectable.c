@@ -490,9 +490,12 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 		int err = SSL_get_error(st->ssl->ssl, got);
 		if (err==SSL_ERROR_WANT_WRITE) {	
 			KBIT_CLR(st->base.st_flags, STF_WREADY);
+			return kgl_selector_module.sendfile(st, result, buffer, arg);
+			/*
 			if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
 				return kev_ok;
 			}
+			*/
 		}
 #endif
 		return result(st->data, arg, got);
@@ -506,9 +509,12 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 	}
 	if (errno == EAGAIN) {
 		KBIT_CLR(st->base.st_flags, STF_WREADY);
+		return kgl_selector_module.sendfile(st, result, buffer, arg);
+		/*
 		if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
 			return kev_ok;
 		}
+		*/
 	}
 	return result(st->data, arg, got);
 #elif BSD_OS
@@ -524,9 +530,12 @@ kev_result selectable_event_sendfile(kselectable *st,result_callback result, buf
 			KBIT_CLR(st->base.st_flags, STF_WREADY);
 		}
 		if (send_bytes==0) {
+			return kgl_selector_module.sendfile(st, result, buffer, arg);
+			/*
 			if (kgl_selector_module.sendfile(st, result, buffer, arg)) {
 				return kev_ok;
 			}
+			*/
 		}
 		//int err = errno;
 		//printf("sendfile got=[%d] file->offset=[%lld] send_bytes=[%d] length=[%d] err=[%d %s]\n",got,file->st.offset,send_bytes,bufs.iov_len,err,strerror(err));

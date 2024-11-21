@@ -167,10 +167,13 @@ void selectable_next_write(kselectable* st, result_callback result, void* arg);
 kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
 kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
 INLINE kev_result selectable_sendfile(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg) {
+	return kgl_selector_module.sendfile(st, result, buffer, arg);
+	/*
 	if (!kgl_selector_module.sendfile(st, result, buffer, arg)) {
 		return result(st->data,arg,-1);
 	}
 	return kev_ok;
+	*/
 }
 bool selectable_readhup(kselectable* st, result_callback result, void* arg);
 void selectable_remove_readhup(kselectable* st);

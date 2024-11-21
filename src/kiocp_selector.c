@@ -346,7 +346,7 @@ bool iocp_selector_aio_read(kasync_file *file, result_callback result, char *buf
 	return kasync_file_worker_start(file);
 #endif
 }
-bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+kev_result iocp_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	assert(st->ssl == NULL);
 #endif
@@ -365,13 +365,13 @@ bool iocp_selector_sendfile(kselectable* st, result_callback result, buffer_call
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
 			KBIT_CLR(st->base.st_flags, STF_WRITE);
-			return false;
+			return result(st->data,arg,-1);
 		}
 	}
 	if (st->base.queue.next == NULL) {
 		kselector_add_list(st->base.selector, st, KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 static void handle_complete_event(kselector *selector,kselectable *st, BOOL result, DWORD recvBytes, OVERLAPPED *evlp)
 {

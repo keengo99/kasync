@@ -49,7 +49,7 @@ typedef void (*selector_next)(kselector* selector, KOPAQUE data, result_callback
 typedef void (*selector_aio_open)(kselector* selector, kasync_file* file, FILE_HANDLE fd);
 typedef bool (*selector_aio_write)(kasync_file* file, result_callback result, const char *buf, int length, void* arg);
 typedef bool (*selector_aio_read)(kasync_file* file, result_callback result, char *buf, int length, void* arg);
-typedef bool (*selector_sendfile)(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
+typedef kev_result (*selector_sendfile)(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
 /* tmo is millisecond */
 typedef int  (*selector_select)(kselector* selector, int tmo);
 typedef void (*selector_destroy)(kselector* selector);

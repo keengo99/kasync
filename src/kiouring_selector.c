@@ -442,7 +442,7 @@ static int iouring_selector_select(kselector *selector, int tmo)
 	}
 	return iouring_handle_cq(selector,&es->ring,n);
 }
-static bool iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+static kev_result iouring_selector_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 	kiouring_selector *cs = (kiouring_selector *)st->base.selector->ctx;
 	kgl_event *e;
 	struct io_uring_sqe *sqe;
@@ -456,25 +456,24 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 		KBIT_SET(st->base.st_flags,STF_WRITE|STF_SENDFILE);
 		KBIT_CLR(st->base.st_flags,STF_RDHUP);
 		if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
-			kselector_add_list(st->base.selector, st, KGL_LIST_READY);
-			return true;
+			return kselectable_is_write_ready(st->base.selector, st);
 		}
 		sqe = kiouring_get_seq(&cs->ring);
 		if (unlikely(sqe==NULL)) {
 			KBIT_CLR(st->base.st_flags,STF_WRITE|STF_SENDFILE);
-			return false;
+			return result(st->data,arg,-1);
 		}
 		io_uring_prep_poll_add(sqe, st->fd, POLLOUT);
 	} else {
 		sqe = kiouring_get_seq(&cs->ring);
 		if (unlikely(sqe==NULL)) {
-			return false;
+			return result(st->data, arg, -1);
 		}
 		iouring_sendfile *sf = (iouring_sendfile *)xmalloc(sizeof(iouring_sendfile));
 		memset(sf,0,sizeof(iouring_sendfile));
 		if (pipe2(sf->pipe,O_CLOEXEC)!=0) {
 			xfree(sf);
-			return false;
+			return result(st->data, arg, -1);
 		}
 		kasync_file *file = (kasync_file *)buffer->iov_base;
 		sf->st = st;
@@ -497,7 +496,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 		sqe = kiouring_get_seq(&cs->ring);
 		if (sqe==NULL) {
 			sf->skip_call_result = true;
-			return false;
+			return result(st->data, arg, -1);
 		}
 		sf->refs++;
 		e = &st->e[OP_WRITE];
@@ -511,7 +510,7 @@ static bool iouring_selector_sendfile(kselectable* st, result_callback result, b
 	if (st->base.queue.next == NULL) {
 		kselector_add_list(st->base.selector, st, KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 void iouring_selector_bind(kselector *selector, kselectable *st)
 {
