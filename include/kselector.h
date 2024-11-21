@@ -41,7 +41,7 @@ typedef bool (*selector_read)(kselector* selector, kselectable* st, result_callb
 typedef bool (*selector_readhup)(kselector* selector, kselectable* st, result_callback result, void* arg);
 typedef bool (*selector_remove_readhup)(kselector* selector, kselectable* st);
 
-typedef bool (*selector_write)(kselector* selector, kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
+typedef kev_result (*selector_write)(kselector* selector, kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
 typedef bool (*selector_connect)(kselector* selector, kselectable* st, result_callback result, void* arg);
 
 typedef void (*selector_next)(kselector* selector, KOPAQUE data, result_callback result, void* arg, int got);

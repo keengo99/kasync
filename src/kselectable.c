@@ -246,7 +246,7 @@ static bool selectable_ssl_read(kselectable* st, result_callback result, buffer_
 	}
 	return true;
 }
-static bool selectable_ssl_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
+static kev_result selectable_ssl_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 	kssl_bio* ssl_bio = &st->ssl->bio[OP_WRITE];
 	ssl_bio->got = 0;
 	if (buffer) {
@@ -258,7 +258,7 @@ static bool selectable_ssl_write(kselectable* st, result_callback result, buffer
 		st->e[OP_WRITE].buffer = buffer;
 		KBIT_SET(st->base.st_flags, STF_WRITE | STF_WREADY2);
 		kselector_add_list(st->base.selector, st, KGL_LIST_READY);
-		return true;
+		return kev_ok;
 	}
 	ssl_bio->buffer = buffer;
 	ssl_bio->result = result;
@@ -268,11 +268,14 @@ static bool selectable_ssl_write(kselectable* st, result_callback result, buffer
 	kssl_bio_buffer* bio_buffer = (kssl_bio_buffer*)xmalloc(sizeof(kssl_bio_buffer));
 	bio_buffer->bio = ssl_bio;
 	buffer_ssl_bio_write(bio_buffer);
+	return kgl_selector_module.write(st->base.selector, st, result_ssl_bio_write, bio_buffer->buf, bio_buffer);
+	/*
 	if (!kgl_selector_module.write(st->base.selector, st, result_ssl_bio_write, bio_buffer->buf, bio_buffer)) {
 		xfree(bio_buffer);
 		return false;
 	}
 	return true;
+	*/
 }
 
 inline kev_result selectable_low_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
@@ -289,9 +292,13 @@ inline kev_result selectable_low_event_write(kselectable* st, result_callback re
 	}
 	if (errno == EAGAIN) {
 		KBIT_CLR(st->base.st_flags, STF_WREADY);
+		return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
+		/*
 		if (kgl_selector_module.write(st->base.selector, st, result, buffer, arg)) {
 			return kev_ok;
 		}
+		*/
+
 	}
 	return result(st->data, arg, got);
 }
@@ -370,6 +377,7 @@ void selectable_next_write(kselectable* st, result_callback result, void* arg)
 	KBIT_CLR(st->base.st_flags, STF_RDHUP);
 	kselector_add_list(st->base.selector, st, KGL_LIST_READY);
 }
+/*
 INLINE bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE | STF_WREADY2) == 0);
 #ifdef ENABLE_KSSL_BIO
@@ -380,6 +388,7 @@ INLINE bool selectable_try_write(kselectable* st, result_callback result, buffer
 #endif
 	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
 }
+*/
 INLINE bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
 #ifdef KSOCKET_SSL
 	if (selectable_is_ssl_handshake(st)) {
@@ -419,10 +428,20 @@ kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec* b
 }
 kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg)
 {
+	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE | STF_WREADY2) == 0);
+#ifdef ENABLE_KSSL_BIO
+	if (selectable_is_ssl_handshake(st)) {
+		kassert(st->ssl);
+		return selectable_ssl_write(st, result, buffer, arg);
+	}
+#endif
+	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
+	/*
 	if (!selectable_try_write(st, result, buffer, arg)) {
 		return result(st->data, arg, -1);
 	}
 	return kev_ok;
+	*/
 }
 #ifndef _WIN32
 kev_result selectable_event_sendfile(kselectable *st,result_callback result, buffer_callback buffer, void* arg) {
@@ -530,23 +549,32 @@ kev_result selectable_event_write(kselectable* st, result_callback result, buffe
 		int err = SSL_get_error(st->ssl->ssl, got);
 		if (errno == EAGAIN || err == SSL_ERROR_WANT_WRITE) {
 #ifdef ENABLE_KSSL_BIO
+			return selectable_ssl_write(st, result, buffer, arg);
+			/*
 			if (!selectable_ssl_write(st, result, buffer, arg)) {
 				return result(st->data, arg, got);
 			}
 			return kev_ok;
+			*/
 #endif
+			return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
+			/*
 			if (!kgl_selector_module.write(st->base.selector, st, result, buffer, arg)) {
 				return result(st->data, arg, got);
 			}
 			return kev_ok;
+			*/
 		}
 	}
 #endif
 	if (errno == EAGAIN) {
 		KBIT_CLR(st->base.st_flags, STF_WREADY);
+		return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
+		/*
 		if (kgl_selector_module.write(st->base.selector, st, result, buffer, arg)) {
 			return kev_ok;
 		}
+		*/
 	}
 	return result(st->data, arg, got);
 }
