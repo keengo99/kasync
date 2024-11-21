@@ -35,7 +35,7 @@ KBEGIN_DECLS
 //#define switch_fiber kfiber_wakeup
 #ifndef NDEBUG
 #define CHECK_FIBER(fiber) do { \
-	assert(fiber && !is_main_fiber(fiber));\
+	assert(fiber && !kfiber_is_main_fiber(fiber));\
 	assert(fiber->wait_notice_flag == 0);\
 }while(0)
 #else
@@ -150,6 +150,8 @@ struct _kfiber {
 };
 kev_result kfiber_result_callback(KOPAQUE data, void* arg, int got);
 int kfiber_buffer_callback(KOPAQUE data, void* arg, WSABUF * buf, int bc);
-bool is_main_fiber(kfiber* fiber);
+INLINE bool kfiber_is_main_fiber(kfiber* fiber) {
+	return fiber->switch_from == NULL;
+}
 KEND_DECLS
 #endif

@@ -162,6 +162,9 @@ INLINE kfiber* kselector_get_fiber(kselector* selector) {
 	assert(selector->current == NULL || selector->current->base.selector == selector);
 	return (kfiber*)selector->current;
 }
+INLINE bool kselector_is_main_fiber(kselector* selector) {
+	return kfiber_is_main_fiber(kselector_get_fiber(selector));
+}
 INLINE void kselector_set_fiber(kselector* selector, kfiber* fiber) {
 	assert(fiber->base.selector == selector);
 	assert(kgl_get_tls_selector() == selector);

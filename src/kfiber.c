@@ -63,17 +63,9 @@ int kfiber_get_count() {
 kfiber* kfiber_main() {
 	return (kfiber*)pthread_getspecific(kgl_main_fiber_key);
 }
-bool is_main_fiber(kfiber* fiber) {
-	if (fiber->switch_from == NULL) {
-		assert(fiber == kfiber_main());
-		return true;
-	}
-	assert(fiber != kfiber_main());
-	return false;
-}
 bool kfiber_is_main() {
 	kselector* selector = kgl_get_tls_selector();
-	return selector == NULL || is_main_fiber(kselector_get_fiber(selector));
+	return selector == NULL || kfiber_is_main_fiber(kselector_get_fiber(selector));
 }
 
 static INLINE void kfiber_delete_context(kfiber* fiber) {
@@ -343,7 +335,7 @@ int kfiber_exit_callback(KOPAQUE data, result_callback notice, void* arg) {
 }
 kfiber* kfiber_ref_self(bool thread_safe) {
 	kfiber* fiber = kfiber_self2();
-	assert(fiber && !is_main_fiber(fiber));
+	assert(fiber && !kfiber_is_main_fiber(fiber));
 	if (fiber->close_cond == NULL) {
 		if (thread_safe) {
 			fiber->close_cond = kfiber_cond_init_ts(true);

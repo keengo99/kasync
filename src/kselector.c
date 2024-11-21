@@ -272,15 +272,9 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			selectable_write_event(&ready_ev->st);
 			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
-		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2)) {
-			if (KBIT_TEST(st_flags, STF_READ)) {
-				if (unlikely(KBIT_TEST(st_flags,STF_UDP))) {
-					selectable_udp_read_event(&ready_ev->st);
-				} else {
-					selectable_read_event(&ready_ev->st);
-				}
-				KBIT_CLR(st_flags, STF_READ);
-			}
+		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2) && KBIT_TEST(st_flags, STF_READ)) {
+			selectable_read_event(&ready_ev->st);
+			KBIT_CLR(st_flags, STF_READ);
 		}
 		if (KBIT_TEST(st_flags, STF_READ | STF_WRITE) &&
 #ifdef STF_ET

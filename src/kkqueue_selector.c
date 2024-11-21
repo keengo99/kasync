@@ -179,8 +179,7 @@ static kev_result kqueue_selector_read(kselector *selector, kselectable *st, res
 	KBIT_SET(st->base.st_flags,STF_READ);
 	KBIT_CLR(st->base.st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags,STF_RREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
-		return kev_ok;
+		return kselectable_is_read_ready(selector, st);
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_REV)) {
 		if (!kqueue_add_event(es->kdpfd,st,STF_REV)) {
@@ -203,8 +202,7 @@ static kev_result kqueue_selector_write(kselector *selector, kselectable *st, re
 	KBIT_SET(st->base.st_flags,STF_WRITE);
 	KBIT_CLR(st->base.st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags,STF_WREADY)) {
-		kselector_add_list(selector,st,KGL_LIST_READY);
-		return kev_ok;
+		return kselectable_is_write_ready(selector, st);
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_WEV)) {
 		if (!kqueue_add_event(es->kdpfd,st,STF_REV|STF_WEV)) {

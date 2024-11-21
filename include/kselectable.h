@@ -51,7 +51,12 @@
 #define MAX_IOVECT_COUNT 128
 
 KBEGIN_DECLS
-
+kev_result selectable_udp_read_event(kselectable* st);
+kev_result selectable_read_event(kselectable* st);
+kev_result selectable_write_event(kselectable* st);
+kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
+kev_result selectable_event_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 struct kselectable_s
 {
 	kgl_base_selectable base;/* must at begin */
@@ -88,6 +93,7 @@ INLINE void kselector_add_fiber_ready(kselector* selector, kfiber* fiber) {
 	selector->count++;
 	klist_append(&selector->list[KGL_LIST_READY], &fiber->base.queue);
 }
+
 INLINE void kselector_add_list(kselector* selector, kselectable* st, int list) {
 	if (!kselector_is_same_thread(selector)) {
 		assert(false);
@@ -105,6 +111,20 @@ INLINE void kselector_add_list(kselector* selector, kselectable* st, int list) {
 		selector->count++;
 	}
 	klist_append(&selector->list[list], &st->base.queue);
+}
+INLINE kev_result kselectable_is_read_ready(kselector* selector, kselectable* st) {
+	if (kselector_is_main_fiber(selector)) {
+		kselector_add_list(selector, st, KGL_LIST_READY);
+		return kev_ok;
+	}
+	return selectable_read_event(st);
+}
+INLINE kev_result kselectable_is_write_ready(kselector* selector, kselectable* st) {
+	if (kselector_is_main_fiber(selector)) {
+		kselector_add_list(selector, st, KGL_LIST_READY);
+		return kev_ok;
+	}
+	return selectable_write_event(st);
 }
 INLINE void kselector_remove_list(kselector* selector, kselectable* st) {
 	kassert(kselector_is_same_thread(selector));
@@ -186,12 +206,6 @@ INLINE bool selectable_is_ssl_handshake(kselectable* st) {
 	return false;
 #endif
 }
-kev_result selectable_udp_read_event(kselectable* st);
-kev_result selectable_read_event(kselectable* st);
-kev_result selectable_write_event(kselectable* st);
-kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-kev_result selectable_event_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 #ifndef _WIN32
 int selectable_recvmsg(kselectable* st);
 #endif
