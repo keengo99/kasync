@@ -158,11 +158,7 @@ kev_result result_ssl_bio_write(KOPAQUE data, void *arg, int got)
 	}	
 	if (krw_read_success(bb, got)) {
 		buffer_ssl_bio_write(bio_buffer);
-		if (!kgl_selector_module.write(ssl_bio->st->base.selector, ssl_bio->st, result_ssl_bio_write, bio_buffer->buf, bio_buffer)) {
-			xfree(bio_buffer);
-			return ssl_bio->result(data, ssl_bio->arg, -1);
-		}
-		return kev_ok;
+		return kgl_selector_module.write(ssl_bio->st->base.selector, ssl_bio->st, result_ssl_bio_write, bio_buffer->buf, bio_buffer);
 	}
 	xfree(bio_buffer);
 	return ssl_bio->result(data, ssl_bio->arg, ssl_bio->got);
