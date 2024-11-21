@@ -184,7 +184,7 @@ int selectable_recvmsg(kselectable* st)
 	return recvmsg(st->fd, &msg, 0);
 }
 #endif
-void selectable_udp_read_event(kselectable* st)
+kev_result selectable_udp_read_event(kselectable* st)
 {
 #ifndef _WIN32
 	assert(KBIT_TEST(st->base.st_flags, STF_UDP));
@@ -194,27 +194,25 @@ void selectable_udp_read_event(kselectable* st)
 		KBIT_CLR(st->base.st_flags, STF_READ);
 	int got = selectable_recvmsg(st);
 	if (got>=0) {
-		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
-		return;
+		return st->e[OP_READ].result(st->data, st->e[OP_READ].arg, got);
 	}
 	switch(errno) {
 	case EAGAIN:
 	case EINTR:
 		KBIT_CLR(st->base.st_flags, STF_RREADY);
 		if (kgl_selector_module.read(st->base.selector, st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg)) {
-			return;
+			return kev_ok;
 		}
 		break;
 	case ENOMEM:
-		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_NOMEM);
-		break;
+		return st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_NOMEM);
 	default:
-		st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_RESULT);
-		break;
+		return st->e[OP_READ].result(st->data, st->e[OP_READ].arg, ST_ERR_RESULT);
 	}
 #else
 	//windows iocp never goto here.
 	assert(false);
+	return kev_err;
 #endif
 }
 
@@ -317,7 +315,7 @@ inline kev_result selectable_low_event_read(kselectable* st, result_callback res
 	return result(st->data, arg, got);
 }
 #endif
-void selectable_read_event(kselectable* st)
+kev_result selectable_read_event(kselectable* st)
 {
 #ifdef STF_ET
 	if (KBIT_TEST(st->base.st_flags, STF_ET))
@@ -326,33 +324,29 @@ void selectable_read_event(kselectable* st)
 
 #ifdef ENABLE_KSSL_BIO
 	if (!KBIT_TEST(st->base.st_flags, STF_RREADY2)) {
-		selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
-		return;
+		return selectable_low_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
 	}
 #endif
-	selectable_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
+	return selectable_event_read(st, st->e[OP_READ].result, st->e[OP_READ].buffer, st->e[OP_READ].arg);
 }
-void selectable_write_event(kselectable* st)
+kev_result selectable_write_event(kselectable* st)
 {
 #ifndef _WIN32
 	if (KBIT_TEST(st->base.st_flags,STF_SENDFILE)) {
 		KBIT_CLR(st->base.st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);
-		selectable_event_sendfile(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
-		return;
+		return selectable_event_sendfile(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
 	}
 #endif
 	KBIT_CLR(st->base.st_flags, STF_WRITE | STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags, STF_ERR) > 0) {
-		st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
-		return;
+		return st->e[OP_WRITE].result(st->data, st->e[OP_WRITE].arg, -1);
 	}
 #ifdef ENABLE_KSSL_BIO
 	if (!KBIT_TEST(st->base.st_flags, STF_WREADY2)) {
-		selectable_low_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
-		return;
+		return selectable_low_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
 	}
 #endif
-	selectable_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
+	return selectable_event_write(st, st->e[OP_WRITE].result, st->e[OP_WRITE].buffer, st->e[OP_WRITE].arg);
 }
 void selectable_next_read(kselectable* st, result_callback result, void* arg)
 {
