@@ -168,7 +168,7 @@ static bool kqueue_selector_connect(kselector *selector, kselectable *st, result
 	kselector_add_list(selector,st,KGL_LIST_CONNECT);
 	return true;
 }
-static bool kqueue_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static kev_result kqueue_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kqueue_selector *es = (kqueue_selector *)selector->ctx;
 	//printf("st=[%p] read\n",st);
@@ -180,18 +180,18 @@ static bool kqueue_selector_read(kselector *selector, kselectable *st, result_ca
 	KBIT_CLR(st->base.st_flags,STF_RDHUP);
 	if (KBIT_TEST(st->base.st_flags,STF_RREADY)) {
 		kselector_add_list(selector,st,KGL_LIST_READY);
-		return true;
+		return kev_ok;
 	}
 	if (!KBIT_TEST(st->base.st_flags,STF_REV)) {
 		if (!kqueue_add_event(es->kdpfd,st,STF_REV)) {
 			KBIT_CLR(st->base.st_flags,STF_READ);
-			return false;
+			return result(st->data, arg, -1);
 		}
 	}
 	if (st->base.queue.next==NULL) {
 		kselector_add_list(selector,st,KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 static kev_result kqueue_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {

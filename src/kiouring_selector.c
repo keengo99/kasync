@@ -206,7 +206,7 @@ static bool iouring_selector_listen(kserver_selectable *ss, result_callback resu
 	return true;
 	//return iouring_add_accept_event(selector,ss,e);
 }
-static bool iouring_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static kev_result iouring_selector_read(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	struct io_uring_sqe *sqe;
 	kiouring_selector *cs = (kiouring_selector *)selector->ctx;
@@ -220,18 +220,18 @@ static bool iouring_selector_read(kselector *selector, kselectable *st, result_c
 		if (KBIT_TEST(st->base.st_flags,STF_RREADY)) {
 			KBIT_SET(st->base.st_flags,STF_READ);
 			kselector_add_list(selector, st, KGL_LIST_READY);
-			return true;
+			return kev_ok;
 		}
 		sqe = kiouring_get_seq(&cs->ring);
 		if (sqe==NULL) {
-			return false;
+			return result(st->data, arg, -1);
 		}
 		io_uring_prep_poll_add(sqe, st->fd, POLLIN);
 		goto prepare_done;
 	}
 	sqe = kiouring_get_seq(&cs->ring);
 	if (sqe==NULL) {
-		return false;
+		return result(st->data, arg, -1);
 	}
 	if (buffer) {
 		e->buffer = buffer;
@@ -246,7 +246,7 @@ prepare_done:
 	if (st->base.queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 
 static kev_result iouring_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)

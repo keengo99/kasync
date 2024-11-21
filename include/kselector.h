@@ -37,7 +37,7 @@ typedef bool (*selector_accept)(kserver_selectable* st, void* arg);
 typedef void (*selector_bind)(kselector* selector, kselectable* st);
 
 typedef void (*selector_remove)(kselector* selector, kselectable* st);
-typedef bool (*selector_read)(kselector* selector, kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
+typedef kev_result (*selector_read)(kselector* selector, kselectable* st, result_callback result, kgl_iovec* buffer, void* arg);
 typedef bool (*selector_readhup)(kselector* selector, kselectable* st, result_callback result, void* arg);
 typedef bool (*selector_remove_readhup)(kselector* selector, kselectable* st);
 

@@ -99,7 +99,7 @@ static void iocp_selector_remove(kselector *selector, kselectable *st)
 	printf("ntsetinfomationfile ret=[%x]\n", ret);
 #endif
 }
-static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
+static inline int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_UDP));
 	DWORD BytesRecv = 0;
@@ -124,7 +124,7 @@ static int iocp_selector_recvmsg(kselector *selector, kselectable *st, result_ca
 	}
 	return rc;
 }
-static bool iocp_selector_read(kselector *selector, kselectable *st, result_callback result, kgl_iovec *buffer, void *arg)
+static kev_result iocp_selector_read(kselector *selector, kselectable *st, result_callback result, kgl_iovec *buffer, void *arg)
 {
 	kassert(KBIT_TEST(st->base.st_flags, STF_READ) == 0);
 	KBIT_SET(st->base.st_flags,STF_READ);
@@ -160,13 +160,13 @@ static bool iocp_selector_read(kselector *selector, kselectable *st, result_call
 		int err = WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
 			KBIT_CLR(st->base.st_flags, STF_READ);
-			return false;
+			return result(st->data,arg,-1);
 		}
 	}
 	if (st->base.queue.next == NULL) {
 		kselector_add_list(selector, st, KGL_LIST_RW);
 	}
-	return true;
+	return kev_ok;
 }
 static kev_result iocp_selector_write(kselector *selector, kselectable *st, result_callback result, buffer_callback buffer, void *arg)
 {
