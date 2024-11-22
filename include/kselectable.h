@@ -54,7 +54,6 @@ KBEGIN_DECLS
 kev_result selectable_read_event(kselectable* st);
 kev_result selectable_write_event(kselectable* st);
 kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 struct kselectable_s
 {
 	kgl_base_selectable base;/* must at begin */
