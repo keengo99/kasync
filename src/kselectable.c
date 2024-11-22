@@ -337,7 +337,7 @@ kev_result selectable_read_event(kselectable* st)
 }
 kev_result selectable_write_event(kselectable* st)
 {
-	assert(!KBIT_TEST(st_flags, STF_UDP));
+	assert(!KBIT_TEST(st->base.st_flags, STF_UDP));
 #ifndef _WIN32
 	if (KBIT_TEST(st->base.st_flags,STF_SENDFILE)) {
 		KBIT_CLR(st->base.st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);

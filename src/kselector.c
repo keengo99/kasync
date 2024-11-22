@@ -25,12 +25,6 @@ struct kselector_tick_s
 	void* arg;
 	kselector_tick_callback cb;
 };
-typedef union _kgl_ready_event {
-	kselectable st;
-	kfiber fiber;
-	kgl_base_selectable base;
-} kgl_ready_event;
-
 #ifdef WIN32
 static inline int gettimeofday(struct timeval *tp, void *tzp)
 {
@@ -245,31 +239,31 @@ int kselector_check_timeout(kselector *selector,int event_number)
 		if (l == &selector->list[KGL_LIST_READY]) {
 			break;
 		}
-		kgl_ready_event* ready_ev = (kgl_ready_event *)kgl_list_data(l, kgl_base_selectable, queue);
+		kgl_base_selectable* ready_ev = (kgl_base_selectable*)kgl_list_data(l, kgl_base_selectable, queue);
 		//printf("ready ev st=[%p] fd=[%d]\n",ready_ev, ready_ev->st.fd);
-		kassert(ready_ev->base.selector == selector);
+		kassert(ready_ev->selector == selector);
 		klist_remove(l);
 		memset(l, 0, sizeof(kgl_list));
 		selector->count--;
-		if (ready_ev->base.st_flags == STF_FIBER) {
-			ready_ev->fiber.cb(ready_ev, ready_ev->fiber.arg, ready_ev->fiber.retval);
+		if (ready_ev->st_flags == STF_FIBER) {
+			((kfiber *)ready_ev)->cb(ready_ev, ((kfiber*)ready_ev)->arg, ((kfiber*)ready_ev)->retval);
 			continue;
 		}
-		uint32_t st_flags = ready_ev->st.base.st_flags;
+		uint32_t st_flags = ready_ev->st_flags;
 		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
-			selectable_write_event(&ready_ev->st);
+			selectable_write_event((kselectable *)ready_ev);
 			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
 		if (KBIT_TEST(st_flags, STF_RREADY | STF_RREADY2) && KBIT_TEST(st_flags, STF_READ)) {
-			selectable_read_event(&ready_ev->st);
+			selectable_read_event((kselectable*)ready_ev);
 			KBIT_CLR(st_flags, STF_READ);
 		}
 		if (KBIT_TEST(st_flags, STF_READ | STF_WRITE) &&
 #ifdef STF_ET
 			KBIT_TEST(st_flags, STF_ET) &&
 #endif
-			ready_ev->base.queue.next == NULL) {
-			kselector_add_list(selector, &ready_ev->st, KGL_LIST_RW);
+			ready_ev->queue.next == NULL) {
+			kselector_add_list(selector, (kselectable*)ready_ev, KGL_LIST_RW);
 		}
 	}
 	tick_list = klist_head(&selector->tick);
