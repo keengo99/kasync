@@ -321,6 +321,7 @@ inline kev_result selectable_low_event_read(kselectable* st, result_callback res
 kev_result selectable_read_event(kselectable* st)
 {
 #ifdef STF_ET
+	/* epoll notice fd read event use LT model other use ET model */
 	if (KBIT_TEST(st->base.st_flags, STF_ET))
 #endif
 		KBIT_CLR(st->base.st_flags, STF_READ);
@@ -336,6 +337,7 @@ kev_result selectable_read_event(kselectable* st)
 }
 kev_result selectable_write_event(kselectable* st)
 {
+	assert(!KBIT_TEST(st_flags, STF_UDP));
 #ifndef _WIN32
 	if (KBIT_TEST(st->base.st_flags,STF_SENDFILE)) {
 		KBIT_CLR(st->base.st_flags,STF_WRITE|STF_RDHUP|STF_SENDFILE);
@@ -375,48 +377,6 @@ void selectable_next_write(kselectable* st, result_callback result, void* arg)
 	KBIT_CLR(st->base.st_flags, STF_RDHUP);
 	kselector_add_list(st->base.selector, st, KGL_LIST_READY);
 }
-/*
-INLINE bool selectable_try_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
-	kassert(KBIT_TEST(st->base.st_flags, STF_WRITE | STF_WREADY2) == 0);
-#ifdef ENABLE_KSSL_BIO
-	if (selectable_is_ssl_handshake(st)) {
-		kassert(st->ssl);
-		return selectable_ssl_write(st, result, buffer, arg);
-	}
-#endif
-	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
-}
-INLINE bool selectable_try_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg) {
-#ifdef KSOCKET_SSL
-	if (selectable_is_ssl_handshake(st)) {
-		if (
-#ifdef SSL_READ_EARLY_DATA_SUCCESS
-			st->ssl->in_early ||
-#endif
-			SSL_pending(st->ssl->ssl) > 0) {
-			//printf("st=[%p] ssl_pending=[%d]\n",st, pending_read);
-#ifdef ENABLE_KSSL_BIO
-			kassert(result != result_ssl_bio_read);
-#endif
-			kassert(!KBIT_TEST(st->base.st_flags, STF_READ));
-			//ssl still have data to read
-			st->e[OP_READ].arg = arg;
-			st->e[OP_READ].result = result;
-			st->e[OP_READ].buffer = buffer;
-			KBIT_SET(st->base.st_flags, STF_READ | STF_RREADY2);
-			KBIT_CLR(st->base.st_flags, STF_RDHUP);
-			kselector_add_list(st->base.selector, st, KGL_LIST_READY);
-			//selectable_event_read(st,result, buffer,arg);
-			return true;
-		}
-#ifdef ENABLE_KSSL_BIO
-		return selectable_ssl_read(st, result, buffer, arg);
-#endif
-	}
-#endif
-	return kgl_selector_module.read(st->base.selector, st, result, buffer, arg);
-}
-*/
 kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg)
 {
 #ifdef KSOCKET_SSL

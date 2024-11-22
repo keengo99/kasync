@@ -131,10 +131,9 @@ kselector* kselector_new(kselector_tick* tick);
 void kselector_destroy(kselector* selector);
 bool kselector_start(kselector* selector);
 KTHREAD_FUNCTION kselector_thread(void* param);
-bool kselector_is_same_thread(kselector* selector);
-void kselector_add_list(kselector* selector, kselectable* st, int list);
-void kselector_add_fiber_ready(kselector* selector, kfiber* fiber);
-void kselector_remove_list(kselector* selector, kselectable* st);
+INLINE bool kselector_is_same_thread(kselector* selector) {
+	return pthread_self() == selector->thread_id;
+}
 void kselector_update_time();
 int kselector_check_timeout(kselector* selector, int event_number);
 int kselector_add_timer(kselector* selector, result_callback result, void* arg, int msec, KOPAQUE data);

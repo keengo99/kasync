@@ -51,12 +51,10 @@
 #define MAX_IOVECT_COUNT 128
 
 KBEGIN_DECLS
-kev_result selectable_udp_read_event(kselectable* st);
 kev_result selectable_read_event(kselectable* st);
 kev_result selectable_write_event(kselectable* st);
 kev_result selectable_event_read(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 kev_result selectable_event_write(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
-kev_result selectable_event_sendfile(kselectable* st, result_callback result, buffer_callback buffer, void* arg);
 struct kselectable_s
 {
 	kgl_base_selectable base;/* must at begin */
@@ -95,9 +93,6 @@ INLINE void kselector_add_fiber_ready(kselector* selector, kfiber* fiber) {
 }
 
 INLINE void kselector_add_list(kselector* selector, kselectable* st, int list) {
-	if (!kselector_is_same_thread(selector)) {
-		assert(false);
-	}
 	kassert(kselector_is_same_thread(selector));
 	st->base.tmo_left = st->base.tmo;
 	kassert(st->base.selector == selector);

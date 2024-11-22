@@ -85,11 +85,6 @@ static INLINE struct krb_node *kgl_insert_block_queue(struct krb_root *root, kgl
 	rb_insert_color(node, root);
 	return node;
 }
-
-bool kselector_is_same_thread(kselector *selector)
-{
-	return pthread_self() == selector->thread_id;
-}
 void kselector_destroy(kselector *selector)
 {
 	kgl_selector_module.destroy(selector);
@@ -260,15 +255,8 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			ready_ev->fiber.cb(ready_ev, ready_ev->fiber.arg, ready_ev->fiber.retval);
 			continue;
 		}
-		uint16_t st_flags = ready_ev->st.base.st_flags;
+		uint32_t st_flags = ready_ev->st.base.st_flags;
 		if (KBIT_TEST(st_flags, STF_WREADY | STF_WREADY2) && KBIT_TEST(st_flags, STF_WRITE | STF_RDHUP)) {
-			assert(!KBIT_TEST(st_flags,STF_UDP));
-#if 0
-			//current udp do not support send event.
-			if (unlikely(KBIT_TEST(st_flags, STF_UDP))) {
-				selectable_udp_write_event(&ready_ev->st);
-			}
-#endif
 			selectable_write_event(&ready_ev->st);
 			KBIT_CLR(st_flags, STF_WRITE | STF_RDHUP);
 		}
