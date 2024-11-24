@@ -146,7 +146,7 @@ void selectable_clean(kselectable* st)
 	kassert(st->base.queue.prev == NULL);
 	if (ksocket_opened(st->fd)) {
 		if (st->base.selector) {
-			kgl_selector_module.remove(st->base.selector, st);
+			selectable_remove(st);
 		}
 		ksocket_shutdown(st->fd, SHUT_RDWR);
 		ksocket_close(st->fd);
@@ -160,12 +160,6 @@ void selectable_clean(kselectable* st)
 	}
 #endif
 }
-bool selectable_remove(kselectable* st)
-{
-	kgl_selector_module.remove(st->base.selector, st);
-	return true;
-}
-
 #ifndef _WIN32
 int selectable_recvmsg(kselectable* st)
 {
@@ -289,11 +283,6 @@ static inline kev_result selectable_low_event_read(kselectable* st, result_callb
 	}
 	if (errno == EAGAIN) {
 		KBIT_CLR(st->base.st_flags, STF_RREADY);
-		/*
-		if (kgl_selector_module.read(st->base.selector, st, result, buffer, arg)) {
-			return kev_ok;
-		}
-		*/
 		return kgl_selector_module.read(st->base.selector, st, result, buffer, arg);
 	}
 	return result(st->data, arg, got);
@@ -554,12 +543,6 @@ kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec* b
 	}
 #endif
 	return kgl_selector_module.read(st->base.selector, st, result, buffer, arg);
-	/*
-	if (!selectable_try_read(st, result, buffer, arg)) {
-		return result(st->data, arg, -1);
-	}
-	return kev_ok;
-	*/
 }
 kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg)
 {
@@ -571,23 +554,4 @@ kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *
 	}
 #endif
 	return kgl_selector_module.write(st->base.selector, st, result, buffer, arg);
-	/*
-	if (!selectable_try_write(st, result, buffer, arg)) {
-		return result(st->data, arg, -1);
-	}
-	return kev_ok;
-	*/
-}
-bool selectable_readhup(kselectable* st, result_callback result, void* arg)
-{
-	if (kgl_selector_module.readhup) {
-		return kgl_selector_module.readhup(st->base.selector, st, result, arg);
-	}
-	return false;
-}
-void selectable_remove_readhup(kselectable* st)
-{
-	if (kgl_selector_module.remove_readhup) {
-		kgl_selector_module.remove_readhup(st->base.selector, st);
-	}
 }

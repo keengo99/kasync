@@ -138,7 +138,10 @@ INLINE void selectable_bind_opaque(kselectable* st, KOPAQUE data) {
 	st->data = data;
 }
 void selectable_clean(kselectable* st);
-bool selectable_remove(kselectable* st);
+INLINE void selectable_remove(kselectable* st)
+{
+	kgl_selector_module.remove(st->base.selector, st);
+}
 INLINE void selectable_next(kselectable* st, result_callback result, void* arg, int got) {
 	kgl_selector_module.next(st->base.selector, st->data, result, arg, got);
 }
@@ -162,15 +165,20 @@ kev_result selectable_read(kselectable* st, result_callback result, kgl_iovec *b
 kev_result selectable_write(kselectable* st, result_callback result, kgl_iovec *buffer, void* arg);
 INLINE kev_result selectable_sendfile(kselectable* st, result_callback result, kgl_iovec* buffer, void* arg) {
 	return kgl_selector_module.sendfile(st, result, buffer, arg);
-	/*
-	if (!kgl_selector_module.sendfile(st, result, buffer, arg)) {
-		return result(st->data,arg,-1);
-	}
-	return kev_ok;
-	*/
 }
-bool selectable_readhup(kselectable* st, result_callback result, void* arg);
-void selectable_remove_readhup(kselectable* st);
+INLINE bool selectable_readhup(kselectable* st, result_callback result, void* arg)
+{
+	if (kgl_selector_module.readhup) {
+		return kgl_selector_module.readhup(st->base.selector, st, result, arg);
+	}
+	return false;
+}
+INLINE void selectable_remove_readhup(kselectable* st)
+{
+	if (kgl_selector_module.remove_readhup) {
+		kgl_selector_module.remove_readhup(st->base.selector, st);
+	}
+}
 INLINE int selectable_shutdown(kselectable* st) {
 #ifdef _WIN32
 	ksocket_cancel(st->fd);
