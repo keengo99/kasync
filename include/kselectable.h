@@ -107,6 +107,7 @@ INLINE void kselector_add_list(kselector* selector, kselectable* st, int list) {
 	klist_append(&selector->list[list], &st->base.queue);
 }
 INLINE kev_result kselectable_is_read_ready(kselector* selector, kselectable* st) {
+	assert(KBIT_TEST(st->base.st_flags,STF_READ));
 	if (kselector_is_main_fiber(selector)) {
 		kselector_add_list(selector, st, KGL_LIST_READY);
 		return kev_ok;
@@ -114,6 +115,7 @@ INLINE kev_result kselectable_is_read_ready(kselector* selector, kselectable* st
 	return selectable_read_event(st);
 }
 INLINE kev_result kselectable_is_write_ready(kselector* selector, kselectable* st) {
+	assert(KBIT_TEST(st->base.st_flags,STF_WRITE));
 	if (kselector_is_main_fiber(selector)) {
 		kselector_add_list(selector, st, KGL_LIST_READY);
 		return kev_ok;
