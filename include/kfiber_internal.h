@@ -47,6 +47,7 @@ typedef struct _kfiber_rwlock kfiber_rwlock;
 typedef struct _kfiber_cond kfiber_cond;
 typedef struct _kfiber_chan kfiber_chan;
 typedef struct kselector_s kselector;
+typedef struct kselectable_s kselectable;
 typedef struct kgl_base_selectable_s kgl_base_selectable;
 typedef kgl_base_selectable  kfiber_waiter;
 

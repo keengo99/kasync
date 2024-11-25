@@ -22,8 +22,6 @@ KBEGIN_DECLS
 
 
 typedef struct kserver_selectable_s kserver_selectable;
-
-typedef struct kselectable_s kselectable;
 typedef struct kasync_file_s kasync_file;
 typedef struct kselector_tick_s kselector_tick;
 
