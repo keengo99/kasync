@@ -218,7 +218,7 @@ static kev_result iouring_selector_read(kselector *selector, kselectable *st, re
 	e->buffer = buffer;
 	if (KBIT_TEST(st->base.st_flags, STF_USEPOLL)) {
 		if (KBIT_TEST(st->base.st_flags,STF_RREADY)) {
-			return kselectable_is_write_ready(selector, st);
+			return kselectable_is_read_ready(selector, st);
 		}
 		sqe = kiouring_get_seq(&cs->ring);
 		if (sqe==NULL) {
