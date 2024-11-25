@@ -247,15 +247,6 @@ kev_result kconnection_ssl_handshake(kconnection *c,result_callback cb, void *ar
 	c->st.ssl->handshake = 1;
 	return kselectable_ssl_handshake(&c->st, result_ssl_handshake, sh);
 }
-kev_result kconnection_ssl_shutdown(kconnection *c, result_callback cb, void *arg)
-{
-	kconnection_ssl_param *sh = xmemory_new(kconnection_ssl_param);
-	memset(sh, 0, sizeof(kconnection_ssl_param));
-	sh->c = c;
-	sh->cb = cb;
-	sh->arg = arg;
-	return result_ssl_shutdown(NULL, sh, 0);
-}
 static SSL *kconnection_new_ssl(kconnection *c,SSL_CTX *ssl_ctx)
 {
 	SSL *ssl = SSL_new(ssl_ctx);

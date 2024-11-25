@@ -79,7 +79,6 @@ INLINE bool kconnection_is_ssl(kconnection *c)
 	return c->st.ssl != NULL;
 }
 kev_result kconnection_ssl_handshake(kconnection *c, result_callback cb, void *arg);
-kev_result kconnection_ssl_shutdown(kconnection *c, result_callback cb, void *arg);
 bool kconnection_ssl_connect(kconnection *c,SSL_CTX *ssl_ctx,const char *sni_hostname);
 bool kconnection_ssl_accept(kconnection *c, SSL_CTX *ssl_ctx);
 kev_result kselectable_ssl_handshake(kselectable* st, result_callback cb, void* arg);
