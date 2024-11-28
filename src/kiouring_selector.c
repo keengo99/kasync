@@ -120,18 +120,20 @@ static kev_result kiouring_notice_event(KOPAQUE data, void *arg,int got)
 	}
 	return kev_ok;
 }
-bool kiouring_is_support()
+static bool kiouring_is_support()
 {
 	struct io_uring_probe *probe = io_uring_get_probe();
 	if (probe==NULL) {
-		fprintf(stderr,"cann't get io_uring probe\n");
+		fprintf(stderr,"iouring do not support io_uring_probe\n");
 		return false;
 	}
 	//printf("io_uring last_op=[%d]\n",probe->last_op);
 	if (!io_uring_opcode_supported(probe, IORING_OP_SPLICE)) {
-		free(probe);
+		io_uring_free_probe(probe);
+		fprintf(stderr, "iouring do not support IORING_OP_SPLICE\n");
 		return false;
 	}
+	io_uring_free_probe(probe);
 	return true;
 }
 static void iouring_selector_init(kselector *selector)
@@ -545,6 +547,10 @@ static kselector_module iouring_selector_module = {
 
 void kiouring_module_init()
 {
+	if (!kiouring_is_support()) {
+		fprintf(stderr, "io_uring not satisfaction please upgrade your kernel version or build use epoll.\n");
+		abort();
+	}
 	URING_MASK = URING_COUNT - 1;
 	kgl_selector_module = iouring_selector_module;
 	memset(&null_buffer,0,sizeof(null_buffer));

@@ -198,10 +198,6 @@ void selector_module_create()
 #if defined(_WIN32)
 	kiocp_module_init();
 #elif defined(LINUX_IOURING)
-	if (!kiouring_is_support()) {
-		fprintf(stderr,"io_uring not satisfaction.\n");
-		abort();
-	}
 	kiouring_module_init();
 #elif defined(LINUX_EPOLL)
 	kepoll_module_init();

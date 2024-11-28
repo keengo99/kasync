@@ -4,5 +4,4 @@
 #include "ksync.h"
 
 void kiouring_module_init();
-bool kiouring_is_support();
 #endif
