@@ -44,7 +44,9 @@ INLINE void kepoll_notice(kepoll_notice_selectable* notice_st, KOPAQUE data, res
 	notice_st->head = notice;
 	kmutex_unlock(&notice_st->lock);
 	uint64_t value = 1;
-	write(notice_st->st.fd, &value, sizeof(value));
+	if (write(notice_st->st.fd, &value, sizeof(value))!=sizeof(value)) {
+		perror("kepoll_notice write to fd error");
+	}
 }
 #endif
 #endif
