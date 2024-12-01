@@ -242,7 +242,7 @@ int kfiber_cond_notice_sync(kfiber_cond* fc, int got)
 }
 int kfiber_cond_wait_sync(kfiber_cond* fc, int *got)
 {
-	assert(kfiber_self2() == NULL);
+	assert(kgl_get_tls_selector() == NULL);
 	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
 	kcond_wait(sync->sync_cond);
 	if (got) {
@@ -251,7 +251,7 @@ int kfiber_cond_wait_sync(kfiber_cond* fc, int *got)
 	return 0;
 }
 int kfiber_cond_try_wait_sync(kfiber_cond* fc, int* got) {
-	assert(kfiber_self2() == NULL);
+	assert(kgl_get_tls_selector() == NULL);
 	kfiber_cond_sync* sync = (kfiber_cond_sync*)fc;
 	if (!kcond_try_wait(sync->sync_cond, 0)) {
 		return -1;

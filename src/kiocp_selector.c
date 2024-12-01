@@ -253,7 +253,6 @@ static bool iocp_selector_listen(kserver_selectable *ss, result_callback result)
 	assert(KBIT_TEST(ss->st.base.st_flags, STF_IOCP_BINDED));
 	ss->st.e[OP_READ].arg = ss;
 	ss->st.e[OP_READ].result = iocp_accept_result;
-
 	ss->st.e[OP_WRITE].result = result;
 	return true;
 }
