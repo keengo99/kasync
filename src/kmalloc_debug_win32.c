@@ -179,7 +179,6 @@ void print_stack_trace(TRACEBACK sp)
 }
 int dump_memory_leak(int min_time, int max_time) 
 {
-
 	unsigned leakSize = 0;
 	unsigned leakCount = 0;
 	time_t now_time = time(NULL);
@@ -353,6 +352,7 @@ static int xallochook(int nAllocType, void *pvData,size_t nSize, int nBlockUse, 
 	return TRUE;
 }
 void start_hook_alloc() {
+	fprintf(stderr, "start hook alloc\n");
 	hProcess = GetCurrentProcess();
 	for (int i = 0; i < DEBUG_NEW_HASHTABLESIZE; i++) {
 		memory_pool[i].rb_node = NULL;

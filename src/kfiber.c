@@ -176,6 +176,10 @@ static void fiber_start() {
 kev_result kfiber_thread_init(KOPAQUE data, void* arg, int got) {
 	if (got == 1) {
 		//exit
+		kfiber* fiber = kfiber_main();
+		if (fiber) {
+			xfree(fiber);
+		}
 		return kev_ok;
 	}
 	kfiber* fiber = kfiber_main();

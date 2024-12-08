@@ -166,7 +166,7 @@ int kselector_check_timeout(kselector *selector,int event_number)
 			kassert(st->base.selector == selector);
 #ifdef MALLOCDEBUG
 			if (selector->shutdown) {
-				selectable_shutdown(rq);
+				selectable_shutdown(st);
 			}
 #endif
 			if ((kgl_current_msec - st->active_msec) < (time_t)selector->timeout[i]) {
