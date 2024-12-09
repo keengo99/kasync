@@ -183,7 +183,7 @@ else()
   
 endif()
 
-add_library(boost_context
+add_library(boost_context STATIC
 #add_executable(boost_context
   ${IMPL_SOURCES} 
 )
