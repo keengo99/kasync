@@ -11,15 +11,15 @@
 #endif
 #include "kconnection.h"
 #include "kserver.h"
-
-static kmutex *ssl_lock = NULL;
+#define KGL_SSL_ERR_BUF_SIZE 256
+static kmutex* ssl_lock = NULL;
 int kangle_ssl_conntion_index;
 int kangle_ssl_ctx_index;
 static kgl_ssl_npn_f ssl_npn;
 kgl_ssl_create_sni_f kgl_ssl_create_sni = NULL;
 kgl_ssl_free_sni_f kgl_ssl_free_sni = NULL;
 
-int kgl_ssl_sni(SSL *ssl, int *ad, void *arg);
+int kgl_ssl_sni(SSL* ssl, int* ad, void* arg);
 typedef struct {
 	kgl_str_t                 name;
 	int                       mask;
@@ -42,10 +42,9 @@ static kgl_string_bitmask_t  kgl_ssl_protocols[] = {
 
 
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
-int kgl_ssl_sni(SSL *ssl, int *ad, void *arg)
-{
+int kgl_ssl_sni(SSL* ssl, int* ad, void* arg) {
 	kassert(kgl_ssl_create_sni);
-	kconnection *c = (kconnection *)SSL_get_ex_data(ssl, kangle_ssl_conntion_index);
+	kconnection* c = (kconnection*)SSL_get_ex_data(ssl, kangle_ssl_conntion_index);
 	if (c == NULL || c->sni) {
 		return SSL_TLSEXT_ERR_OK;
 	}
@@ -66,9 +65,8 @@ int kgl_ssl_sni(SSL *ssl, int *ad, void *arg)
 }
 #endif
 #if defined(TLSEXT_TYPE_next_proto_neg) || defined(TLSEXT_TYPE_application_layer_protocol_negotiation)
-int kgl_ssl_npn_selected(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
-{
-	const unsigned char *selected_protocol = (const unsigned char *)KGL_HTTP_NPN_ADVERTISE;
+int kgl_ssl_npn_selected(SSL* ssl, const unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg) {
+	const unsigned char* selected_protocol = (const unsigned char*)KGL_HTTP_NPN_ADVERTISE;
 	unsigned int selected_len = sizeof(KGL_HTTP_NPN_ADVERTISE) - 1;
 	if (kgl_ssl_create_sni) {
 		int ret = kgl_ssl_sni(ssl, NULL, NULL);
@@ -76,11 +74,11 @@ int kgl_ssl_npn_selected(SSL *ssl, const unsigned char **out, unsigned char *out
 			return ret;
 		}
 	}
-	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
-	void *ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
+	SSL_CTX* ctx = SSL_get_SSL_CTX(ssl);
+	void* ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
 	ssl_npn(ssl, ssl_ctx_data, &selected_protocol, &selected_len);
 	if (SSL_select_next_proto(
-		(unsigned char **)out,
+		(unsigned char**)out,
 		outlen,
 		selected_protocol,
 		selected_len,
@@ -92,36 +90,30 @@ int kgl_ssl_npn_selected(SSL *ssl, const unsigned char **out, unsigned char *out
 	//klog(KLOG_DEBUG,"SSL ALPN selected: %*s", *outlen, *out);
 	return SSL_TLSEXT_ERR_OK;
 }
-int kgl_ssl_npn_selected2(SSL *ssl, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
-{
-	return kgl_ssl_npn_selected(ssl, (const unsigned char **)out, outlen, in, inlen, arg);
+int kgl_ssl_npn_selected2(SSL* ssl, unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg) {
+	return kgl_ssl_npn_selected(ssl, (const unsigned char**)out, outlen, in, inlen, arg);
 }
-int kgl_ssl_npn_advertise(SSL *ssl, const unsigned char **out, unsigned int *outlen, void *arg)
-{
-	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
-	void *ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
+int kgl_ssl_npn_advertise(SSL* ssl, const unsigned char** out, unsigned int* outlen, void* arg) {
+	SSL_CTX* ctx = SSL_get_SSL_CTX(ssl);
+	void* ssl_ctx_data = SSL_CTX_get_ex_data(ctx, kangle_ssl_ctx_index);
 	ssl_npn(ssl, ssl_ctx_data, out, outlen);
 	return SSL_TLSEXT_ERR_OK;
 }
 #endif
-static unsigned long __get_thread_id(void)
-{
+static unsigned long __get_thread_id(void) {
 	return (unsigned long)pthread_self();
 }
-static void __lock_thread(int mode, int n, const char *file, int line)
-{
+static void __lock_thread(int mode, int n, const char* file, int line) {
 	if (mode & CRYPTO_LOCK) {
 		kmutex_lock(&ssl_lock[n]);
 	} else {
 		kmutex_unlock(&ssl_lock[n]);
 	}
 }
-void kssl_set_npn_callback(kgl_ssl_npn_f npn)
-{
+void kssl_set_npn_callback(kgl_ssl_npn_f npn) {
 	ssl_npn = npn;
 }
-void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
-{
+void kssl_set_sni_callback(kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni) {
 	kgl_ssl_create_sni = create_sni;
 	kgl_ssl_free_sni = free_sni;
 }
@@ -136,8 +128,7 @@ void kssl_clean() {
 	}
 #endif
 }
-void kssl_init2()
-{
+void kssl_init2() {
 	SSL_load_error_strings();
 	SSL_library_init();
 	SSLeay_add_ssl_algorithms();
@@ -162,26 +153,23 @@ void kssl_init2()
 	kgl_bio_init_method();
 #endif
 }
-void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni)
-{
+void kssl_init(kgl_ssl_npn_f npn, kgl_ssl_create_sni_f create_sni, kgl_ssl_free_sni_f free_sni) {
 	kssl_set_sni_callback(create_sni, free_sni);
 	kssl_set_npn_callback(npn);
 	kssl_init2();
 }
-bool kgl_ssl_support_sendfile(kssl_session *ssl)
-{
+bool kgl_ssl_support_sendfile(kssl_session* ssl) {
 #ifdef ENABLE_KSSL_BIO
 	return false;
 #else
 #if defined(BIO_get_ktls_send) && !defined(_WIN32)
-	return BIO_get_ktls_send(SSL_get_wbio(ssl->ssl))==1;
+	return BIO_get_ktls_send(SSL_get_wbio(ssl->ssl)) == 1;
 #endif
 	return false;
 #endif
 }
-static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_length)
-{
-	static RSA  *key;
+static RSA* kgl_ssl_rsa512_key_callback(SSL* ssl_conn, int is_export, int key_length) {
+	static RSA* key;
 
 	if (key_length != 512) {
 		return NULL;
@@ -194,8 +182,7 @@ static RSA * kgl_ssl_rsa512_key_callback(SSL *ssl_conn, int is_export, int key_l
 #endif
 	return key;
 }
-static bool kgl_ssl_ecdh_curve(SSL_CTX *ctx, const char *name)
-{
+static bool kgl_ssl_ecdh_curve(SSL_CTX* ctx, const char* name) {
 #ifndef OPENSSL_NO_ECDH
 	/*
 	 * Elliptic-Curve Diffie-Hellman parameters are either "named curves"
@@ -241,12 +228,12 @@ static bool kgl_ssl_ecdh_curve(SSL_CTX *ctx, const char *name)
 	}
 	nid = OBJ_sn2nid(curve);
 	if (nid == 0) {
-		klog(KLOG_ERR,"OBJ_sn2nid(\"%s\") failed: unknown curve", curve);
+		klog(KLOG_ERR, "OBJ_sn2nid(\"%s\") failed: unknown curve", curve);
 		return false;
 	}
 	ecdh = EC_KEY_new_by_curve_name(nid);
 	if (ecdh == NULL) {
-		klog(KLOG_ERR,"EC_KEY_new_by_curve_name(\"%s\") failed", curve);
+		klog(KLOG_ERR, "EC_KEY_new_by_curve_name(\"%s\") failed", curve);
 		return false;
 	}
 
@@ -257,8 +244,7 @@ static bool kgl_ssl_ecdh_curve(SSL_CTX *ctx, const char *name)
 #endif
 	return true;
 }
-static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md)
-{
+static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md) {
 	size_t                   n, i;
 	STACK_OF(X509_NAME)* list;
 	unsigned int          len;
@@ -283,8 +269,7 @@ static bool kgl_ssl_session_digest_x509_list(SSL_CTX* ssl_ctx, EVP_MD_CTX* md)
 	}
 	return true;
 }
-static bool kgl_ssl_session_id_context_from_buffer(SSL_CTX *ssl_ctx, const char*cert)
-{
+static bool kgl_ssl_session_id_context_from_buffer(SSL_CTX* ssl_ctx, const char* cert) {
 	EVP_MD_CTX* md;
 	unsigned int          len;
 	u_char                buf[EVP_MAX_MD_SIZE];
@@ -317,13 +302,12 @@ failed:
 	EVP_MD_CTX_destroy(md);
 	return false;
 }
-static bool kgl_ssl_session_id_context(SSL_CTX *ssl_ctx, const char *cert_file)
-{
+static bool kgl_ssl_session_id_context(SSL_CTX* ssl_ctx, const char* cert_file) {
 
-	EVP_MD_CTX            *md;
+	EVP_MD_CTX* md;
 	unsigned int          len;
 	u_char                buf[EVP_MAX_MD_SIZE];
-	FILE *fp;
+	FILE* fp;
 	md = EVP_MD_CTX_create();
 	if (md == NULL) {
 		return false;
@@ -337,11 +321,11 @@ static bool kgl_ssl_session_id_context(SSL_CTX *ssl_ctx, const char *cert_file)
 		goto failed;
 	}
 	fp = fopen(cert_file, "rb");
-	if (fp!=NULL) {
+	if (fp != NULL) {
 		char buffer[512];
 		size_t total_read = 0;
 		while (total_read < 1048576) {
-			size_t read_len = fread(buffer,1, sizeof(buffer),fp);
+			size_t read_len = fread(buffer, 1, sizeof(buffer), fp);
 			if (read_len == 0) {
 				break;
 			}
@@ -371,9 +355,8 @@ failed:
 	return false;
 }
 
-SSL_CTX * kgl_ssl_ctx_new(void *ssl_ctx_data)
-{
-	SSL_CTX *ctx = SSL_CTX_new(SSLv23_method());	
+SSL_CTX* kgl_ssl_ctx_new(void* ssl_ctx_data) {
+	SSL_CTX* ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
 		fprintf(stderr, "ssl_ctx_new function error\n");
 		return NULL;
@@ -409,7 +392,7 @@ SSL_CTX * kgl_ssl_ctx_new(void *ssl_ctx_data)
 	SSL_CTX_set_mode(ctx, SSL_MODE_NO_AUTO_CHAIN);
 #endif
 	SSL_CTX_set_read_ahead(ctx, 0);
-	SSL_CTX_set_mode(ctx,SSL_MODE_ENABLE_PARTIAL_WRITE);
+	SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
 #if (OPENSSL_VERSION_NUMBER < 0x10100001L && !defined LIBRESSL_VERSION_NUMBER)
 	SSL_CTX_set_tmp_rsa_callback(ctx, kgl_ssl_rsa512_key_callback);
 #endif
@@ -421,31 +404,31 @@ SSL_CTX * kgl_ssl_ctx_new(void *ssl_ctx_data)
 	SSL_CTX_set_ex_data(ctx, kangle_ssl_ctx_index, ssl_ctx_data);
 	return ctx;
 }
-SSL_CTX *kgl_ssl_ctx_new_client(const char *ca_path, const char *ca_file,void *ssl_ctx_data)
-{
-	SSL_CTX *ctx = kgl_ssl_ctx_new(ssl_ctx_data);
+SSL_CTX* kgl_ssl_ctx_new_client(const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
+	SSL_CTX* ctx = kgl_ssl_ctx_new(ssl_ctx_data);
 	if (ctx == NULL) {
 		fprintf(stderr, "cann't init_ctx\n");
 		return NULL;
 	}
-	if (ca_path != NULL || ca_file!=NULL) {
+	if (ca_path != NULL || ca_file != NULL) {
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
-			fprintf(stderr, "SSL_CTX_load_verify_locations error Error allocating handle: %s\n",
-				ERR_error_string(ERR_get_error(), NULL));
+			char err_buf[KGL_SSL_ERR_BUF_SIZE];
+			ERR_error_string_n(ERR_get_error(), err_buf, sizeof(err_buf));
+			klog(KLOG_ERR, "SSL_CTX_load_verify_locations error Error allocating handle: %s\n", err_buf);
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
 	}
 	const unsigned char s_server_session_id_context[100] = "msocket";
-	SSL_CTX_set_session_id_context(ctx, (const unsigned char *)s_server_session_id_context, sizeof(s_server_session_id_context));
+	SSL_CTX_set_session_id_context(ctx, (const unsigned char*)s_server_session_id_context, sizeof(s_server_session_id_context));
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
 	if (ssl_npn && ssl_ctx_data) {
 #ifdef TLSEXT_TYPE_next_proto_neg
 		//SSL_CTX_set_next_proto_select_cb(ctx, kgl_ssl_npn_selected2, NULL);
 #endif
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
-		const unsigned char *alpn_protos = NULL;
+		const unsigned char* alpn_protos = NULL;
 		unsigned int alpn_protos_len = 0;
 		ssl_npn(NULL, ssl_ctx_data, &alpn_protos, &alpn_protos_len);
 		SSL_CTX_set_alpn_protos(ctx, alpn_protos, alpn_protos_len);
@@ -453,8 +436,7 @@ SSL_CTX *kgl_ssl_ctx_new_client(const char *ca_path, const char *ca_file,void *s
 	}
 	return ctx;
 }
-void kgl_ssl_ctx_set_early_data(SSL_CTX *ssl_ctx,bool early_data)
-{
+void kgl_ssl_ctx_set_early_data(SSL_CTX* ssl_ctx, bool early_data) {
 	if (early_data) {
 #ifdef SSL_ERROR_EARLY_DATA_REJECTED
 		/* BoringSSL */
@@ -475,7 +457,7 @@ void kgl_ssl_ctx_set_early_data(SSL_CTX *ssl_ctx,bool early_data)
 }
 
 static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* userdata) {
-	kgl_str_t * pwd = (kgl_str_t *)userdata;
+	kgl_str_t* pwd = (kgl_str_t*)userdata;
 	if (rwflag) {
 		klog(KLOG_WARNING, "kgl_ssl_password_callback() is called for encryption");
 		return 0;
@@ -493,7 +475,7 @@ static int kgl_ssl_password_callback(char* buf, int size, int rwflag, void* user
 	return size;
 }
 
-static X509* kgl_ssl_load_certificate(const char** err, const kgl_ref_str_t* cert,STACK_OF(X509)** chain) {
+static X509* kgl_ssl_load_certificate(const char** err, const kgl_ref_str_t* cert, STACK_OF(X509)** chain) {
 	BIO* bio;
 	X509* x509, * temp;
 	u_long   n;
@@ -592,7 +574,7 @@ static EVP_PKEY* kgl_ssl_load_certificate_key(const char** err, const kgl_ref_st
 
 	if (passwords) {
 		tries = (uint32_t)passwords->nelts;
-		pwd = (kgl_str_t *)passwords->elts;
+		pwd = (kgl_str_t*)passwords->elts;
 		cb = kgl_ssl_password_callback;
 
 	} else {
@@ -630,13 +612,13 @@ int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_s
 	X509* x509;
 	EVP_PKEY* pkey;
 	STACK_OF(X509)* chain = NULL;
-	if (!cert || *cert->data=='\0') {
+	if (!cert || *cert->data == '\0') {
 		cert = key;
 	}
 	x509 = kgl_ssl_load_certificate(&err, cert, &chain);
 	if (x509 == NULL) {
 		if (err != NULL) {
-			klog(KLOG_ERR,"cannot load certificate \"%s\": %s", cert->data, err);
+			klog(KLOG_ERR, "cannot load certificate \"%s\": %s", cert->data, err);
 		}
 		return -1;
 	}
@@ -687,7 +669,7 @@ int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_s
 	pkey = kgl_ssl_load_certificate_key(&err, key, passwords);
 	if (pkey == NULL) {
 		if (err != NULL) {
-			klog(KLOG_ERR, "cannot load certificate key \"%s\": %s", 	key->data, err);
+			klog(KLOG_ERR, "cannot load certificate key \"%s\": %s", key->data, err);
 		}
 		return -1;
 	}
@@ -702,21 +684,22 @@ int kgl_ssl_certificate(SSL_CTX* ctx, const kgl_ref_str_t* cert, const kgl_ref_s
 }
 
 
-static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const char* ca_file, void* ssl_ctx_data)
-{
+static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
 
 	if (!SSL_CTX_check_private_key(ctx)) {
-		klog(KLOG_ERR,
-			"SSL check_private_key Error: %s\n",
-			ERR_error_string(ERR_get_error(), NULL));
+		char err_buf[KGL_SSL_ERR_BUF_SIZE];
+		ERR_error_string_n(ERR_get_error(), err_buf, sizeof(err_buf));
+		klog(KLOG_ERR, "SSL check_private_key Error: %s\n", err_buf);
 		SSL_CTX_free(ctx);
 		return NULL;
 	}
 	if (ca_path != NULL || ca_file != NULL) {
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 		if (SSL_CTX_load_verify_locations(ctx, ca_file, ca_path) <= 0) {
-			fprintf(stderr, "SSL error %s:%d: Error allocating handle: %s\n",
-				__FILE__, __LINE__, ERR_error_string(ERR_get_error(), NULL));
+			char err_buf[KGL_SSL_ERR_BUF_SIZE];
+			ERR_error_string_n(ERR_get_error(), err_buf, sizeof(err_buf));
+			klog(KLOG_ERR, "SSL error %s:%d: Error allocating handle: %s\n",
+				__FILE__, __LINE__, err_buf);
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
@@ -740,23 +723,26 @@ static SSL_CTX* kgl_ssl_ctx_post_init(SSL_CTX* ctx, const char* ca_path, const c
 	//SSL_CTX_sess_set_cache_size(ctx,1000);
 	return ctx;
 }
-bool kgl_ssl_ctx_load_cert_key(SSL_CTX *ctx,const char *cert_file, const char *key_file)
-{
-	if (cert_file == NULL || *cert_file=='\0') {
+bool kgl_ssl_ctx_load_cert_key(SSL_CTX* ctx, const char* cert_file, const char* key_file) {
+	if (cert_file == NULL || *cert_file == '\0') {
 		cert_file = key_file;
 	}
 	if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
+		char err_buf[KGL_SSL_ERR_BUF_SIZE];
+		ERR_error_string_n(ERR_get_error(), err_buf, sizeof(err_buf));
 		klog(KLOG_ERR,
 			"SSL use certificate file [%s]: Error: %s\n",
 			cert_file,
-			ERR_error_string(ERR_get_error(), NULL));
+			err_buf);
 		return false;
 	}
 	if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0) {
+		char err_buf[KGL_SSL_ERR_BUF_SIZE];
+		ERR_error_string_n(ERR_get_error(), err_buf, sizeof(err_buf));
 		klog(KLOG_ERR,
 			"SSL use privatekey file [%s]: Error: %s\n",
 			key_file,
-			ERR_error_string(ERR_get_error(), NULL));
+			err_buf);
 		return false;
 	}
 	return kgl_ssl_session_id_context(ctx, cert_file);
@@ -774,21 +760,19 @@ SSL_CTX* kgl_ssl_ctx_new_server2(const kgl_ref_str_t* cert_buffer, const kgl_ref
 	kgl_ssl_session_id_context_from_buffer(ctx, cert_buffer->data);
 	return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
 }
-SSL_CTX *kgl_ssl_ctx_new_server(const char *cert_file, const char *key_file, const char *ca_path, const char *ca_file, void *ssl_ctx_data)
-{
-	SSL_CTX * ctx = kgl_ssl_ctx_new(ssl_ctx_data);
+SSL_CTX* kgl_ssl_ctx_new_server(const char* cert_file, const char* key_file, const char* ca_path, const char* ca_file, void* ssl_ctx_data) {
+	SSL_CTX* ctx = kgl_ssl_ctx_new(ssl_ctx_data);
 	if (ctx == NULL) {
 		fprintf(stderr, "cann't init_ctx\n");
 		return NULL;
 	}
-	if (!kgl_ssl_ctx_load_cert_key(ctx,cert_file,key_file)) {
+	if (!kgl_ssl_ctx_load_cert_key(ctx, cert_file, key_file)) {
 		SSL_CTX_free(ctx);
 		return NULL;
-	}	
+	}
 	return kgl_ssl_ctx_post_init(ctx, ca_path, ca_file, ssl_ctx_data);
 }
-kssl_status kgl_ssl_handshake_status(SSL *ssl, int re)
-{
+kssl_status kgl_ssl_handshake_status(SSL* ssl, int re) {
 	int err = SSL_get_error(ssl, re);
 	//printf("ssl=[%p] ssl_get_error=[%d] re=[%d]\n", ssl, err, re);
 	switch (err) {
@@ -819,8 +803,7 @@ kssl_status kgl_ssl_handshake_status(SSL *ssl, int re)
 		return ret_error;
 	}
 }
-kssl_status kgl_ssl_handshake(SSL *ssl)
-{
+kssl_status kgl_ssl_handshake(SSL* ssl) {
 	int re = SSL_do_handshake(ssl);
 	if (re <= 0) {
 		return kgl_ssl_handshake_status(ssl, re);
@@ -834,8 +817,7 @@ kssl_status kgl_ssl_handshake(SSL *ssl)
 #endif
 	return ret_ok;
 }
-kssl_status kgl_ssl_shutdown(SSL *ssl)
-{
+kssl_status kgl_ssl_shutdown(SSL* ssl) {
 	int n = SSL_shutdown(ssl);
 	if (n == 1) {
 		return ret_ok;
@@ -850,8 +832,7 @@ kssl_status kgl_ssl_shutdown(SSL *ssl)
 		return ret_error;
 	}
 }
-void kgl_ssl_get_next_proto_negotiated(SSL *ssl,const unsigned char **data, unsigned *len)
-{
+void kgl_ssl_get_next_proto_negotiated(SSL* ssl, const unsigned char** data, unsigned* len) {
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
 	SSL_get0_alpn_selected(ssl, data, len);
 #ifdef TLSEXT_TYPE_next_proto_neg
@@ -865,12 +846,10 @@ void kgl_ssl_get_next_proto_negotiated(SSL *ssl,const unsigned char **data, unsi
 #endif
 #endif
 }
-bool kgl_ssl_ctx_set_cipher_list(SSL_CTX *ctx, const char *cipher)
-{
+bool kgl_ssl_ctx_set_cipher_list(SSL_CTX* ctx, const char* cipher) {
 	return 1 == SSL_CTX_set_cipher_list(ctx, cipher);
 }
-void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols)
-{
+void kgl_ssl_ctx_set_protocols(SSL_CTX* ctx, const char* protocols) {
 #ifdef SSL_CTX_set_min_proto_version
 	SSL_CTX_set_min_proto_version(ctx, 0);
 	SSL_CTX_set_max_proto_version(ctx, TLS1_2_VERSION);
@@ -882,14 +861,14 @@ void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols)
 	if (protocols == NULL || *protocols == '\0') {
 		return;
 	}
-	char *buf = strdup(protocols);
-	char *hot = buf;
+	char* buf = strdup(protocols);
+	char* hot = buf;
 	int mask = 0;
 	for (;;) {
 		while (*hot && isspace((unsigned char)*hot)) {
 			hot++;
 		}
-		char *p = hot;
+		char* p = hot;
 		while (*p && !isspace((unsigned char)*p)) {
 			p++;
 		}
@@ -900,7 +879,7 @@ void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols)
 			*p = '\0';
 			p++;
 		}
-		kgl_string_bitmask_t *h = kgl_ssl_protocols;
+		kgl_string_bitmask_t* h = kgl_ssl_protocols;
 		while (h->name.data) {
 			if (strcasecmp(h->name.data, hot) == 0) {
 				KBIT_SET(mask, h->mask);
@@ -915,7 +894,7 @@ void kgl_ssl_ctx_set_protocols(SSL_CTX *ctx, const char *protocols)
 	xfree(buf);
 #if OPENSSL_VERSION_NUMBER >= 0x009080dfL
 	/* only in 0.9.8m+ */
-	SSL_CTX_clear_options(ctx,SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1);
+	SSL_CTX_clear_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1);
 #endif
 	if (!(mask & KGL_SSL_SSLv2)) {
 		SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
