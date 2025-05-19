@@ -284,7 +284,7 @@ static int kqueue_selector_select(kselector *selector, int tmo)
 	struct kevent events[MAXEVENT]; 
 	struct timespec tm;
 	tm.tv_sec = tmo / 1000;
-	tm.tv_nsec = tmo * 1000 - tm.tv_sec * 1000000;
+	tm.tv_nsec = tmo * 1000000 - tm.tv_sec * 1000000000;
 	int ret = kevent(es->kdpfd, NULL, 0, events, MAXEVENT, &tm);
 	if (selector->utm) {
 		kselector_update_time();	
